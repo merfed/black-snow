@@ -1,0 +1,29 @@
+/* ---------- the drowned stair ---------- */
+.stair-panel { display: grid; gap: 10px; }
+.stair-panel .small-note, .stair-room .small-note { margin: 0; }
+.stair-panel .max-all { margin: 0; }
+.stair-well { margin: 0; }
+.stair-well figcaption { font-size: 13px; margin-top: 6px; }
+.stair-waters { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.stair-waters .dim { font-size: 12px; }
+.stair-tide { font-family: var(--font-ui); }
+.stair-roomcard { display: grid; gap: 8px; padding: 10px; border: 1px solid color-mix(in srgb, var(--hue) 40%, transparent); background: color-mix(in srgb, var(--hue) 5%, transparent); }
+.stair-roomcard.low { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.stair-roomtext { margin: 0; font-size: 15px; line-height: 1.5; }
+.stair-n { display: block; font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--hue); }
+.stair-roomcard.low .stair-n { color: var(--accent); }
+.stair-roomcard button { font-size: 14px; }
+
+.stair-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+.stair-sec { display: grid; gap: 10px; align-content: start; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--hue) 35%, transparent); }
+.stair-sec .sub-head { margin: 0; }
+.stair-perks { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.stair-log { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; display: grid; gap: 6px; font-size: 14px; }
+.stair-log .stair-n { display: inline; margin-right: 6px; }
+.stair-meter { height: 8px; border: 1px solid color-mix(in srgb, var(--hue) 50%, transparent); background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 30%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; }
+.stair-meter span { display: block; height: 100%; background: var(--hue); }
+.stair-tank { margin: 0; }
+.stair-refl { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stair-reflside { cursor: crosshair; }
+.stair-reflside .artwork { margin: 0; }
+.stair-inline { flex: 1; }

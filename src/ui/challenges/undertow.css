@@ -1,0 +1,59 @@
+/* ---------- The Undertow (zone 2 challenge) ---------- */
+.undertow { display: grid; gap: 10px; }
+.undertow-canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+.undertow-plate figcaption { font-size: 13px; margin-top: 8px; }
+.undertow-stats { justify-content: space-between; }
+.undertow-obj { display: grid; gap: 4px; padding: 8px 10px; border: 1px dashed color-mix(in srgb, var(--hue) 45%, transparent); }
+.undertow-obj .small-note { margin: 0 0 4px; }
+.undertow-name { font-family: var(--font-ui); font-size: 15px; color: var(--text); }
+.undertow-name.r1 { color: var(--hue); }
+.undertow-name.r2 { color: color-mix(in srgb, var(--hue) 50%, #ffffff); text-shadow: 0 0 8px color-mix(in srgb, var(--hue) 60%, transparent); }
+.undertow-name.r3 { color: var(--accent); text-shadow: 0 0 8px var(--accent-glow); }
+.undertow-figure { justify-content: space-between; }
+.undertow-figure .small-note { margin: 0; }
+.undertow-walk { border-color: var(--accent); color: var(--accent); }
+.undertow-walk:hover:not(:disabled) { background: var(--accent); color: var(--bg); }
+.undertow-lore { font-family: 'MEK Mono', monospace; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--hue); margin: 0; line-height: 1.6; }
+.undertow .max-all { margin: 4px 0 0; }
+
+.undertow-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; align-items: start; }
+.undertow-side { display: grid; gap: 14px; }
+.undertow-sec { display: grid; gap: 8px; align-content: start; }
+.undertow-sec .sub-head { margin: 6px 0 0; }
+.undertow-sec .small-note { margin: 0; }
+.undertow-tray { display: grid; gap: 4px; max-height: 240px; overflow-y: auto; padding-right: 4px; }
+.undertow-trow { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 3px 0; border-bottom: 1px dotted var(--line); }
+.undertow-tbtn { display: flex; gap: 4px; }
+.undertow-tbtn button { padding: 4px 9px; font-size: 13px; }
+.undertow-bins { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.undertow-bin { display: grid; gap: 6px; padding: 8px; border: 1px solid color-mix(in srgb, var(--hue) 30%, transparent); align-content: space-between; }
+.undertow-bin button { font-size: 13px; padding: 6px 8px; }
+.undertow-rules { display: grid; gap: 10px; max-height: 340px; overflow-y: auto; padding-right: 4px; }
+.undertow-set { display: grid; gap: 4px; }
+.undertow-rule { display: grid; grid-template-columns: 1fr 40px 120px; gap: 8px; align-items: center; }
+.undertow-rule select { font-family: var(--font-ui); font-size: 13px; background: var(--bg); color: var(--text); border: 1px solid var(--line); padding: 4px; }
+
+.undertow-schem { display: block; background: color-mix(in srgb, var(--hue) 5%, var(--bg)); border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent);
+  box-shadow: inset 0 0 0 3px var(--bg), inset 0 0 0 4px color-mix(in srgb, var(--hue) 30%, transparent); cursor: crosshair; touch-action: manipulation; }
+.undertow-pipe { stroke: color-mix(in srgb, var(--hue) 40%, transparent); stroke-width: 8; stroke-linecap: square; }
+.undertow-cell { fill: transparent; stroke: color-mix(in srgb, var(--hue) 35%, transparent); stroke-width: 1; shape-rendering: crispEdges; }
+.undertow-cell:hover { stroke: var(--hue); }
+.undertow-meter { display: grid; grid-template-columns: 160px 1fr; gap: 10px; align-items: center; }
+.undertow-meter-bar { height: 12px; border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--hue) 80%, var(--accent) calc(var(--lvl) * 100%)) calc(var(--lvl) * 100%), transparent 0),
+    repeating-linear-gradient(90deg, transparent 0 7px, var(--line) 7px 8px); }
+
+.undertow-bores { display: grid; gap: 6px; }
+.undertow-bore { display: grid; grid-template-columns: 210px 1fr; gap: 10px; align-items: center; }
+.undertow-bore input { accent-color: var(--hue); width: 100%; }
+
+.undertow-perks { margin: 0; padding-left: 22px; display: grid; gap: 6px; max-height: 260px; overflow-y: auto; font-size: 14px; }
+.undertow-perks li { color: var(--dim); }
+.undertow-perks li.on { color: var(--text); }
+.undertow-perks li .undertow-lore { display: block; }
+
+@media (max-width: 860px) {
+  .undertow-cols { grid-template-columns: 1fr; }
+  .undertow-bins { grid-template-columns: 1fr; }
+  .undertow-bore { grid-template-columns: 1fr; }
+}

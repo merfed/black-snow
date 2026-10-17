@@ -19,6 +19,8 @@ import { achievementMult, checkAchievements } from './achievements';
 import { breed, giftOf, randomGenome, speciesKey, type Gift } from './genome';
 import type { Creature } from './state';
 import { BROOD_MAX, familiarGift, quirkMult } from './familiars';
+import { chMult, stepChallenges } from './challenges';
+import { awayHours, citadelOpen, stepCitadel, wakeCitadel } from './citadel';
 
 export type Rng = () => number;
 
@@ -145,7 +147,7 @@ export function globalMult(s: GameState): Decimal {
   m = m.mul(weatherMult(s, 'thunder', 1.1));
   for (let i = 0; i < 9; i++) m = m.mul(Math.pow(1.02, zoneUpLevel(s, i, 3)));
   m = m.mul(achievementMult(s));
-  m = m.mul(patternMult(s, 'ash') * tinctureMult(s, 'ash'));
+  m = m.mul(patternMult(s, 'ash') * tinctureMult(s, 'ash') * chMult(s, 'ash'));
   return m;
 }
 
@@ -165,7 +167,7 @@ export const fixtureWeight = (f: { full: number }, lvl: number) => Math.min(lvl,
 
 export function comfort(s: GameState): number {
   const raw = FIXTURES.reduce((n, f) => n + f.comfort * fixtureWeight(f, fixtureLevel(s, f.id)), 0) + 2 * giftTotal(s, 'comfort');
-  return raw * (tunedTo(s, 'lullaby') ? 2 : 1) * tinctureMult(s, 'comfort');
+  return raw * (tunedTo(s, 'lullaby') ? 2 : 1) * tinctureMult(s, 'comfort') * chMult(s, 'comfort');
 }
 
 export const comfortPerk = (s: GameState, k: number) => comfort(s) >= COMFORT_PERKS[k].at;
@@ -207,7 +209,7 @@ export function echoRate(s: GameState): number {
   if (!dialOpen(s)) return 0;
   // A slow trickle on its own, more for every zone opened, and a lot more while resonance is high.
   const base = 0.05 * (1 + s.zonesOpened) + s.resonance * 0.3;
-  return base * weatherMult(s, 'thunder', 2) * (1 + 0.2 * giftTotal(s, 'echoes')) * patternMult(s, 'echoes') * tinctureMult(s, 'echoes');
+  return base * weatherMult(s, 'thunder', 2) * (1 + 0.2 * giftTotal(s, 'echoes')) * patternMult(s, 'echoes') * tinctureMult(s, 'echoes') * chMult(s, 'echoes');
 }
 
 /** Find a frequency (costs echoes) or tune to one already found (free). */
@@ -343,7 +345,7 @@ export function giftTotal(s: GameState, gift: Gift): number {
 export const eggWarmRate = (s: GameState) => Math.min(comfort(s), 300) * 0.02 * (1 + 0.5 * nurseryUpLevel(s, 'lamp')) * (comfortPerk(s, 4) ? 2 : 1) * tinctureMult(s, 'eggs') * quirkMult(s, 'eggs');
 
 /** Pigment per second from the Barker Spirals, for the alchemy. */
-export const pigmentRate = (s: GameState) => pigmentBase(s) * patternMult(s, 'pigment') * tinctureMult(s, 'pigment');
+export const pigmentRate = (s: GameState) => pigmentBase(s) * patternMult(s, 'pigment') * tinctureMult(s, 'pigment') * chMult(s, 'pigment');
 export const growthRate = (s: GameState, c: Creature) =>
   (1 + 0.5 * nurseryUpLevel(s, 'straw')) * (c.mood > 70 ? 1.5 : 1) * (tunedTo(s, 'lullaby') ? 1.5 : 1);
 export const feedCost = (s: GameState) => Decimal.max(50, passiveRate(s).mul(30)).floor();
@@ -521,7 +523,7 @@ export function zoneMult(s: GameState, i: number): Decimal {
   m = m.mul(wiringMult(s, i));
   if (i <= 4) m = m.mul(tinctureMult(s, `zone${i}` as 'zone0'));
   m = m.mul(tinctureMult(s, 'zones'));
-  m = m.mul(quirkMult(s, 'zones'));
+  m = m.mul(quirkMult(s, 'zones') * chMult(s, 'zones') * chMult(s, `zone${i}` as 'zone0'));
   return m;
 }
 
@@ -551,7 +553,7 @@ export function zoneOutput(s: GameState, i: number): Decimal {
 }
 
 /** Ash per second from shafts and rites, ignoring the siren. */
-function passiveRate(s: GameState): Decimal {
+export function passiveRate(s: GameState): Decimal {
   let rate = s.zones[0].amount.mul(ZONES[0].rate).mul(zoneMult(s, 0));
   if (has(s, 'stop')) for (let i = 1; i < 9; i++) rate = rate.add(s.zones[i].amount);
   if (has(s, 'leave')) rate = rate.add(listenBase(s));
@@ -570,7 +572,7 @@ export function listenBase(s: GameState): Decimal {
   if (has(s, 'salt')) base = base.mul(3);
   if (tunedTo(s, 'numbers')) base = base.mul(2);
   base = base.mul(1 + 0.1 * giftTotal(s, 'listen'));
-  return base.mul(weatherMult(s, 'ashfall', 1.5)).mul(patternMult(s, 'listen') * tinctureMult(s, 'listen'));
+  return base.mul(weatherMult(s, 'ashfall', 1.5)).mul(patternMult(s, 'listen') * tinctureMult(s, 'listen') * chMult(s, 'listen'));
 }
 
 /** Ash per Listen: base, times resonance, plus a slice of passive income from later upgrades. */
@@ -601,7 +603,7 @@ export function totalShaftsBought(s: GameState) {
 export function rustPerSecond(s: GameState): number {
   const base = 0.1 * Math.sqrt(totalShaftsBought(s)) * (1 + 0.25 * s.zonesOpened);
   return base * (has(s, 'ring') ? 1.5 : 1) * (owns(s, 'salt_feed') ? 2 : 1)
-    * (tunedTo(s, 'dead') ? 2 : 1) * (comfortPerk(s, 2) ? 1.5 : 1) * patternMult(s, 'rust') * tinctureMult(s, 'rust') * quirkMult(s, 'rust');
+    * (tunedTo(s, 'dead') ? 2 : 1) * (comfortPerk(s, 2) ? 1.5 : 1) * patternMult(s, 'rust') * tinctureMult(s, 'rust') * quirkMult(s, 'rust') * chMult(s, 'rust');
 }
 
 export function sirenLength(s: GameState) {
@@ -695,7 +697,7 @@ export function catchWarmFlake(s: GameState, rng: Rng = Math.random): Decimal {
   else if (s.kiln.kindling) s.kindled = Math.max(s.kindled, 15);
   const r = s.warmFlake.rarity ?? 0;
   s.stats.flakes[r] = (s.stats.flakes[r] ?? 0) + 1;
-  s.embers += Math.round(((s.kiln.bloom ? 2 : 1) * RARITIES[r].embers + (comfortPerk(s, 5) ? 1 : 0)) * patternMult(s, 'embers') * tinctureMult(s, 'embers') * quirkMult(s, 'embers'));
+  s.embers += Math.round(((s.kiln.bloom ? 2 : 1) * RARITIES[r].embers + (comfortPerk(s, 5) ? 1 : 0)) * patternMult(s, 'embers') * tinctureMult(s, 'embers') * quirkMult(s, 'embers') * chMult(s, 'embers'));
   maybeWildEgg(s, r > 0 ? 1 : 0.15, rng);
   s.warmFlake = { ...s.warmFlake, active: false, ttl: 0, spawnIn: nextFlakeGap(s, rng), rarity: 0 };
   if (r > 0) log(s, `${RARITIES[r].line} +${fmt(reward)} ASH.`, 'milestone', true);
@@ -707,7 +709,7 @@ export function catchWarmFlake(s: GameState, rng: Rng = Math.random): Decimal {
 // ---- simulation ----
 
 const nextFlakeGap = (s: GameState, rng: Rng) => (40 + rng() * 50) * (owns(s, 'eye') ? 0.5 : 1)
-  * (s.kiln.bellows ? 0.8 : 1) / weatherMult(s, 'fog', 2) / quirkMult(s, 'flakes');
+  * (s.kiln.bellows ? 0.8 : 1) / weatherMult(s, 'fog', 2) / quirkMult(s, 'flakes') / chMult(s, 'flakes');
 
 function stepWarmFlake(s: GameState, dt: number, rng: Rng) {
   const w = s.warmFlake;
@@ -812,6 +814,9 @@ export function tick(s: GameState, dt: number, rng: Rng = Math.random) {
   stepWeather(s, dt, rng);
   stepNursery(s, dt);
   stepAlchemy(s, dt, pigmentRate(s));
+  for (const c of stepChallenges(s, dt, rng)) log(s, `${c.name.toUpperCase()} OPENS IN ZONE ${c.zone + 1}. ${c.tagline.toUpperCase()}`, 'milestone', true);
+  if (!s.citadel.awake && citadelOpen(s) && wakeCitadel(s)) log(s, 'SOMETHING BEHIND THE GATE OPENS ITS EYES. THE BLACK CITADEL IS AWAKE, AND IT IS THIRSTY.', 'milestone', true);
+  stepCitadel(s, dt, rng);
   stepAchievements(s, dt);
   stepLog(s, dt);
   s.ambientIn -= dt;
@@ -826,7 +831,7 @@ export function tick(s: GameState, dt: number, rng: Rng = Math.random) {
  * coarse steps. Capped at 12 hours.
  */
 export function catchUp(s: GameState, seconds: number) {
-  const capped = Math.min(seconds, 12 * 3600) * (comfortPerk(s, 3) ? 2 : 1);
+  const capped = Math.min(seconds, (12 + awayHours(s)) * 3600) * (comfortPerk(s, 3) ? 2 : 1);
   if (capped < 10) return;
   const before = s.ash;
   const wasActive = s.siren.active;
@@ -834,7 +839,7 @@ export function catchUp(s: GameState, seconds: number) {
   s.kindled = 0;
   const steps = Math.min(2000, Math.ceil(capped));
   const dt = capped / steps;
-  for (let k = 0; k < steps; k++) produce(s, dt);
+  for (let k = 0; k < steps; k++) { produce(s, dt); stepChallenges(s, dt, Math.random); stepCitadel(s, dt); }
   if (alchemyOpen(s)) s.alchemy.pigment += pigmentRate(s) * capped;
   s.siren.active = wasActive;
   s.playTime += capped;

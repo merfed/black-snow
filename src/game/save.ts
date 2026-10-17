@@ -36,6 +36,11 @@ function migrate(saved: Partial<GameState>): GameState {
   s.wiring = { ...fresh.wiring, ...saved.wiring };
   s.patterns = { ...fresh.patterns, ...saved.patterns };
   s.alchemy = { ...fresh.alchemy, ...saved.alchemy };
+  s.citadel = { ...fresh.citadel, ...saved.citadel };
+  s.dreams = { ...fresh.dreams, ...saved.dreams, omen: { ...fresh.dreams.omen, ...saved.dreams?.omen } };
+  s.challenges = { ...fresh.challenges };
+  for (const k of Object.keys(fresh.challenges) as (keyof typeof fresh.challenges)[])
+    (s.challenges as unknown as Record<string, unknown>)[k] = { ...fresh.challenges[k], ...(saved.challenges?.[k] ?? {}) };
   s.stats = { ...fresh.stats, ...saved.stats };
   // Old saves counted warm flakes before rarities existed; credit them as common.
   if (!saved.stats) s.stats.flakes[0] = saved.warmCaught ?? 0;

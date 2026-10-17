@@ -1,0 +1,24 @@
+/* ---------- The Survey (zone 1 challenge) ---------- */
+.survey-inline { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.survey-fig { margin: 0; display: grid; gap: 6px; }
+.survey-side { display: grid; gap: 6px; flex: 1; min-width: 170px; }
+.survey-side .max-all, .survey-side button { justify-self: start; margin-top: 4px; }
+.survey-frame { padding: 3px; border: 1px solid color-mix(in srgb, var(--hue) 70%, transparent); outline: 1px solid color-mix(in srgb, var(--hue) 35%, transparent); outline-offset: 2px; line-height: 0; width: fit-content; }
+.survey-map { display: block; width: 192px; height: 128px; image-rendering: pixelated; cursor: default; }
+.survey-map.big { width: min(576px, 100%); height: auto; aspect-ratio: 3 / 2; cursor: crosshair; }
+.survey-cap { font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--soft); }
+.survey-note { font-size: 14px; line-height: 1.45; color: var(--soft); margin: 0; }
+.survey-room-grid { display: grid; grid-template-columns: minmax(300px, 400px) 1fr; gap: 24px; align-items: start; }
+@media (max-width: 860px) { .survey-room-grid { grid-template-columns: 1fr; } }
+.survey-bench, .survey-field { display: grid; gap: 10px; align-content: start; }
+.survey-core-wrap { display: flex; gap: 14px; align-items: flex-start; }
+.survey-core { display: block; width: 160px; height: 288px; image-rendering: pixelated; cursor: pointer; flex: none; border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent); }
+.survey-core-empty { background: color-mix(in srgb, var(--hue) 5%, var(--bg)); cursor: default; }
+.survey-core-side { display: grid; gap: 8px; align-content: start; }
+.survey-core-side button { justify-self: start; }
+.survey-tally { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; font-family: var(--font-ui); font-size: 14px; }
+.survey-tally li { display: flex; align-items: center; gap: 8px; }
+.survey-tally i { width: 10px; height: 10px; flex: none; border: 1px solid var(--line); }
+.survey-tally span { margin-left: auto; color: var(--hue); }
+.survey-lore { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 200px; overflow-y: auto; }
+.survey-lore li { font-size: 14px; line-height: 1.4; padding-left: 10px; border-left: 2px solid; color: var(--text); }

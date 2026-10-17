@@ -19,6 +19,7 @@ import { Sprite } from './Sprite';
 import { ZONE_ICONS } from './sprites';
 import { Artwork } from './Artwork';
 import { ZONE_SCENES } from './scenes';
+import { ChallengeSlot } from './challenges/ChallengeSlot';
 
 /** What each zone's plate says under it, and the second ink it is printed with. */
 const ZONE_ART = [
@@ -147,6 +148,7 @@ export function ZonePanel({ i }: { i: number }) {
       {i === SPIRAL && alchemyOpen(game) && <SpiralPreview />}
       {i === COMPILER && z.bought > 0 && !wiringOpen(game) && <p className="dim small-note">At {EXCHANGE_AT} Compilers ({z.bought}/{EXCHANGE_AT}) the Exchange opens, and its lines can be patched.</p>}
       {i === SPIRAL && z.bought > 0 && !alchemyOpen(game) && <p className="dim small-note">At {SPIRAL_AT} Barker Spirals ({z.bought}/{SPIRAL_AT}) the spiral starts to take colour.</p>}
+      <ChallengeSlot zone={i} />
       {zoneMaxOpen(game, i) && (
         <button className="max-all" onClick={() => maxAll(i)} title="Spend ash on the cheapest shaft or upgrade here until nothing is affordable">
           Max all in zone {def.id}

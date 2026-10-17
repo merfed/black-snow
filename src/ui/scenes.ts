@@ -899,4 +899,143 @@ const kiln: Scene = {
 };
 
 export const ZONE_SCENES: Scene[] = [bore, conduit, buffer, well, lock, spiral, compiler, murmur, plex];
-export const SCENES = { keeper, lull, backroom, instruments, kiln };
+
+// ---------------------------------------------------------------- the Black Citadel
+
+/**
+ * The thing behind the citadel: a black shape taller than the walls against a sick yellow sky, wearing the
+ * towers like a crown, with too many eyes, drawing a slow column of light up into its mouth.
+ */
+const citadel: Scene = {
+  w: 200, h: 120,
+  draw(g, a, t) {
+    const HZ = 104;
+    const br = Math.sin(t * 0.6) * 1.2;
+    field(g, (x, y) => {
+      if (y >= HZ) return 0.1 + 0.08 * hash(x, y, 70);
+      const d = Math.hypot(x - 100, (y - 50) * 1.3);
+      return 0.3 + 0.62 * Math.max(0, 1 - d / 105) ** 1.3 + 0.08 * (fbm(x / 26 + t * 0.03, y / 9, 71) - 0.5);
+    });
+    g.fillStyle = gray(0);
+    // shoulders and a long back, hunched over the wall
+    g.beginPath();
+    g.moveTo(10, HZ);
+    g.bezierCurveTo(18, 70 - br, 44, 52 - br, 70, 50 - br);
+    g.lineTo(130, 50 - br);
+    g.bezierCurveTo(156, 52 - br, 182, 70 - br, 190, HZ);
+    g.closePath();
+    g.fill();
+    // the neck and a long, narrow head, tipped forward
+    g.beginPath();
+    g.moveTo(84, 54 - br);
+    g.bezierCurveTo(84, 40 - br, 86, 30 - br, 90, 24 - br);
+    g.bezierCurveTo(94, 16 - br, 106, 16 - br, 110, 24 - br);
+    g.bezierCurveTo(114, 30 - br, 116, 40 - br, 116, 54 - br);
+    g.fill();
+    // horns: the citadel's towers grown out of its skull, crooked
+    for (const s of [-1, 1]) {
+      for (let k = 0; k < 3; k++) {
+        const bx = 100 + s * (6 + k * 6), by = 22 - br + k * 3, h = 20 - k * 5;
+        shape(g, 0, [bx - 2, by, bx + s * (4 + k * 3), by - h, bx + 2 + s * 1, by]);
+        if ((Math.floor(t * 0.6) + k + (s > 0 ? 2 : 0)) % 5 === 0) rect(a, bx + s * (2 + k), by - h * 0.5, 1, 1, 1);
+      }
+    }
+    rect(g, 98, 0, 4, 20 - br, 0);
+    shape(g, 0, [97, 4, 100, -4, 103, 4]);
+    // arms down to the snow, long fingers splayed
+    for (const s of [-1, 1]) {
+      const sx = 100 + s * 58;
+      g.beginPath();
+      g.moveTo(100 + s * 34, 56 - br);
+      g.quadraticCurveTo(sx + s * 16, 66, sx + s * 4, HZ);
+      g.lineTo(sx - s * 6, HZ);
+      g.quadraticCurveTo(sx - s * 4, 74, 100 + s * 22, 66 - br);
+      g.fill();
+      for (let k = 0; k < 4; k++) line(g, sx - s * 2, HZ - 2, sx + s * (k * 6 - 10), HZ + 6, 0, 1.4);
+    }
+    // eyes, too many, out of step: four on the head, a scatter down the chest
+    const eyes: [number, number, number][] = [[94, 30, 1.4], [106, 30, 1.4], [97, 36, 0.9], [103, 36, 0.9]];
+    for (let i = 0; i < 12; i++) eyes.push([100 + (hash(i, 1, 72) - 0.5) * 44, 58 + hash(i, 2, 72) * 26, hash(i, 4, 72) < 0.3 ? 1.2 : 0.8]);
+    eyes.forEach(([ex, ey, r], i) => {
+      if (Math.sin(t * (0.5 + hash(i, 3, 72)) + i * 2) > -0.8) { disc(a, ex, ey - br, r, 1); disc(g, ex, ey - br, r, 1); }
+    });
+    // the mouth at the throat, and the column of light it drinks up off the snow
+    const f = flicker(t, 5);
+    g.fillStyle = gray(0.7 * f);
+    g.beginPath();
+    g.ellipse(100, 46 - br, 4, 1.5 + Math.max(0, Math.sin(t * 1.3)) * 1.5, 0, 0, TAU);
+    g.fill();
+    for (let i = 0; i < 40; i++) {
+      const k = (hash(i, 5, 73) + t * (0.08 + 0.05 * hash(i, 6, 73))) % 1;
+      const x = 100 + (hash(i, 7, 73) - 0.5) * 80 * (1 - k) ** 1.5, y = HZ + 6 - k * (HZ + 6 - 46 + br);
+      rect(g, Math.floor(x), Math.floor(y), 1, 1, 0.95);
+      if (i % 4 === 0) rect(a, Math.floor(x), Math.floor(y), 1, 1, 1);
+    }
+    // the wall in front of it, small, its gate standing open
+    for (let x = 0; x < 200; x += 6) rect(g, x, HZ - 7 - (x % 12 ? 0 : 2), 5, 9, 0.04);
+    rect(g, 96, HZ - 6, 8, 6, 0.55 * f);
+    flakes(g, t, 50, 0.02, 74, -3, 200, 120);
+  },
+};
+
+/**
+ * The Dream Engine: someone asleep on an iron cot, wired at the temples, the dream drawn off through a
+ * coil of pipe into a furnace door that opens on the dark.
+ */
+const dreamEngine: Scene = {
+  w: 200, h: 112,
+  draw(g, a, t) {
+    field(g, (x, y) => 0.08 + 0.06 * (y / 112) + 0.04 * (fbm(x / 30, y / 12 + t * 0.02, 80) - 0.5));
+    rect(g, 0, 92, 200, 20, 0.16);
+    for (let x = 0; x < 200; x += 14) line(g, x, 92, x - 10, 112, 0.1);
+    // the cot and the sleeper
+    rect(g, 18, 74, 74, 3, 0.4);
+    for (const lx of [20, 88]) rect(g, lx, 77, 2, 15, 0.35);
+    g.fillStyle = gray(0.62);
+    g.beginPath();
+    g.ellipse(56, 71, 30, 5, 0, 0, TAU);
+    g.fill();
+    disc(g, 26, 67, 5, 0.7);
+    const breath = Math.sin(t * 0.9);
+    g.fillStyle = gray(0.66);
+    g.beginPath();
+    g.ellipse(52, 68 - breath * 0.8, 14, 3, 0, 0, TAU);
+    g.fill();
+    // wires from the temples, up into a coil
+    for (let k = 0; k < 3; k++) {
+      g.strokeStyle = gray(0.3);
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(24 + k * 2, 63);
+      g.bezierCurveTo(20 + k * 6, 30, 70, 18 + k * 3, 110, 30 + k * 2);
+      g.stroke();
+    }
+    for (let k = 0; k < 6; k++) { ring(g, 120, 30 + k * 5, 8, 0.38, 1.5); }
+    line(g, 120, 60, 150, 60, 0.38, 3);
+    // pulses travelling down the wires: the dream leaving
+    for (let i = 0; i < 4; i++) {
+      const k = (t * 0.35 + i / 4) % 1;
+      const bx = (1 - k) ** 3 * 26 + 3 * (1 - k) ** 2 * k * 22 + 3 * (1 - k) * k * k * 70 + k ** 3 * 110;
+      const by = (1 - k) ** 3 * 63 + 3 * (1 - k) ** 2 * k * 30 + 3 * (1 - k) * k * k * 20 + k ** 3 * 31;
+      disc(a, bx, by, 1.4, 1);
+    }
+    // the furnace
+    rect(g, 146, 34, 44, 58, 0.26);
+    rect(g, 150, 30, 36, 4, 0.3);
+    rect(g, 160, 6, 10, 24, 0.22);
+    const f = flicker(t, 3);
+    rect(g, 154, 56, 28, 24, 0);
+    for (let i = 0; i < 40; i++) {
+      const x = 154 + hash(i, 1, 81) * 28, y = 80 - ((hash(i, 2, 81) * 24 + t * (6 + 6 * hash(i, 3, 81))) % 24);
+      rect(a, Math.floor(x), Math.floor(y), 1, 1, hash(i, 4, 81) < 0.5 ? 1 : 0);
+    }
+    glow(g, 168, 72, 30, 0.22 * f);
+    rect(g, 152, 54, 32, 2, 0.45);
+    // the gauge
+    ring(g, 176, 44, 5, 0.5, 1);
+    const ang = -2.4 + 1.4 * (0.5 + 0.5 * Math.sin(t * 0.5));
+    line(g, 176, 44, 176 + Math.cos(ang) * 4, 44 + Math.sin(ang) * 4, 0.9);
+  },
+};
+
+export const SCENES = { keeper, lull, backroom, instruments, kiln, citadel, dreamEngine };

@@ -1,0 +1,63 @@
+/* ---------- The Archive (zone 3 challenge) ---------- */
+.archive-box { display: grid; gap: 10px; }
+.archive-ink { image-rendering: pixelated; display: block; width: 100%; height: auto; }
+
+.archive-shelf {
+  display: flex; gap: 3px; align-items: flex-end; flex-wrap: wrap; min-height: 52px; padding: 6px 8px 4px;
+  border-bottom: 3px double color-mix(in srgb, var(--hue) 55%, transparent);
+  background: repeating-linear-gradient(90deg, transparent 0 3px, color-mix(in srgb, var(--hue) 5%, transparent) 3px 4px);
+}
+.archive-spine {
+  width: 18px; height: 44px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--hue) 70%, transparent); outline: 1px solid color-mix(in srgb, var(--hue) 25%, transparent); outline-offset: 1px;
+  background: color-mix(in srgb, var(--hue) 22%, var(--bg));
+}
+.archive-spine i { font-style: normal; font-family: 'MEK Mono', monospace; font-size: 12px; writing-mode: vertical-rl; letter-spacing: 0.08em; color: var(--text); }
+.archive-spine.gold { background: color-mix(in srgb, #e8c45a 30%, var(--bg)); border-color: #e8c45a; outline-color: color-mix(in srgb, #e8c45a 40%, transparent); }
+.archive-spine.gold i { color: #f5dc8a; }
+.archive-spine.empty { border-style: dashed; background: transparent; outline: none; opacity: 0.5; }
+.archive-fresh b { color: var(--accent); }
+
+.archive-slots { display: grid; gap: 6px; }
+.archive-slot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.archive-slot button { padding: 5px 10px; font-size: 13px; white-space: nowrap; }
+
+/* the room */
+.archive-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px 24px; }
+.archive-sec { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.archive-sec .sub-head { margin: 6px 0 0; }
+.archive-wide { grid-column: 1 / -1; }
+@media (max-width: 820px) { .archive-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.archive-tapes { display: grid; gap: 4px; max-height: 280px; overflow-y: auto; }
+.archive-tape {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 5px 8px;
+  border: 1px solid color-mix(in srgb, var(--hue) 40%, transparent);
+}
+.archive-tape.gold { border-color: #e8c45a; background: color-mix(in srgb, #e8c45a 8%, transparent); }
+.archive-tape button { padding: 4px 10px; font-size: 13px; }
+.archive-label { font-family: 'MEK Mono', monospace; font-size: 14px; letter-spacing: 0.06em; }
+.archive-tape.gold .archive-label { color: #f5dc8a; }
+
+.archive-album { display: grid; gap: 6px; max-height: 420px; overflow-y: auto; }
+.archive-row { display: grid; grid-template-columns: 120px repeat(4, 52px); gap: 6px; align-items: center; }
+.archive-row.full .archive-sitter { color: var(--hue); }
+.archive-sitter { font-family: 'MEK Mono', monospace; font-size: 12px; line-height: 1.25; color: var(--soft); }
+.archive-cell { position: relative; width: 52px; aspect-ratio: 24 / 30; border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent); outline: 1px solid color-mix(in srgb, var(--hue) 20%, transparent); outline-offset: 1px; }
+.archive-cell.missing { border-style: dashed; outline: none; display: flex; align-items: center; justify-content: center; }
+.archive-blank { font-family: var(--font-ui); font-size: 14px; color: var(--soft); opacity: 0.6; }
+.archive-count { position: absolute; right: 2px; bottom: 0; font-family: var(--font-ui); font-size: 12px; color: var(--text); text-shadow: 0 0 3px #000, 0 0 2px #000; }
+
+.archive-recent { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.archive-fig { margin: 0; display: grid; gap: 6px; }
+.archive-fig figcaption { font-family: 'MEK Mono', monospace; font-size: 12px; text-transform: uppercase; color: var(--soft); text-align: center; line-height: 1.35; }
+.archive-frame { padding: 3px; border: 3px double color-mix(in srgb, var(--hue) 70%, transparent); background: #0a0612; }
+
+.archive-channels { display: flex; flex-wrap: wrap; gap: 6px; }
+.archive-ch { font-family: 'MEK Mono', monospace; font-size: 13px; padding: 5px 10px; min-width: 64px; }
+.archive-ch.on { border-color: var(--hue); color: var(--hue); }
+.archive-ch.sel { background: var(--hue); color: var(--bg); }
+.archive-tv { max-width: 560px; justify-self: center; width: 100%; }
+.archive-tv figcaption { font-size: 14px; }
+.archive-tv figcaption b { color: var(--hue); font-weight: normal; }
+.archive-final { font-family: 'MEK Mono', monospace; font-size: 14px; text-align: center; color: var(--accent); margin: 4px 0 0; }

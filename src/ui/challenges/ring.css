@@ -1,0 +1,51 @@
+/* ---------- the Barker Ring ---------- */
+.ring-panel { display: grid; gap: 10px; }
+.ring-top { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+.ring-frame {
+  position: relative; padding: 5px; background: #07050a; width: max-content;
+  border: 1px solid color-mix(in srgb, var(--hue) 70%, transparent);
+  box-shadow: inset 0 0 0 3px #07050a, inset 0 0 0 4px color-mix(in srgb, var(--hue) 35%, transparent);
+}
+.ring-canvas { display: block; width: 168px; height: 168px; image-rendering: pixelated; cursor: pointer; }
+.ring-frame.big .ring-canvas { width: 280px; height: 280px; }
+.ring-canvas.locked { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--hue) 70%, transparent)); }
+.ring-side { display: grid; gap: 8px; min-width: 0; }
+.ring-status { margin: 0; font-family: 'MEK Mono', monospace; font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--soft); }
+.ring-status.on { color: var(--hue); }
+.ring-code { margin: 0; font-family: var(--font-ui); font-size: 16px; letter-spacing: 0.08em; color: var(--text); overflow-wrap: anywhere; }
+.ring-lobes { display: flex; align-items: flex-end; gap: 2px; height: 46px; padding: 2px 0; border-bottom: 1px dotted color-mix(in srgb, var(--hue) 50%, transparent); }
+.ring-lobe { flex: 1 1 0; max-width: 18px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; font-family: var(--font-ui); font-size: 12px; color: var(--dim); }
+.ring-lobe i { display: block; width: 100%; height: calc(max(var(--h), 0.04) * 28px); background: repeating-linear-gradient(0deg, var(--hue) 0 2px, transparent 2px 3px); opacity: 0.8; }
+.ring-lobe.peak i { opacity: 0.35; }
+.ring-lobe.over i { background: repeating-linear-gradient(0deg, #ff2a2a 0 2px, transparent 2px 3px); }
+.ring-lobe.over { color: #ff5a5a; }
+.ring-span { display: flex; align-items: center; gap: 8px; font-family: var(--font-ui); font-size: 14px; color: var(--soft); }
+.ring-span button { padding: 2px 10px; }
+.ring-cat-btn { display: inline-flex; align-items: center; gap: 8px; }
+.ring-swatch { display: inline-block; }
+
+.ring-room-cols { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(340px, 1.3fr); gap: 24px; }
+.ring-room-left { display: grid; gap: 10px; align-content: start; justify-items: start; }
+.ring-room-right { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.ring-sockets { display: grid; gap: 8px; width: 100%; }
+.ring-socket { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 2px solid #241e28; background: #0e0b10; font-size: 14px; }
+.ring-socket.full { border-color: var(--c); }
+.ring-socket div { display: grid; flex: 1; }
+.ring-socket div span { font-family: var(--font-ui); font-size: 13px; color: var(--soft); }
+.ring-socket.sealed { justify-content: space-between; border-style: dashed; border-color: var(--line); }
+.ring-socket.sealed small { color: var(--dim); }
+.ring-dust { width: 100%; max-width: 340px; }
+.ring-cats { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 62vh; overflow-y: auto; }
+.ring-cats li { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: start; padding: 8px 10px; border: 1px solid #241e28; background: #0b090d; }
+.ring-cats li.in { border-color: var(--hue); }
+.ring-cats li.unknown { opacity: 0.6; }
+.ring-cats li > div { display: grid; gap: 2px; font-size: 14px; }
+.ring-cats li b small { font-family: var(--font-ui); color: var(--dim); font-weight: normal; font-size: 12px; margin-left: 6px; }
+.ring-cats li span { font-family: var(--font-ui); font-size: 13px; color: var(--soft); }
+.ring-cats li i { font-size: 13px; color: var(--dim); }
+.ring-cat-acts { grid-column: 2; display: flex; gap: 6px; flex-wrap: wrap; }
+.ring-cat-acts button { padding: 4px 10px; font-size: 13px; }
+@media (max-width: 760px) { .ring-room-cols { grid-template-columns: 1fr; } }
+.ring-mults { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.ring-mults span { white-space: nowrap; }
+.ring-span span { white-space: nowrap; }

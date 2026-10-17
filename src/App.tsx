@@ -15,6 +15,7 @@ import { Scenery } from './ui/Scenery';
 import { DialPanel } from './ui/Dial';
 import { ShopPanel, TvPanel } from './ui/TV';
 import { KilnPanel, StationPanel } from './ui/SidePanels';
+import { CitadelPanel, DreamEnginePanel, Omen } from './ui/CitadelPanel';
 import { Snowfall } from './ui/Snowfall';
 import { Sprite } from './ui/Sprite';
 import { TOWER } from './ui/sprites';
@@ -50,6 +51,7 @@ export function App() {
     egg: game.nursery.found,
     kiln: kilnOpen(game),
     dial: dialOpen(game),
+    citadel: game.citadel.awake,
   };
   const show = (id: PanelId) => !hidden[id] && (open[id as keyof typeof open] ?? true);
 
@@ -74,14 +76,16 @@ export function App() {
     { id: 'left', x: -700, w: 450, content: <>{show('instruments') && <InstrumentsPanel />}{show('kiln') && <KilnPanel />}</> },
     { id: 'center', x: -210, w: 420, content: <><AshPanel /><TvPanel /><ShopPanel />{show('dial') && <DialPanel />}{show('rites') && <RitesPanel />}</> },
     ...zoneCols.map((c, k) => ({ id: `zones${k}`, x: ZONE_X[k], w: 400, content: c.length ? c : null })),
+    // Past Lull, once the gate is open: the Citadel, and the engine that keeps it from drinking everything.
+    { id: 'citadel', x: 2180, w: 460, content: show('citadel') ? <><CitadelPanel /><DreamEnginePanel /></> : null },
   ];
 
   const dock: DockItem[] = [
     { id: 'instruments', label: 'Instruments' },
     { id: 'ash', label: 'Ash' },
-    ...(['shafts', 'station', 'egg', 'kiln', 'dial', 'rites'] as const)
+    ...(['shafts', 'station', 'egg', 'kiln', 'dial', 'rites', 'citadel'] as const)
       .filter(id => open[id])
-      .map(id => ({ id, label: { shafts: 'Shafts', station: 'Back room', egg: 'Nursery', kiln: 'Kiln', dial: 'Dial', rites: 'Rites' }[id] })),
+      .map(id => ({ id, label: { shafts: 'Shafts', station: 'Back room', egg: 'Nursery', kiln: 'Kiln', dial: 'Dial', rites: 'Rites', citadel: 'Citadel' }[id] })),
     { id: 'resources', label: 'Resources' },
     { id: 'log', label: 'Log' },
   ];
@@ -100,6 +104,7 @@ export function App() {
       {!hidden.log && <LogPanel />}
       <Dock items={dock} />
       <WarmFlake />
+      <Omen />
       <AchievementToast />
     </>
   );

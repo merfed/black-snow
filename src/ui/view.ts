@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 /** Panels the player can fold away. The ash panel always stays. */
-export type PanelId = 'instruments' | 'shafts' | 'rites' | 'log' | 'station' | 'egg' | 'kiln' | 'dial' | 'resources';
+export type PanelId = 'instruments' | 'shafts' | 'rites' | 'log' | 'station' | 'egg' | 'kiln' | 'dial' | 'resources' | 'citadel';
 
 const KEY = 'black-snow-view';
 

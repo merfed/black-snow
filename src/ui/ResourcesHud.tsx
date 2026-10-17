@@ -1,3 +1,4 @@
+import { dreamsHeld, nulRate } from '../game/citadel';
 import { useState, type CSSProperties } from 'react';
 import { ZONES } from '../game/data';
 import {
@@ -36,6 +37,8 @@ export function ResourcesHud() {
     rows.push(['Brood', String(n.brood.length), `${n.seen.length} species`, C.nursery]);
     if (n.ghostwax > 0 || n.rendered > 0) rows.push(['Ghostwax', fmt(n.ghostwax), `${n.rendered} rendered`, '#e8dcc0']);
   }
+  if (game.citadel.awake) rows.push(['Nul', fmt(game.citadel.nul), `+${fmt(nulRate(game) * 60)}/min`, '#e8c21c']);
+  if (dreamsHeld(game) > 0 || game.citadel.awake) rows.push(['Dreams', fmt(dreamsHeld(game)), game.dreams.burned ? `${fmt(game.dreams.burned)} burned` : '', '#a593ff']);
   const dug = game.zones.filter(z => z.amount.gt(0));
 
   return (

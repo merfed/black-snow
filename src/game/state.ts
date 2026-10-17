@@ -5,6 +5,8 @@ import type { Genome } from './genome';
 import { newWiring, type Wiring } from './wiring';
 import { newPatterns, type Patterns } from './patterns';
 import { newAlchemy, type Alchemy } from './alchemy';
+import { freshChallenges, type ChallengeStates } from './challenges';
+import { newCitadel, newDreams, type Citadel, type Dreams } from './citadel';
 
 export const SAVE_VERSION = 5;
 
@@ -114,6 +116,10 @@ export interface GameState {
   wiring: Wiring;
   patterns: Patterns;
   alchemy: Alchemy;
+  chUnlocked: string[]; // zone challenges opened, in order
+  challenges: ChallengeStates;
+  citadel: Citadel;
+  dreams: Dreams;
   forkSwaps: Record<string, number>; // times each fork was switched
   tapes: string[]; // VHS tapes owned, for the television
   tv: string | null; // the tape playing, or null for static
@@ -165,6 +171,10 @@ export function newGame(rng: () => number = Math.random): GameState {
     wiring: newWiring(),
     patterns: newPatterns(rng),
     alchemy: newAlchemy(),
+    chUnlocked: [],
+    challenges: freshChallenges(),
+    citadel: newCitadel(),
+    dreams: newDreams(),
     forkSwaps: {},
     tapes: [],
     tv: null,
