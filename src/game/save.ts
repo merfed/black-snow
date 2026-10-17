@@ -34,6 +34,8 @@ function migrate(saved: Partial<GameState>): GameState {
   s.weather = { ...fresh.weather, ...saved.weather };
   s.nursery = { ...fresh.nursery, ...saved.nursery };
   s.wiring = { ...fresh.wiring, ...saved.wiring };
+  s.patterns = { ...fresh.patterns, ...saved.patterns };
+  s.alchemy = { ...fresh.alchemy, ...saved.alchemy };
   s.stats = { ...fresh.stats, ...saved.stats };
   // Old saves counted warm flakes before rarities existed; credit them as common.
   if (!saved.stats) s.stats.flakes[0] = saved.warmCaught ?? 0;

@@ -1,12 +1,13 @@
 import { useState, type CSSProperties } from 'react';
 import { ZONES } from '../game/data';
 import {
-  ashPerSecond, comfort, dialOpen, echoRate, kilnOpen, rustPerSecond, sirenEnabled, stationOpen,
+  ashPerSecond, comfort, comfortMult, dialOpen, echoRate, kilnOpen, pigmentRate, rustPerSecond, sirenEnabled, stationOpen,
 } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../game/store';
 import { WEATHER } from '../game/systems';
 import { cycleRate, wiringOpen } from '../game/wiring';
+import { alchemyOpen } from '../game/alchemy';
 import { SYSTEM_COLORS, ZONE_COLORS } from './colors';
 import { Sprite } from './Sprite';
 import { WEATHER_SPRITES, ZONE_ICONS } from './sprites';
@@ -26,8 +27,9 @@ export function ResourcesHud() {
   if (sirenEnabled(game)) rows.push(['Rust', fmt(game.rust), game.siren.active ? `+${fmt(rustPerSecond(game))}/s` : 'in sirens', C.rust]);
   if (kilnOpen(game)) rows.push(['Embers', fmt(game.embers), undefined, C.embers]);
   if (dialOpen(game)) rows.push(['Echoes', fmt(game.echoes), echoRate(game) > 0 ? `+${fmt(echoRate(game))}/s` : undefined, C.echoes]);
-  if (stationOpen(game)) rows.push(['Comfort', String(comfort(game)), `+${comfort(game)}% ash`, C.comfort]);
+  if (stationOpen(game)) rows.push(['Comfort', String(Math.round(comfort(game))), `+${Math.round((comfortMult(game) - 1) * 100)}% ash`, C.comfort]);
   if (wiringOpen(game)) rows.push(['Cycles', fmt(game.wiring.cycles), `+${fmt(cycleRate(game))}/s`, ZONE_COLORS[6]]);
+  if (alchemyOpen(game)) rows.push(['Pigment', fmt(game.alchemy.pigment), `+${fmt(pigmentRate(game))}/s`, ZONE_COLORS[5]]);
   const n = game.nursery;
   if (n.found) {
     rows.push(['Eggs', String(n.eggs.length), n.eggs.length ? `${Math.floor(Math.max(...n.eggs.map(e => e.warmth)))}% warmest` : undefined, C.nursery]);

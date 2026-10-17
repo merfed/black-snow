@@ -13,6 +13,8 @@ import {
   type FixtureId, type FreqId, type KilnId, type NurseryUpId, type WeatherId,
 } from './systems';
 import { cycleRate, wiringMult } from './wiring';
+import { patternMult } from './patterns';
+import { alchemyOpen, pigmentBase, stepAlchemy, tinctureMult } from './alchemy';
 import { achievementMult, checkAchievements } from './achievements';
 import { breed, giftOf, randomGenome, speciesKey, type Gift } from './genome';
 import type { Creature } from './state';
@@ -103,14 +105,15 @@ export function buyUpgrade(s: GameState, id: UpgradeId): boolean {
 export function globalMult(s: GameState): Decimal {
   let m = new Decimal(1);
   if (owns(s, 'lights')) m = m.mul(1.5);
-  if (owns(s, 'eye3')) m = m.mul(1 + Math.min(1, 0.02 * s.warmCaught));
+  if (owns(s, 'eye3')) m = m.mul(1 + Math.min(3, 0.02 * s.warmCaught));
   if (s.kindled > 0) m = m.mul(2);
-  m = m.mul(1 + 0.01 * comfort(s));
+  m = m.mul(comfortMult(s));
   m = m.mul(1 + giftTotal(s, 'ash') * 0.05);
   if (s.kiln.tithe) m = m.mul(1 + Math.min(0.5, 0.01 * s.embers));
   m = m.mul(weatherMult(s, 'thunder', 1.1));
   for (let i = 0; i < 9; i++) m = m.mul(Math.pow(1.02, zoneUpLevel(s, i, 3)));
   m = m.mul(achievementMult(s));
+  m = m.mul(patternMult(s, 'ash') * tinctureMult(s, 'ash'));
   return m;
 }
 
@@ -125,13 +128,21 @@ export function weatherMult(s: GameState, id: WeatherId, m: number): number {
 }
 
 export const fixtureLevel = (s: GameState, id: FixtureId) => s.fixtures[id] ?? 0;
+/** Levels up to `full` count whole; every one past that counts a quarter, so a fixture never stops building. */
+export const fixtureWeight = (f: { full: number }, lvl: number) => Math.min(lvl, f.full) + 0.25 * Math.max(0, lvl - f.full);
 
 export function comfort(s: GameState): number {
-  const raw = FIXTURES.reduce((n, f) => n + f.comfort * fixtureLevel(s, f.id), 0) + 2 * giftTotal(s, 'comfort');
-  return raw * (tunedTo(s, 'lullaby') ? 2 : 1);
+  const raw = FIXTURES.reduce((n, f) => n + f.comfort * fixtureWeight(f, fixtureLevel(s, f.id)), 0) + 2 * giftTotal(s, 'comfort');
+  return raw * (tunedTo(s, 'lullaby') ? 2 : 1) * tinctureMult(s, 'comfort');
 }
 
 export const comfortPerk = (s: GameState, k: number) => comfort(s) >= COMFORT_PERKS[k].at;
+
+/** All ash bonus from comfort: 1% a point up to 200, then it tapers off with the cube root. */
+export function comfortMult(s: GameState): number {
+  const c = comfort(s);
+  return 1 + (c <= 200 ? c : 200 + 30 * (Math.cbrt(c - 199) - 1)) / 100;
+}
 
 export const stationOpen = (s: GameState) => owns(s, 'backroom');
 export const kilnOpen = (s: GameState) => s.warmCaught > 0;
@@ -139,13 +150,14 @@ export const dialOpen = (s: GameState) => owns(s, 'coil');
 
 export function fixtureCost(s: GameState, id: FixtureId): Decimal {
   const def = FIXTURES.find(f => f.id === id)!;
-  return new Decimal(def.cost).mul(Decimal.pow(FIXTURE_GROWTH, fixtureLevel(s, id))).floor();
+  const lvl = fixtureLevel(s, id);
+  // Past full strength each level gives a quarter of the comfort and costs a lot more.
+  return new Decimal(def.cost).mul(Decimal.pow(FIXTURE_GROWTH, Math.min(lvl, def.full))).mul(Decimal.pow(FIXTURE_GROWTH * 4, Math.max(0, lvl - def.full))).floor();
 }
 
 export function buildFixture(s: GameState, id: FixtureId): boolean {
-  const def = FIXTURES.find(f => f.id === id)!;
   const cost = fixtureCost(s, id);
-  if (!stationOpen(s) || fixtureLevel(s, id) >= def.max || s.ash.lt(cost)) return false;
+  if (!stationOpen(s) || s.ash.lt(cost)) return false;
   s.ash = s.ash.sub(cost);
   s.fixtures[id] = fixtureLevel(s, id) + 1;
   return true;
@@ -163,7 +175,7 @@ export function echoRate(s: GameState): number {
   if (!dialOpen(s)) return 0;
   // A slow trickle on its own, more for every zone opened, and a lot more while resonance is high.
   const base = 0.05 * (1 + s.zonesOpened) + s.resonance * 0.3;
-  return base * weatherMult(s, 'thunder', 2) * (1 + 0.2 * giftTotal(s, 'echoes'));
+  return base * weatherMult(s, 'thunder', 2) * (1 + 0.2 * giftTotal(s, 'echoes')) * patternMult(s, 'echoes') * tinctureMult(s, 'echoes');
 }
 
 /** Find a frequency (costs echoes) or tune to one already found (free). */
@@ -204,7 +216,7 @@ export function zoneUpDesc(i: number, k: number): string {
   const e = ZONE_UP_SLOTS[k].effect;
   const name = ZONES[i].name;
   return e === 'mult' ? `${name}s work x${zoneUpMult(i, 0)} as hard, per level.`
-    : e === 'cheap' ? `${name}s get 3% cheaper to stack, per level.`
+    : e === 'cheap' ? `${name}s get 3% cheaper to stack, per level (1% past level 8).`
     : e === 'mult2' ? `${name}s work x${zoneUpMult(i, 2)} as hard, per level.`
     : 'All ash x1.02, per level.';
 }
@@ -249,7 +261,7 @@ export function maxZone(s: GameState, i: number) {
 
 export function maxStation(s: GameState) {
   if (!stationMaxOpen(s)) return;
-  buyCheapest(s, () => FIXTURES.filter(f => fixtureLevel(s, f.id) < f.max)
+  buyCheapest(s, () => FIXTURES
     .map(f => ({ cost: fixtureCost(s, f.id), buy: () => buildFixture(s, f.id) })));
 }
 
@@ -294,7 +306,10 @@ export function giftTotal(s: GameState, gift: Gift): number {
   return n;
 }
 
-export const eggWarmRate = (s: GameState) => comfort(s) * 0.02 * (1 + 0.5 * nurseryUpLevel(s, 'lamp'));
+export const eggWarmRate = (s: GameState) => Math.min(comfort(s), 300) * 0.02 * (1 + 0.5 * nurseryUpLevel(s, 'lamp')) * (comfortPerk(s, 4) ? 2 : 1) * tinctureMult(s, 'eggs');
+
+/** Pigment per second from the Barker Spirals, for the alchemy. */
+export const pigmentRate = (s: GameState) => pigmentBase(s) * patternMult(s, 'pigment') * tinctureMult(s, 'pigment');
 export const growthRate = (s: GameState, c: Creature) =>
   (1 + 0.5 * nurseryUpLevel(s, 'straw')) * (c.mood > 70 ? 1.5 : 1) * (tunedTo(s, 'lullaby') ? 1.5 : 1);
 export const feedCost = (s: GameState) => Decimal.max(50, passiveRate(s).mul(30)).floor();
@@ -443,14 +458,14 @@ export function devSet(s: GameState, res: DevResource, value: Decimal) {
  */
 export function zoneMult(s: GameState, i: number): Decimal {
   let m = Decimal.pow(ZONES[i].bonus, Math.floor(s.zones[i].bought / 10));
-  if (owns(s, 'spade')) m = m.mul(1.5);
+  if (owns(s, 'spade') && i <= 1) m = m.mul(1.5);
   if (owns(s, 'name_feed')) m = m.mul(1.5);
   if (i === 0) {
     if (owns(s, 'copper')) m = m.mul(2);
     if (has(s, 'name')) m = m.mul(2);
     if (owns(s, 'spade3')) m = m.mul(1 + Math.min(2, 0.01 * s.shaftsDug));
   }
-  if (i === 1 && owns(s, 'spade2')) m = m.mul(3);
+  if (i === 1 && owns(s, 'spade2')) m = m.mul(2);
   // Deep zones compound up the cascade, so their upgrades and buffs stay small.
   m = m.mul(Math.pow(zoneUpMult(i, 0), zoneUpLevel(s, i, 0)));
   m = m.mul(Math.pow(zoneUpMult(i, 2), zoneUpLevel(s, i, 2)));
@@ -458,12 +473,16 @@ export function zoneMult(s: GameState, i: number): Decimal {
   if (i === 0 && tunedTo(s, 'hum')) m = m.mul(2);
   if (i === 0) m = m.mul(weatherMult(s, 'wind', 1.5));
   m = m.mul(wiringMult(s, i));
+  if (i <= 4) m = m.mul(tinctureMult(s, `zone${i}` as 'zone0'));
+  m = m.mul(tinctureMult(s, 'zones'));
   return m;
 }
 
 export function zoneGrowth(s: GameState, i: number): number {
   let g = ZONES[i].growth - (owns(s, 'spade') && i === 0 ? 0.02 : 0);
-  g = 1 + (g - 1) * Math.pow(0.97, zoneUpLevel(s, i, 1));
+  // 3% a level for the first 8, then 1% a level: it never stops, it just matters less than digging deeper.
+  const l = zoneUpLevel(s, i, 1);
+  g = 1 + (g - 1) * Math.pow(0.97, Math.min(l, 8)) * Math.pow(0.99, Math.max(0, l - 8));
   return g;
 }
 
@@ -504,13 +523,13 @@ export function listenBase(s: GameState): Decimal {
   if (has(s, 'salt')) base = base.mul(3);
   if (tunedTo(s, 'numbers')) base = base.mul(2);
   base = base.mul(1 + 0.1 * giftTotal(s, 'listen'));
-  return base.mul(weatherMult(s, 'ashfall', 1.5));
+  return base.mul(weatherMult(s, 'ashfall', 1.5)).mul(patternMult(s, 'listen') * tinctureMult(s, 'listen'));
 }
 
 /** Ash per Listen: base, times resonance, plus a slice of passive income from later upgrades. */
 export function listenPower(s: GameState): Decimal {
   let p = listenBase(s).mul(1 + s.resonance);
-  const share = (owns(s, 'ear2') ? 0.05 : 0) + (owns(s, 'hatch') ? 0.01 : 0);
+  const share = (owns(s, 'ear2') ? 0.2 : 0) + (owns(s, 'hatch') ? 0.01 : 0);
   if (share) p = p.add(passiveRate(s).mul(share));
   return p;
 }
@@ -523,8 +542,8 @@ export function warmFlakeReward(s: GameState): Decimal {
 }
 
 /** Rarest first. The odds never change: a black sun is one flake in ten thousand. */
-export function rollRarity(rng: Rng): number {
-  for (let r = RARITIES.length - 1; r > 0; r--) if (rng() < RARITIES[r].chance) return r;
+export function rollRarity(rng: Rng, luck = 1): number {
+  for (let r = RARITIES.length - 1; r > 0; r--) if (rng() < RARITIES[r].chance * luck) return r;
   return 0;
 }
 
@@ -535,7 +554,7 @@ export function totalShaftsBought(s: GameState) {
 export function rustPerSecond(s: GameState): number {
   const base = 0.1 * Math.sqrt(totalShaftsBought(s)) * (1 + 0.25 * s.zonesOpened);
   return base * (has(s, 'ring') ? 1.5 : 1) * (owns(s, 'salt_feed') ? 2 : 1)
-    * (tunedTo(s, 'dead') ? 2 : 1) * (comfortPerk(s, 2) ? 1.5 : 1);
+    * (tunedTo(s, 'dead') ? 2 : 1) * (comfortPerk(s, 2) ? 1.5 : 1) * patternMult(s, 'rust') * tinctureMult(s, 'rust');
 }
 
 export function sirenLength(s: GameState) {
@@ -629,7 +648,7 @@ export function catchWarmFlake(s: GameState, rng: Rng = Math.random): Decimal {
   else if (s.kiln.kindling) s.kindled = Math.max(s.kindled, 15);
   const r = s.warmFlake.rarity ?? 0;
   s.stats.flakes[r] = (s.stats.flakes[r] ?? 0) + 1;
-  s.embers += (s.kiln.bloom ? 2 : 1) * RARITIES[r].embers;
+  s.embers += Math.round(((s.kiln.bloom ? 2 : 1) * RARITIES[r].embers + (comfortPerk(s, 5) ? 1 : 0)) * patternMult(s, 'embers') * tinctureMult(s, 'embers'));
   maybeWildEgg(s, r > 0 ? 1 : 0.15, rng);
   s.warmFlake = { ...s.warmFlake, active: false, ttl: 0, spawnIn: nextFlakeGap(s, rng), rarity: 0 };
   if (r > 0) log(s, `${RARITIES[r].line} +${fmt(reward)} ASH.`, 'milestone', true);
@@ -656,7 +675,7 @@ function stepWarmFlake(s: GameState, dt: number, rng: Rng) {
   if (s.siren.active || !owns(s, 'floor')) return;
   w.spawnIn -= dt;
   if (w.spawnIn <= 0) {
-    const rarity = rollRarity(rng);
+    const rarity = rollRarity(rng, (comfortPerk(s, 6) ? 2 : 1) * tinctureMult(s, 'luck'));
     s.warmFlake = {
       active: true, x: 0.12 + rng() * 0.76, y: 0.18 + rng() * 0.64, spawnIn: 0, rarity,
       ttl: (owns(s, 'eye2') ? 20 : 10) + (comfortPerk(s, 1) ? 5 : 0) + RARITIES[rarity].ttl,
@@ -745,6 +764,7 @@ export function tick(s: GameState, dt: number, rng: Rng = Math.random) {
   stepWarmFlake(s, dt, rng);
   stepWeather(s, dt, rng);
   stepNursery(s, dt);
+  stepAlchemy(s, dt, pigmentRate(s));
   stepAchievements(s, dt);
   stepLog(s, dt);
   s.ambientIn -= dt;
@@ -768,6 +788,7 @@ export function catchUp(s: GameState, seconds: number) {
   const steps = Math.min(2000, Math.ceil(capped));
   const dt = capped / steps;
   for (let k = 0; k < steps; k++) produce(s, dt);
+  if (alchemyOpen(s)) s.alchemy.pigment += pigmentRate(s) * capped;
   s.siren.active = wasActive;
   s.playTime += capped;
   if (capped < 120) return;

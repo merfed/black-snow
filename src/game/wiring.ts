@@ -3,6 +3,8 @@
 // work harder. Pure functions over GameState, like the engine.
 import Decimal from 'break_eternity.js';
 import type { GameState } from './state';
+import { patternMult } from './patterns';
+import { tinctureMult } from './alchemy';
 
 export const COLS = 24;
 export const ROWS = 16;
@@ -50,7 +52,7 @@ const fixedAt = (x: number, y: number) => (x === CORE.x && y === CORE.y) || PORT
 export function cycleRate(s: GameState): number {
   if (!wiringOpen(s)) return 0;
   const z = s.zones[COMPILER];
-  return 0.5 + 2 * Decimal.log10(z.amount.add(1)).toNumber() + 0.25 * z.bought;
+  return (0.5 + 2 * Decimal.log10(z.amount.add(1)).toNumber() + 0.25 * z.bought) * patternMult(s, 'cycles') * tinctureMult(s, 'cycles');
 }
 
 /** What one part costs at a tier. Circuits get pricier the more of that kind you have laid. */

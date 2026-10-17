@@ -13,7 +13,7 @@ export interface ZoneUpDef { k: number; effect: ZoneUpEffect; gate: number; gate
 
 export const ZONE_UP_SLOTS: ZoneUpDef[] = [
   { k: 0, effect: 'mult', gate: 10, gateStep: 10, costMul: 1e3, growth: 4, max: Infinity },
-  { k: 1, effect: 'cheap', gate: 25, gateStep: 25, costMul: 1e5, growth: 60, max: 8 },
+  { k: 1, effect: 'cheap', gate: 25, gateStep: 25, costMul: 1e5, growth: 60, max: Infinity },
   { k: 2, effect: 'mult2', gate: 50, gateStep: 40, costMul: 1e7, growth: 10, max: Infinity },
   { k: 3, effect: 'all', gate: 100, gateStep: 50, costMul: 1e10, growth: 20, max: Infinity },
 ];
@@ -46,21 +46,30 @@ export const WEATHER: WeatherDef[] = [
 
 // ---- the station: fixtures you build with ash, each adding comfort ----
 
-export type FixtureId = 'kettle' | 'cot' | 'lamp' | 'radio' | 'rug' | 'stove' | 'photo' | 'curtains';
+export type FixtureId = 'kettle' | 'cot' | 'lamp' | 'radio' | 'rug' | 'stove' | 'photo' | 'curtains'
+  | 'shelf' | 'clock' | 'heater' | 'tank' | 'chair' | 'wallpaper' | 'phone' | 'door';
 
-export interface FixtureDef { id: FixtureId; name: string; desc: string; cost: number; comfort: number; max: number }
+export interface FixtureDef { id: FixtureId; name: string; desc: string; cost: number; comfort: number; full: number } // levels past `full` still build, for a quarter of the comfort
 
 export const FIXTURE_GROWTH = 2.5;
 
 export const FIXTURES: FixtureDef[] = [
-  { id: 'kettle', name: 'Kettle', desc: 'It boils. It sings a little.', cost: 300, comfort: 1, max: 5 },
-  { id: 'cot', name: 'Cot', desc: 'Somewhere to not sleep.', cost: 3000, comfort: 2, max: 5 },
-  { id: 'lamp', name: 'Oil lamp', desc: 'A circle of light with you in it.', cost: 4e4, comfort: 3, max: 5 },
-  { id: 'radio', name: 'Kitchen radio', desc: 'Plays music from a station that closed in 1974.', cost: 6e5, comfort: 4, max: 5 },
-  { id: 'rug', name: 'Rug', desc: 'Covers the stain. The stain is warm.', cost: 1e7, comfort: 6, max: 5 },
-  { id: 'stove', name: 'Pot-belly stove', desc: 'Burns ash. Gives off a heat that remembers you.', cost: 2e8, comfort: 8, max: 5 },
-  { id: 'photo', name: 'Photograph', desc: 'Of a family. Of no one. It depends when you look.', cost: 5e9, comfort: 12, max: 5 },
-  { id: 'curtains', name: 'Curtains', desc: 'For the window that faces the wall.', cost: 1e11, comfort: 18, max: 5 },
+  { id: 'kettle', name: 'Kettle', desc: 'It boils. It sings a little.', cost: 300, comfort: 1, full: 5 },
+  { id: 'cot', name: 'Cot', desc: 'Somewhere to not sleep.', cost: 3000, comfort: 2, full: 5 },
+  { id: 'lamp', name: 'Oil lamp', desc: 'A circle of light with you in it.', cost: 4e4, comfort: 3, full: 5 },
+  { id: 'radio', name: 'Kitchen radio', desc: 'Plays music from a station that closed in 1974.', cost: 6e5, comfort: 4, full: 5 },
+  { id: 'rug', name: 'Rug', desc: 'Covers the stain. The stain is warm.', cost: 1e7, comfort: 6, full: 5 },
+  { id: 'stove', name: 'Pot-belly stove', desc: 'Burns ash. Gives off a heat that remembers you.', cost: 2e8, comfort: 8, full: 5 },
+  { id: 'photo', name: 'Photograph', desc: 'Of a family. Of no one. It depends when you look.', cost: 5e9, comfort: 12, full: 5 },
+  { id: 'curtains', name: 'Curtains', desc: 'For the window that faces the wall.', cost: 1e11, comfort: 18, full: 5 },
+  { id: 'shelf', name: 'Bookshelf', desc: 'Every book is the same book. You have not finished it.', cost: 3e12, comfort: 24, full: 5 },
+  { id: 'clock', name: 'Wall clock', desc: 'Runs backwards, but keeps very good time.', cost: 1e14, comfort: 32, full: 5 },
+  { id: 'heater', name: 'Bar heater', desc: 'Two orange bars. The third one is for later.', cost: 5e15, comfort: 42, full: 5 },
+  { id: 'tank', name: 'Fish tank', desc: 'No fish. The water moves anyway.', cost: 3e17, comfort: 55, full: 5 },
+  { id: 'chair', name: 'Second chair', desc: 'For company. Someone sits in it when you look away.', cost: 2e19, comfort: 70, full: 5 },
+  { id: 'wallpaper', name: 'Wallpaper', desc: 'A pattern of small houses. One light is on in each.', cost: 2e21, comfort: 90, full: 5 },
+  { id: 'phone', name: 'Rotary phone', desc: 'A second line. It only rings during snow.', cost: 3e23, comfort: 115, full: 5 },
+  { id: 'door', name: 'A door', desc: 'Where there was wall. It is shut. It is warm on the other side.', cost: 5e25, comfort: 150, full: 5 },
 ];
 
 /** Comfort perks, in order. Shown in the station so there is always a next one to reach for. */
@@ -69,6 +78,9 @@ export const COMFORT_PERKS = [
   { at: 30, desc: 'Warm flakes linger 5 seconds longer, and the egg is never sad.' },
   { at: 60, desc: 'Rust from sirens x1.5.' },
   { at: 120, desc: 'Away time counts double.' },
+  { at: 300, desc: 'Eggs warm twice as fast.' },
+  { at: 800, desc: 'Every warm flake leaves one more ember.' },
+  { at: 2000, desc: 'Rare flakes turn up twice as often.' },
 ];
 
 // ---- the kiln: embers from caught warm flakes ----

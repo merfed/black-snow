@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { comfort, fixtureCost, fixtureLevel, stationMaxOpen } from '../game/engine';
+import { comfort, comfortMult, fixtureCost, fixtureLevel, stationMaxOpen } from '../game/engine';
 import { fmt } from '../game/format';
 import { useGame } from '../game/store';
 import { COMFORT_PERKS, FIXTURES, KILN } from '../game/systems';
@@ -40,7 +40,7 @@ export function StationPanel() {
       </div>
       <div className="comfort-line">
         <span className="big-number small hue-text">{c}</span> comfort
-        <small>All ash +{c}%{next ? ` · next at ${next.at}: ${next.desc}` : ' · every comfort perk reached'}</small>
+        <small>All ash +{Math.round((comfortMult(game) - 1) * 100)}%{next ? ` · next at ${next.at}: ${next.desc}` : ' · every comfort perk reached'}</small>
       </div>
       <ul className="perks">
         {COMFORT_PERKS.map(p => (
@@ -53,14 +53,14 @@ export function StationPanel() {
       <div className="cards">
         {FIXTURES.map(f => {
           const lvl = fixtureLevel(game, f.id);
-          const maxed = lvl >= f.max;
           const cost = fixtureCost(game, f.id);
           return (
-            <Card key={f.id} title={f.name} desc={f.desc} level={lvl} tag={`+${f.comfort}`} cost={`${fmt(cost)} ash`}
+            <Card key={f.id} title={f.name} desc={f.desc} level={lvl} tag={lvl >= f.full ? `+${f.comfort / 4}` : `+${f.comfort}`} cost={`${fmt(cost)} ash`}
               icon={<Sprite rows={FIXTURE_SPRITES[f.id]} px={2} />}
-              state={maxed ? 'maxed' : 'available'} disabled={maxed || game.ash.lt(cost)} onClick={() => build(f.id)}>
+              state="available" disabled={game.ash.lt(cost)} onClick={() => build(f.id)}>
               <span className="fixture-pips">
-                {Array.from({ length: f.max }, (_, k) => <span key={k} className={k < lvl ? 'on' : ''} />)}
+                {Array.from({ length: f.full }, (_, k) => <span key={k} className={k < lvl ? 'on' : ''} />)}
+                {lvl > f.full && <small className="fixture-extra">+{lvl - f.full}</small>}
               </span>
             </Card>
           );

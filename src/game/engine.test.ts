@@ -1,6 +1,6 @@
 import Decimal from 'break_eternity.js';
 import { describe, expect, it } from 'vitest';
-import { UPGRADES } from './data';
+import { UPGRADES, ZONES } from './data';
 import * as e from './engine';
 import * as w from './wiring';
 import { deserialize, serialize } from './save';
@@ -51,7 +51,7 @@ describe('early path', () => {
 });
 
 describe('shafts', () => {
-  it('prices climb per purchase and output doubles every 10', () => {
+  it('prices climb per purchase and output climbs every 10', () => {
     const s = newGame(fixed);
     rich(s);
     e.buyUpgrade(s, 'thaw');
@@ -60,7 +60,7 @@ describe('shafts', () => {
     e.buyShaft(s, 0);
     expect(e.zoneCost(s, 0).toNumber()).toBeGreaterThan(first);
     for (let i = 0; i < 9; i++) e.buyShaft(s, 0);
-    expect(e.zoneMult(s, 0).toNumber()).toBe(2);
+    expect(e.zoneMult(s, 0).toNumber()).toBe(ZONES[0].bonus);
   });
 
   it('each zone bores the one above it', () => {

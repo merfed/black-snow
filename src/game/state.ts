@@ -3,8 +3,10 @@ import type { RiteId, UpgradeId } from './data';
 import type { FixtureId, FreqId, KilnId, NurseryUpId, WeatherId } from './systems';
 import type { Genome } from './genome';
 import { newWiring, type Wiring } from './wiring';
+import { newPatterns, type Patterns } from './patterns';
+import { newAlchemy, type Alchemy } from './alchemy';
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export interface Zone {
   amount: Decimal; // shafts owned, bought plus bored by the zone below
@@ -105,6 +107,8 @@ export interface GameState {
   fixtures: Partial<Record<FixtureId, number>>;
   nursery: Nursery;
   wiring: Wiring;
+  patterns: Patterns;
+  alchemy: Alchemy;
   stats: Stats;
   achievements: Record<string, number>; // id -> play time when earned
   achCheckIn: number;
@@ -151,6 +155,8 @@ export function newGame(rng: () => number = Math.random): GameState {
     fixtures: {},
     nursery: { found: false, eggs: [], brood: [], seen: [], nextId: 1, ups: {} },
     wiring: newWiring(),
+    patterns: newPatterns(rng),
+    alchemy: newAlchemy(),
     stats: { listens: 0, flakes: [0, 0, 0, 0, 0], missed: 0, hatched: 0, bred: 0, rustTotal: 0, bestAps: '0' },
     achievements: {},
     achCheckIn: 1,

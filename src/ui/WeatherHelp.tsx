@@ -12,15 +12,14 @@ export function WeatherHelp({ onClose }: { onClose: () => void }) {
   const game = useGame(st => st.game);
   return createPortal(
     <div className="dialog-backdrop" onClick={onClose}>
-      <div className="dialog panel framed" role="dialog" aria-label="Weather" onClick={e => e.stopPropagation()}
+      <div className="dialog weather-dialog panel framed" role="dialog" aria-label="Weather" onClick={e => e.stopPropagation()}
         style={{ '--hue': SYSTEM_COLORS.weather } as CSSProperties}>
         <div className="dialog-head">
           <h2>Weather <span className="h2-note">over Lull</span></h2>
           <button className="secondary close" onClick={onClose} aria-label="Close">x</button>
         </div>
         <p>
-          The sky over the station changes on its own every few minutes. You cannot choose it; you can only make
-          the most of it. The chip at the top shows what is falling now and how long it will last.
+          The sky changes on its own every few minutes. You can't choose it, only make the most of it.
         </p>
         <ul className="weather-list">
           {WEATHER.map(w => (

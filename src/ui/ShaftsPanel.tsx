@@ -8,6 +8,10 @@ import { Card } from './Card';
 import { ZONE_COLORS } from './colors';
 import { WiringPreview } from './Circuit';
 import { COMPILER, wiringOpen } from '../game/wiring';
+import { BUFFER } from '../game/patterns';
+import { alchemyOpen, SPIRAL } from '../game/alchemy';
+import { PatternBuffer } from './Buffer';
+import { SpiralPreview } from './Spiral';
 import { fmt } from '../game/format';
 import { useGame } from '../game/store';
 import { ZONE_UP_SLOTS } from '../game/systems';
@@ -39,12 +43,12 @@ function ShaftHelp() {
       <button className="help-toggle" onClick={toggle} aria-expanded={show}>{show ? 'hide help' : 'how shafts work'}</button>
       {show && (
         <div className="shaft-help">
-          <p><b>Shafts dig on their own, every second, forever.</b></p>
+          <p>Shafts dig on their own, every second.</p>
           <ol>
-            <li><span className="zone-chip">1</span> A <b>Shallow Bore</b> catches ash for you.</li>
-            <li><span className="zone-chip">2</span> Each deeper zone digs new shafts in the zone above it. A <b>Conduit</b> digs Shallow Bores.</li>
-            <li><span className="zone-chip">10</span> Every <b>10</b> you buy boosts the zone. Each shaft costs a little more than the last.</li>
-            <li><span className="zone-chip">5</span> Own <b>5</b> of a zone to open the next zone down. Owning more opens its upgrades.</li>
+            <li><span className="zone-chip">1</span><span>A <b>Shallow Bore</b> catches ash.</span></li>
+            <li><span className="zone-chip">2+</span><span>Deeper zones dig shafts in the zone above.</span></li>
+            <li><span className="zone-chip">10</span><span>Every 10 bought boosts the zone.</span></li>
+            <li><span className="zone-chip">5</span><span>Own 5 to open the next zone down.</span></li>
           </ol>
         </div>
       )}
@@ -115,13 +119,15 @@ export function ZonePanel({ i }: { i: number }) {
 
       <div className="zone-buttons">
         <button className="dig" disabled={!afford} onClick={() => buy(i)}>
-          Dig <span className="cost">{fmt(cost)} ash</span>
+          {def.verb} <span className="cost">{fmt(cost)} ash</span>
         </button>
         <button className="secondary" disabled={!afford} onClick={() => buyTen(i)} title="Dig up to the next boost, as far as your ash goes">
-          Dig {10 - step} more
+          {def.verb} {10 - step} more
         </button>
       </div>
       {i === COMPILER && wiringOpen(game) && <WiringPreview />}
+      {i === BUFFER && z.bought > 0 && <PatternBuffer />}
+      {i === SPIRAL && alchemyOpen(game) && <SpiralPreview />}
       {zoneMaxOpen(game, i) && (
         <button className="max-all" onClick={() => maxAll(i)} title="Spend ash on the cheapest shaft or upgrade here until nothing is affordable">
           Max all in zone {def.id}

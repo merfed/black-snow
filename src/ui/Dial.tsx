@@ -4,6 +4,8 @@ import { fmt } from '../game/format';
 import { useGame } from '../game/store';
 import { FREQS, type FreqId } from '../game/systems';
 import { SYSTEM_COLORS } from './colors';
+import { Dither, hex, paint, type Shade } from './dither';
+import { Sprite } from './Sprite';
 
 const LO = 0, HI = 110; // MHz across the glass
 /** Where a frequency sits on the glass, in percent. The scale runs from 4% to 96%. */
@@ -19,6 +21,7 @@ const VOICES: Record<FreqId | 'static', (x: number, t: number) => number> = {
   static: () => (Math.random() * 2 - 1) * 0.7,
 };
 
+/** A low-resolution phosphor scope: the trace leaves an afterglow that is dithered down as it fades. */
 function Scope({ voice, color }: { voice: FreqId | 'static'; color: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const v = useRef(voice);
@@ -26,34 +29,50 @@ function Scope({ voice, color }: { voice: FreqId | 'static'; color: string }) {
   useEffect(() => {
     const c = canvas.current!;
     const g = c.getContext('2d')!;
-    let raf = 0;
+    const W = c.width, H = c.height;
+    const glow = new Float32Array(W * H);
+    const img = g.createImageData(W, H);
+    const ramp = ['#040a08', '#0b2a1f', color === '#7dffc8' ? '#2a9a6e' : '#4d5c56', color].map(hex);
+    let raf = 0, last = 0;
     const draw = (ms: number) => {
-      const t = ms / 1000, w = c.width, h = c.height;
-      g.fillStyle = 'rgba(4, 10, 8, 0.35)'; // short phosphor trail
-      g.fillRect(0, 0, w, h);
-      g.strokeStyle = 'rgba(120, 255, 200, 0.08)';
-      g.lineWidth = 1;
-      for (let i = 1; i < 8; i++) { g.beginPath(); g.moveTo((w / 8) * i, 0); g.lineTo((w / 8) * i, h); g.stroke(); }
-      for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(0, (h / 4) * i); g.lineTo(w, (h / 4) * i); g.stroke(); }
-      g.strokeStyle = color;
-      g.shadowColor = color;
-      g.shadowBlur = 8;
-      g.lineWidth = 2;
-      g.beginPath();
-      const f = VOICES[v.current];
-      for (let px = 0; px <= w; px += 2) {
-        const y = h / 2 - f(px / w, t) * (h / 2 - 6);
-        if (px) g.lineTo(px, y); else g.moveTo(px, y);
-      }
-      g.stroke();
-      g.shadowBlur = 0;
       raf = requestAnimationFrame(draw);
+      if (ms - last < 1000 / 20) return;
+      last = ms;
+      const t = ms / 1000;
+      for (let k = 0; k < glow.length; k++) glow[k] *= 0.55;
+      const f = VOICES[v.current];
+      let py = -1;
+      for (let x = 0; x < W; x++) {
+        const y = Math.round(H / 2 - f(x / W, t) * (H / 2 - 2));
+        const a = py < 0 ? y : py;
+        for (let yy = Math.min(a, y); yy <= Math.max(a, y); yy++) if (yy >= 0 && yy < H) glow[yy * W + x] = 1;
+        py = y;
+      }
+      paint(img, (x, y) => Math.max(glow[y * W + x], (x % 14 === 0 || y % 8 === 0) && (x + y) % 2 === 0 ? 0.3 : 0), t, ramp);
+      g.putImageData(img, 0, 0);
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
   }, [color]);
-  return <canvas ref={canvas} className="scope" width={560} height={120} />;
+  return <canvas ref={canvas} className="scope" width={112} height={30} />;
 }
+
+const KNOB = [
+  '....####....',
+  '..##++++##..',
+  '.#+++##+++#.',
+  '.#++####++#.',
+  '#++######++#',
+  '#+########+#',
+  '#+########+#',
+  '#++######++#',
+  '.#++####++#.',
+  '.#+++++:++#.',
+  '..##++++##..',
+  '....####....',
+];
+const GRILLE = Array.from({ length: 6 }, (_, y) => Array.from({ length: 64 }, (_, x) => ((x + (y % 2) * 2) % 4 === 0 ? '#' : '.')).join(''));
+const glass: Shade = (x, y, t, w, h) => 0.95 - Math.hypot((x - w * 0.5) / w, (y - h * 0.15) / h) * 0.9 + 0.03 * Math.sin(t * 0.7);
 
 /**
  * The dial is one old radio, not a list: a glass scale with a needle, a scope that shows what is
@@ -95,6 +114,7 @@ export function DialPanel() {
         </div>
 
         <div className="glass">
+          <Dither className="glass-bg" shade={glass} ramp={['#b07a3c', '#c8924a', '#dcaa60', '#ecc47e']} cols={120} rows={24} animate fps={4} />
           <div className="glass-scale">
             {Array.from({ length: 23 }, (_, i) => (
               <span key={i} className={`tick ${i % 2 ? '' : 'major'}`} style={{ left: `${4 + (i / 22) * 92}%` }}>{i % 4 ? '' : (i * 5).toString()}</span>
@@ -128,8 +148,8 @@ export function DialPanel() {
             <span className="scope-tag">{sweeping ? 'tuning…' : tuned ? `${tuned.band} MHz` : 'no station'}</span>
           </div>
           <div className="radio-knobs">
-            <button className="knob" onClick={() => step(-1)} aria-label="Previous station"><span /></button>
-            <button className="knob" onClick={() => step(1)} aria-label="Next station"><span /></button>
+            <button className="knob" onClick={() => step(-1)} aria-label="Previous station"><Sprite rows={KNOB} px={4} /></button>
+            <button className="knob" onClick={() => step(1)} aria-label="Next station"><Sprite rows={KNOB} px={4} /></button>
           </div>
         </div>
 
@@ -140,7 +160,7 @@ export function DialPanel() {
             <><b>STATIC</b><span>Echoes drift in on their own, faster for every zone you open and while resonance is high. Spend them to find a station.</span></>
           )}
         </div>
-        <div className="grille" aria-hidden="true" />
+        <div className="grille" aria-hidden="true"><Sprite rows={GRILLE} px={4} /></div>
       </div>
     </section>
   );

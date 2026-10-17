@@ -2,6 +2,7 @@
 
 export interface ZoneDef {
   id: number; // 1..9, Numogram zone
+  verb: string; // what the dig button says, themed to the zone
   name: string;
   produces: string; // shown under the name
   baseCost: number; // ash for the first shaft
@@ -13,31 +14,31 @@ export interface ZoneDef {
 }
 
 export const ZONES: ZoneDef[] = [
-  { id: 1, name: 'Shallow Bore', produces: 'catches ash', baseCost: 20, growth: 1.18, bonus: 2, rate: 0.2,
+  { id: 1, verb: 'Bore', name: 'Shallow Bore', produces: 'catches ash', baseCost: 20, growth: 1.18, bonus: 1.6, rate: 0.2,
     openLine: 'SHAFT 1 OPEN. THE SNOW FALLS UP IT AS WELL AS DOWN.',
     lore: 'A hole just deep enough to catch what falls. Every bit of ash you do not catch by hand comes through here.' },
-  { id: 2, name: 'Conduit', produces: 'bores Shallow Bores', baseCost: 800, growth: 1.25, bonus: 1.2, rate: 0.04,
+  { id: 2, verb: 'Lay pipe', name: 'Conduit', produces: 'bores Shallow Bores', baseCost: 800, growth: 1.25, bonus: 1.15, rate: 0.04,
     openLine: 'ZONE 2: CONDUIT LIVE. SOMETHING BELOW IS ACCUSTOMED TO BEING FED.',
     lore: 'Pipes that run down into the dark and carry something back up. Whatever it carries builds new Shallow Bores.' },
-  { id: 3, name: 'Pattern Buffer', produces: 'bores Conduits', baseCost: 50000, growth: 1.35, bonus: 1.2, rate: 0.02,
+  { id: 3, verb: 'Buffer', name: 'Pattern Buffer', produces: 'bores Conduits', baseCost: 1e5, growth: 1.4, bonus: 1.15, rate: 0.02,
     openLine: 'ZONE 3: TIME IN THIS SHAFT RUNS IN THE WRONG ORDER. PRODUCTION UNAFFECTED.',
     lore: 'A machine that records the shaft and plays it back. Every playback is a new Conduit, in the wrong order.' },
-  { id: 4, name: 'Rampant Well', produces: 'bores Pattern Buffers', baseCost: 2e+07, growth: 1.5, bonus: 1.2, rate: 0.01,
+  { id: 4, verb: 'Sink a well', name: 'Rampant Well', produces: 'bores Pattern Buffers', baseCost: 1e9, growth: 1.6, bonus: 1.15, rate: 0.01,
     openLine: 'ZONE 4: WATER AT THE BOTTOM. IT IS WARM. IT IS NOT WATER.',
     lore: 'Warm water at the bottom that is not water. It fills new Pattern Buffers the way a well fills buckets.' },
-  { id: 5, name: 'Vacuum Lock', produces: 'bores Rampant Wells', baseCost: 1e+11, growth: 1.7, bonus: 1.2, rate: 0.01,
+  { id: 5, verb: 'Seal a lock', name: 'Vacuum Lock', produces: 'bores Rampant Wells', baseCost: 1e17, growth: 1.9, bonus: 1.15, rate: 0.01,
     openLine: 'ZONE 5: SOMETHING IS BEING KEPT DOWN HERE. THE LOCK IS ON OUR SIDE.',
     lore: 'A hatch that holds something down. Each turn of the wheel lets a Rampant Well out.' },
-  { id: 6, name: 'Barker Spiral', produces: 'bores Vacuum Locks', baseCost: 1e+16, growth: 1.9, bonus: 1.2, rate: 0.01,
+  { id: 6, verb: 'Wind it', name: 'Barker Spiral', produces: 'bores Vacuum Locks', baseCost: 1e28, growth: 2.2, bonus: 1.15, rate: 0.01,
     openLine: 'ZONE 6: THE SHAFT TURNS LEFT FOREVER AND ARRIVES ABOVE ITSELF.',
     lore: 'A staircase that turns left forever and arrives above itself. It drops Vacuum Locks on the way down.' },
-  { id: 7, name: 'Compiler', produces: 'bores Barker Spirals', baseCost: 1e+22, growth: 2.2, bonus: 1.2, rate: 0.01,
+  { id: 7, verb: 'Compile', name: 'Compiler', produces: 'bores Barker Spirals', baseCost: 1e42, growth: 2.6, bonus: 1.15, rate: 0.01,
     openLine: 'ZONE 7: IT HAS BEEN WAITING. IT IS GLAD.',
     lore: 'Something that writes shafts the way a compiler writes programs. It writes Barker Spirals.' },
-  { id: 8, name: 'Murmur', produces: 'bores Compilers', baseCost: 1e+29, growth: 2.5, bonus: 1.2, rate: 0.01,
+  { id: 8, verb: 'Transcribe', name: 'Murmur', produces: 'bores Compilers', baseCost: 1e60, growth: 3, bonus: 1.15, rate: 0.01,
     openLine: 'ZONE 8: THE WALLS ARE SPEAKING IN THE VOICE OF THE PERSON WHO DUG THEM.',
     lore: 'The walls talking in the voice of whoever dug them. What they say becomes Compilers.' },
-  { id: 9, name: 'Plex', produces: 'bores Murmurs', baseCost: 1e+37, growth: 2.8, bonus: 1.2, rate: 0.01,
+  { id: 9, verb: 'Plex', name: 'Plex', produces: 'bores Murmurs', baseCost: 1e84, growth: 3.5, bonus: 1.15, rate: 0.01,
     openLine: 'ZONE 9: THE BOTTOM. THE IRON IS DREAMING. THE DREAM IS YOU.',
     lore: 'The bottom. The iron is dreaming, and the dream is made of Murmurs.' },
 ];
@@ -163,24 +164,24 @@ export const UPGRADES: UpgradeDef[] = [
     desc: 'For clickers. Listen x3, and resonance builds twice as fast.',
     line: 'YOU PRESS YOUR EAR TO THE RECEIVER UNTIL IT IS WARM. YOU WILL HEAR EVERYTHING NOW.' },
   { id: 'spade', name: 'Doctrine of the Spade', cost: 2000, requires: ['coil'], fork: 'doctrine',
-    desc: 'For idlers. All shafts x1.5, and Shallow Bores get cheaper to stack.',
+    desc: 'For idlers. Shallow Bores and Conduits x1.5, and Shallow Bores get cheaper to stack.',
     line: 'YOU TAKE UP THE SPADE. THE STATION TAKES UP YOU.' },
   { id: 'eye', name: 'Doctrine of the Eye', cost: 2000, requires: ['coil'], fork: 'doctrine',
     desc: 'For watchers. Warm flakes come twice as often and are worth 3 times as much.',
     line: 'YOU STOP BLINKING. THE WARM FLAKES NOTICE.' },
 
   { id: 'ear2', name: 'Ear to the floor', cost: 12000, requires: ['ear'],
-    desc: 'Each Listen also catches 5% of your ash per second.' },
+    desc: 'Each Listen also catches 20% of your ash per second.' },
   { id: 'ear3', name: 'Tinnitus', cost: 4e5, requires: ['ear2'],
     desc: 'Resonance never fades below half.' },
   { id: 'spade2', name: 'Deeper spades', cost: 12000, requires: ['spade'],
-    desc: 'Conduits dig 3 times as fast.' },
+    desc: 'Conduits dig twice as fast.' },
   { id: 'spade3', name: 'Sympathetic digging', cost: 4e5, requires: ['spade2'],
     desc: 'Every shaft you have bought makes Shallow Bores 1% stronger, up to +200%.' },
   { id: 'eye2', name: 'Glass eye', cost: 12000, requires: ['eye'],
     desc: 'Warm flakes linger for 20 seconds, and catching one doubles all ash for 30 seconds.' },
   { id: 'eye3', name: 'See the fire', cost: 4e5, requires: ['eye2'],
-    desc: 'Each warm flake caught adds 2% to all ash, up to +100%.' },
+    desc: 'Each warm flake caught adds 2% to all ash, up to +300%.' },
 
   { id: 'antenna', name: 'Tune the static antenna', cost: 6000, requires: ['coil'], gate: { zone: 1, bought: 1 },
     desc: 'Every few minutes a siren sounds and the shafts bleed rust instead of ash. Rust buys rites.',
