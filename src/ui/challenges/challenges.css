@@ -9,3 +9,5 @@
 .ch-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .ch-stat { font-family: var(--font-ui); font-size: 14px; }
 .ch-stat b { color: var(--hue); font-weight: normal; }
+.challenge-room { scrollbar-width: none; }
+.challenge-room::-webkit-scrollbar { display: none; }

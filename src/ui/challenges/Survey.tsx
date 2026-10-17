@@ -102,10 +102,14 @@ const SnowMap = memo(function SnowMap({ className, selected = -1, hover = -1, on
           }
         };
         for (const tile of v.heads) {
-          // a little derrick: an A-frame over a dark hole
-          const x0 = (tile % MAP_W) * CELL + 4, y0 = Math.floor(tile / MAP_W) * CELL + 1;
-          for (let k = 0; k < 5; k++) { set(x0 - Math.floor(k / 2), y0 + k, WHITE); set(x0 + Math.floor(k / 2), y0 + k, WHITE); }
-          set(x0 - 1, y0 + 3, WHITE); set(x0 + 1, y0 + 3, WHITE); set(x0, y0 + 5, BG); set(x0, y0 + 4, BG);
+          // a derrick filling its tile: a dark pad, a white A-frame, a red lamp blinking on top
+          const tx = (tile % MAP_W) * CELL, ty = Math.floor(tile / MAP_W) * CELL;
+          for (let y = 0; y < CELL; y++) for (let x = 0; x < CELL; x++) set(tx + x, ty + y, BG);
+          const x0 = tx + 4;
+          for (let k = 0; k < 7; k++) { set(x0 - Math.floor(k / 2), ty + 1 + k, WHITE); set(x0 + Math.floor(k / 2), ty + 1 + k, WHITE); }
+          for (let x = -2; x <= 2; x++) set(x0 + x, ty + 5, WHITE);
+          set(x0, ty + 7, RAMP[2]);
+          if (Math.floor(t * 2 + tile) % 3) set(x0, ty, RED);
         }
         if (hov >= 0) frame(hov, RAMP[4], true);
         if (sel >= 0 && Math.floor(t * 3) % 2 === 0) frame(sel, RED, false);

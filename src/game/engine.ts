@@ -19,8 +19,8 @@ import { achievementMult, checkAchievements } from './achievements';
 import { breed, giftOf, randomGenome, speciesKey, type Gift } from './genome';
 import type { Creature } from './state';
 import { BROOD_MAX, familiarGift, quirkMult } from './familiars';
-import { chMult, stepChallenges } from './challenges';
-import { awayHours, citadelOpen, stepCitadel, wakeCitadel } from './citadel';
+import { chMult, CHALLENGES, stepChallenges } from './challenges';
+import { awayHours, citadelOpen, DREAM_ORDER, stepCitadel, wakeCitadel } from './citadel';
 
 export type Rng = () => number;
 
@@ -632,6 +632,48 @@ function gainAsh(s: GameState, amount: Decimal) {
 }
 
 /** Dev tool: add ash as if it had been caught, so milestones and unlocks follow. */
+/**
+ * Dev tool: open every system for testing. Buys every instrument and rite, digs 300 of each zone,
+ * builds one of everything, opens all nine zone challenges and the gate, wakes the Citadel, and
+ * tops up every resource. Nothing already owned is taken away.
+ */
+export function devUnlockAll(s: GameState) {
+  for (const u of UPGRADES) s.upgrades[u.id] = true;
+  for (const r of RITES) s.rites[r.id] = true;
+  s.zones.forEach(z => {
+    z.bought = Math.max(z.bought, 300);
+    z.amount = Decimal.max(z.amount, 1e6);
+  });
+  s.zonesOpened = 9;
+  s.sirensSeen = Math.max(s.sirensSeen, 1);
+  s.warmCaught = Math.max(s.warmCaught, 1);
+  for (const f of FIXTURES) s.fixtures[f.id] = Math.max(1, s.fixtures[f.id] ?? 0);
+  for (const k of KILN) s.kiln[k.id] = true;
+  for (const f of FREQS) s.freqs[f.id] = true;
+  const n = s.nursery;
+  n.found = true;
+  for (const u of NURSERY_UPS) n.ups[u.id] = Math.max(1, n.ups[u.id] ?? 0);
+  n.slots = 3;
+  n.ghostwax = Math.max(n.ghostwax, 1e4);
+  s.wiring.bus = true;
+  s.wiring.tier = Math.max(s.wiring.tier, 3);
+  s.wiring.cycles = Math.max(s.wiring.cycles, 1e8);
+  s.alchemy.pigment = Math.max(s.alchemy.pigment, 1e8);
+  s.chUnlocked = CHALLENGES.map(c => c.id);
+  const syz = s.challenges.syzygy as unknown as { gateOpen: boolean; dreams: number };
+  syz.gateOpen = true;
+  syz.dreams = Math.max(syz.dreams ?? 0, 1e5);
+  s.citadel.awake = true;
+  s.citadel.nul = Math.max(s.citadel.nul, 1e4);
+  s.dreams.known = [...DREAM_ORDER];
+  s.dreams.slotCount = 3;
+  s.embers = Math.max(s.embers, 1e5);
+  s.echoes = Math.max(s.echoes, 1e7);
+  s.rust = Math.max(s.rust, 1e7);
+  if (s.ash.lt(1e60)) gainAsh(s, new Decimal(1e60).sub(s.ash));
+  checkMilestones(s);
+}
+
 export function devAddAsh(s: GameState, amount: Decimal) {
   if (amount.gt(0)) gainAsh(s, amount);
 }

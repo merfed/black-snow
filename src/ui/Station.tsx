@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import Decimal from 'break_eternity.js';
 import { ACHIEVEMENTS, achievementCount, type AchCategory, type AchDef } from '../game/achievements';
 import { ZONES } from '../game/data';
-import type { DevResource } from '../game/engine';
+import { devUnlockAll, type DevResource } from '../game/engine';
 import { fmt } from '../game/format';
 import { useGame, devValue } from '../game/store';
 import { RARITIES } from '../game/systems';
@@ -208,6 +208,13 @@ function DevTools() {
             <button type="button" onClick={() => apply('set')}>Set to</button>
           </form>
           <p className="dim">Comfort comes from the back room, so build fixtures to change it.</p>
+          <div className="row">
+            <button type="button" onClick={() => {
+              if (!confirm('Open every system and top up every resource? This changes your save for good.')) return;
+              useGame.getState().run(devUnlockAll);
+              setNote('EVERYTHING IS OPEN. THE CITADEL IS AWAKE.');
+            }}>Unlock everything</button>
+          </div>
         </>
       )}
       {note && <p className="note">&gt; {note}</p>}
