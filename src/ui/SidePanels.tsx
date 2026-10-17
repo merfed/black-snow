@@ -7,6 +7,8 @@ import { Card } from './Card';
 import { SYSTEM_COLORS } from './colors';
 import { Sprite } from './Sprite';
 import { FIXTURE_SPRITES, FLAKE } from './sprites';
+import { Artwork } from './Artwork';
+import { SCENES } from './scenes';
 
 const hue = (c: string) => ({ '--hue': c } as CSSProperties);
 
@@ -28,8 +30,9 @@ export function StationPanel() {
   const next = COMFORT_PERKS.find(p => c < p.at);
 
   return (
-    <section className="panel station-panel framed reveal" data-panel="station" style={hue(SYSTEM_COLORS.comfort)}>
+    <section className="panel station-panel plate-panel knots reveal" data-panel="station" style={hue(SYSTEM_COLORS.comfort)}>
       <h2>The back room <span className="h2-note">make it somewhere to stay</span></h2>
+      <Artwork scene={SCENES.backroom} ink={SYSTEM_COLORS.comfort} accent="#ff3030" caption='"Somewhere to stay. Somewhere it can find you."' className="panel-art" />
       <div className={`room ${built.length ? '' : 'empty'}`}>
         {built.length === 0 && <span className="room-empty">Bare boards. A draught from nowhere.</span>}
         {built.map(f => (
@@ -50,7 +53,7 @@ export function StationPanel() {
       {stationMaxOpen(game) && (
         <button className="max-all" onClick={maxAll} title="Build the cheapest fixture level, again and again, until nothing is affordable">Max all fixtures</button>
       )}
-      <div className="cards">
+      <div className="cards scroll-list" data-scroll>
         {FIXTURES.map(f => {
           const lvl = fixtureLevel(game, f.id);
           const cost = fixtureCost(game, f.id);
@@ -75,8 +78,9 @@ export function KilnPanel() {
   const game = useGame(st => st.game);
   const buy = useGame(st => st.buyKiln);
   return (
-    <section className="panel kiln-panel framed reveal" data-panel="kiln" style={hue(SYSTEM_COLORS.embers)}>
+    <section className="panel kiln-panel plate-panel knots reveal" data-panel="kiln" style={hue(SYSTEM_COLORS.embers)}>
       <h2>Kiln <span className="h2-note">what the warm flakes leave behind</span></h2>
+      <Artwork scene={SCENES.kiln} ink={SYSTEM_COLORS.embers} accent="#ffe066" caption='"Keep it fed. It remembers the cold."' className="panel-art" />
       <div className="res-line">
         <Sprite rows={FLAKE} px={3} className="warm-ink" />
         <span className="big-number small hue-text">{fmt(game.embers)}</span> embers

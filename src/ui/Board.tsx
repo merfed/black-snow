@@ -141,6 +141,9 @@ export function Board({ columns, layoutKey }: { columns: Column[]; layoutKey: st
     // Wheel has to be non-passive to stop the browser scrolling or zooming the page.
     const el = vp.current!;
     const onWheel = (e: WheelEvent) => {
+      // A list that can still scroll this way takes the wheel for itself.
+      const sc = (e.target as Element).closest<HTMLElement>('[data-scroll]');
+      if (sc && !e.ctrlKey && !e.metaKey && (e.deltaY > 0 ? sc.scrollTop + sc.clientHeight < sc.scrollHeight - 1 : sc.scrollTop > 0)) return;
       e.preventDefault();
       if (e.ctrlKey || e.metaKey) {
         zoomAt(Math.exp(-e.deltaY * 0.01), e.clientX, e.clientY);

@@ -7,9 +7,9 @@ import {
 import { Card } from './Card';
 import { ZONE_COLORS } from './colors';
 import { WiringPreview } from './Circuit';
-import { COMPILER, wiringOpen } from '../game/wiring';
+import { COMPILER, EXCHANGE_AT, wiringOpen } from '../game/wiring';
 import { BUFFER } from '../game/patterns';
-import { alchemyOpen, SPIRAL } from '../game/alchemy';
+import { alchemyOpen, SPIRAL, SPIRAL_AT } from '../game/alchemy';
 import { PatternBuffer } from './Buffer';
 import { SpiralPreview } from './Spiral';
 import { fmt } from '../game/format';
@@ -92,7 +92,7 @@ export function ZonePanel({ i }: { i: number }) {
   const above = i > 0 ? ZONES[i - 1].name : '';
 
   return (
-    <section className={`panel zone-panel knots reveal ${afford ? 'affordable' : ''}`} data-panel={`zone-${i}`}
+    <section className={`panel zone-panel plate-panel knots reveal ${afford ? 'affordable' : ''}`} data-panel={`zone-${i}`}
       style={{ '--hue': hue } as CSSProperties}>
       <h2>
         <span className="zone-num">{def.id}</span> Zone {def.id}
@@ -145,6 +145,8 @@ export function ZonePanel({ i }: { i: number }) {
       {i === COMPILER && wiringOpen(game) && <WiringPreview />}
       {i === BUFFER && z.bought > 0 && <PatternBuffer />}
       {i === SPIRAL && alchemyOpen(game) && <SpiralPreview />}
+      {i === COMPILER && z.bought > 0 && !wiringOpen(game) && <p className="dim small-note">At {EXCHANGE_AT} Compilers ({z.bought}/{EXCHANGE_AT}) the Exchange opens, and its lines can be patched.</p>}
+      {i === SPIRAL && z.bought > 0 && !alchemyOpen(game) && <p className="dim small-note">At {SPIRAL_AT} Barker Spirals ({z.bought}/{SPIRAL_AT}) the spiral starts to take colour.</p>}
       {zoneMaxOpen(game, i) && (
         <button className="max-all" onClick={() => maxAll(i)} title="Spend ash on the cheapest shaft or upgrade here until nothing is affordable">
           Max all in zone {def.id}
@@ -175,7 +177,7 @@ export function ZoneTeaser({ i }: { i: number }) {
   const game = useGame(st => st.game);
   const above = ZONES[i - 1];
   return (
-    <section className="panel zone-panel zone-teaser knots" data-panel={`zone-${i}`} style={{ '--hue': ZONE_COLORS[i] } as CSSProperties}>
+    <section className="panel zone-panel plate-panel zone-teaser knots" data-panel={`zone-${i}`} style={{ '--hue': ZONE_COLORS[i] } as CSSProperties}>
       <h2><span className="zone-num">{i + 1}</span> Zone {i + 1}</h2>
       <Artwork scene={ZONE_SCENES[i]} ink={ZONE_COLORS[i]} accent={ZONE_ART[i].accent} veil={0.82} caption="? ? ?" className="zone-art" />
       <p className="zone-desc">Opens at 5 {above.name}s ({game.zones[i - 1].bought}/5). It will dig {above.name}s.</p>

@@ -80,7 +80,9 @@ export interface Alchemy {
 
 export const newAlchemy = (): Alchemy => ({ pigment: 0, colors: [...START_COLORS], found: {}, tried: [], hints: {}, slots3: false, quick: 0, winding: null, last: null });
 
-export const alchemyOpen = (s: GameState) => s.zones[SPIRAL].bought > 0;
+/** The spiral starts taking colour once a few Barker Spirals are wound. */
+export const SPIRAL_AT = 5;
+export const alchemyOpen = (s: GameState) => s.zones[SPIRAL].bought >= SPIRAL_AT;
 export const mixKey = (mix: string[]) => [...mix].sort().join('+');
 export const recipeFor = (mix: string[]) => RECIPES.find(r => mixKey(r.mix) === mixKey(mix));
 export const ingredientName = (id: string) => (id[0] === 'c' && /^c\d+$/.test(id) ? COLORS[Number(id.slice(1))].name : RECIPES.find(r => r.id === id)?.name ?? id);

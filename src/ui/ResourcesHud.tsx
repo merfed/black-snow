@@ -34,6 +34,7 @@ export function ResourcesHud() {
   if (n.found) {
     rows.push(['Eggs', String(n.eggs.length), n.eggs.length ? `${Math.floor(Math.max(...n.eggs.map(e => e.warmth)))}% warmest` : undefined, C.nursery]);
     rows.push(['Brood', String(n.brood.length), `${n.seen.length} species`, C.nursery]);
+    if (n.ghostwax > 0 || n.rendered > 0) rows.push(['Ghostwax', fmt(n.ghostwax), `${n.rendered} rendered`, '#e8dcc0']);
   }
   const dug = game.zones.filter(z => z.amount.gt(0));
 

@@ -4,6 +4,8 @@ import { fmt } from '../game/format';
 import { useGame } from '../game/store';
 import { Card } from './Card';
 import { SYSTEM_COLORS } from './colors';
+import { Artwork } from './Artwork';
+import { SCENES } from './scenes';
 import type { CSSProperties } from 'react';
 
 /**
@@ -47,8 +49,9 @@ export function InstrumentsPanel() {
   };
 
   return (
-    <section className="panel instruments-panel framed reveal" data-panel="instruments" style={{ '--hue': SYSTEM_COLORS.instruments } as CSSProperties}>
+    <section className="panel instruments-panel plate-panel knots reveal" data-panel="instruments" style={{ '--hue': SYSTEM_COLORS.instruments } as CSSProperties}>
       <h2>Instruments <span className="h2-note">what the station can be made to do</span></h2>
+      <Artwork scene={SCENES.instruments} ink={SYSTEM_COLORS.instruments} accent="#ff3030" caption='"The receiver hears more than it says."' className="panel-art" />
       <div className="instruments">
         {blocks.map(b => Array.isArray(b) ? (
           <div key={b[0].fork} className="fork">

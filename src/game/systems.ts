@@ -113,7 +113,7 @@ export const FREQS: FreqDef[] = [
 
 // ---- the nursery: wild eggs, the brood, breeding ----
 
-export type NurseryUpId = 'lamp' | 'straw' | 'trough' | 'nest';
+export type NurseryUpId = 'lamp' | 'straw' | 'trough' | 'nest' | 'wing';
 
 export interface NurseryUpDef { id: NurseryUpId; name: string; desc: string; cost: number; growth: number; max: number }
 
@@ -122,6 +122,7 @@ export const NURSERY_UPS: NurseryUpDef[] = [
   { id: 'straw', name: 'Straw from nowhere', desc: 'The brood grows 50% faster per level.', cost: 5e4, growth: 5, max: 5 },
   { id: 'trough', name: 'Feeding trough', desc: 'Feeding fills 20 more, and hunger falls 15% slower, per level.', cost: 3e4, growth: 5, max: 5 },
   { id: 'nest', name: 'Bigger nest', desc: 'Room for one more egg and one more creature per level.', cost: 1e5, growth: 8, max: 5 },
+  { id: 'wing', name: 'Brood wing', desc: 'Another room off the nursery: space for 8 more creatures per level, up to 255.', cost: 2e6, growth: 2.6, max: 31 },
 ];
 
 export const NEST_EGGS = 2; // egg slots before upgrades

@@ -714,5 +714,189 @@ const lull: Scene = {
   },
 };
 
+// ---------------------------------------------------------------- the side rooms
+
+/** The back room: a window full of snow, a lamp, an armchair nobody sits in, the stove going. */
+const backroom: Scene = {
+  w: W, h: H,
+  draw(g, a, t) {
+    const f = flicker(t, 4);
+    field(g, (x, y) => {
+      if (y > 70) {
+        const d = y - 50, sx = (x - 90) / d, board = ((sx * 4) % 1 + 1) % 1;
+        return (board < 0.08 ? 0.01 : 0.06 + 0.03 * hash(Math.floor(sx * 4), 0, 50)) + 0.2 * f * Math.max(0, 1 - Math.hypot((x - 140) * 0.6, y - 82) / 30);
+      }
+      const stripe = x % 9 < 4 ? 0.06 : 0.035;
+      return stripe + 0.02 * (hash(x >> 1, y >> 1, 51) - 0.5) + 0.32 * f * Math.max(0, 1 - Math.hypot(x - 34, y - 26) / 50) ** 2;
+    });
+    rect(g, 0, 69, W, 2, 0.28);
+    // the window, snowing
+    rect(g, 58, 12, 34, 38, 0.3);
+    rect(g, 60, 14, 30, 34, 0.42);
+    g.save();
+    g.translate(60, 14);
+    flakes(g, t, 26, 0.04, 52, 5, 30, 34);
+    g.restore();
+    rect(g, 74, 14, 2, 34, 0.3);
+    rect(g, 60, 30, 30, 2, 0.3);
+    shape(g, 0.16, [54, 10, 62, 10, 60, 52, 54, 54]);
+    shape(g, 0.16, [96, 10, 88, 10, 90, 52, 96, 54]);
+    // the lamp
+    rect(g, 33, 26, 2, 52, 0.05);
+    shape(g, 0.5, [27, 26, 41, 26, 38, 18, 30, 18]);
+    rect(g, 28, 77, 12, 2, 0.05);
+    glow(a, 34, 27, 3, 0.6 * f);
+    // the clock
+    disc(g, 120, 22, 6, 0.32);
+    disc(g, 120, 22, 5, 0.12);
+    const hand = t * 0.5;
+    line(g, 120, 22, 120 + Math.cos(hand) * 4, 22 + Math.sin(hand) * 4, 0.6);
+    line(g, 120, 22, 121, 19, 0.6);
+    // rug and the armchair
+    g.fillStyle = gray(0.14);
+    g.beginPath();
+    g.ellipse(96, 84, 34, 7, 0, 0, TAU);
+    g.fill();
+    g.strokeStyle = gray(0.34);
+    g.beginPath();
+    g.ellipse(96, 84, 30, 5.5, 0, 0, TAU);
+    g.stroke();
+    const chair = new Path2D('M78 82L78 60C78 52 82 50 90 50L104 50C112 50 116 52 116 60L116 82L112 82L112 72L82 72L82 82Z');
+    g.fillStyle = gray(0.2);
+    g.fill(chair);
+    g.strokeStyle = gray(0.42);
+    g.lineWidth = 1;
+    g.stroke(chair);
+    rect(g, 74, 62, 6, 16, 0.3);
+    rect(g, 114, 62, 6, 16, 0.14);
+    rect(g, 82, 66, 30, 6, 0.32);
+    rect(g, 86, 54, 22, 10, 0.12);
+    // the stove
+    rect(g, 141, 8, 4, 40, 0.2);
+    g.fillStyle = gray(0.22);
+    g.beginPath();
+    g.ellipse(143, 62, 13, 16, 0, 0, TAU);
+    g.fill();
+    rect(g, 133, 76, 3, 8, 0.22);
+    rect(g, 150, 76, 3, 8, 0.22);
+    rect(g, 138, 46, 10, 4, 0.34);
+    rect(g, 132, 56, 1, 14, 0.4);
+    for (let k = 0; k < 3; k++) rect(a, 137, 60 + k * 3, 12, 1, f > 0.72 ? 1 : 0.7);
+    glow(a, 143, 63, 9, 0.35 * f);
+  },
+};
+
+/** The instruments: a receiver with a lit dial, a scope drawing what it hears, reels turning. */
+const instruments: Scene = {
+  w: W, h: H,
+  draw(g, a, t) {
+    field(g, (x, y) => (y > 72 ? 0.16 + 0.03 * hash(x, y, 60) : 0.03 + 0.18 * Math.max(0, 1 - Math.hypot(x - 90, y - 4) / 80) ** 2));
+    rect(g, 0, 72, W, 2, 0.4);
+    line(g, 90, 0, 90, 6, 0.3);
+    shape(g, 0.45, [80, 10, 100, 10, 95, 4, 85, 4]);
+    // the receiver
+    rect(g, 18, 34, 64, 38, 0.24);
+    rect(g, 18, 34, 64, 1, 0.5);
+    rect(g, 24, 40, 40, 12, 0.06);
+    for (let k = 0; k < 9; k++) rect(g, 26 + k * 4.4, 42, 1, k % 2 ? 2 : 4, 0.5);
+    rect(a, 30 + (Math.sin(t * 0.4) * 0.5 + 0.5) * 30, 40, 1, 12, 1);
+    glow(g, 44, 46, 18, 0.12);
+    for (let k = 0; k < 4; k++) {
+      disc(g, 28 + k * 11, 62, 3.5, 0.5);
+      line(g, 28 + k * 11, 62, 28 + k * 11 + Math.cos(k * 1.7 + t * 0.2) * 3, 62 + Math.sin(k * 1.7 + t * 0.2) * 3, 0.05);
+    }
+    for (let k = 0; k < 6; k++) rect(g, 68, 40 + k * 4, 10, 2, 0.12);
+    disc(a, 73, 66, 1.5, Math.floor(t * 2) % 2 ? 1 : 0.2);
+    // the scope
+    rect(g, 92, 30, 44, 42, 0.2);
+    rect(g, 96, 34, 36, 26, 0.04);
+    for (let x = 96; x < 132; x += 6) rect(g, x, 34, 1, 26, 0.1);
+    g.strokeStyle = gray(0.95);
+    g.lineWidth = 1;
+    g.beginPath();
+    for (let x = 0; x <= 36; x++) {
+      const y = 47 + Math.sin(x * 0.45 - t * 4) * 6 * Math.sin(t * 0.7 + x * 0.05) + (hash(x, Math.floor(t * 8), 61) - 0.5) * 2;
+      if (x) g.lineTo(96 + x, y); else g.moveTo(96, y);
+    }
+    g.stroke();
+    disc(g, 104, 66, 2.5, 0.5);
+    disc(g, 124, 66, 2.5, 0.5);
+    // the reel to reel
+    rect(g, 142, 38, 32, 34, 0.22);
+    for (const [cx, sp] of [[150, 1], [166, 1.3]] as const) {
+      disc(g, cx, 50, 6.5, 0.55);
+      disc(g, cx, 50, 1.5, 0.1);
+      for (let k = 0; k < 3; k++) {
+        const an = t * sp + (k * TAU) / 3;
+        disc(g, cx + Math.cos(an) * 3.6, 50 + Math.sin(an) * 3.6, 1.3, 0.12);
+      }
+    }
+    line(g, 150, 56.5, 166, 56.5, 0.06);
+    rect(g, 148, 62, 20, 4, 0.1);
+    // cables over the edge of the desk
+    g.strokeStyle = gray(0.08);
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.moveTo(40, 72);
+    g.bezierCurveTo(44, 90, 70, 94, 76, 96);
+    g.moveTo(120, 72);
+    g.bezierCurveTo(118, 86, 130, 92, 150, 96);
+    g.stroke();
+  },
+};
+
+/** The kiln: a brick furnace with its mouth open, the fire turning over, embers rising out of it. */
+const kiln: Scene = {
+  w: W, h: H,
+  draw(g, a, t) {
+    const cx = 90;
+    field(g, (x, y) => {
+      const inBody = x > 44 && x < 136 && y > 14;
+      if (!inBody) return y > 86 ? 0.12 + 0.05 * hash(x, y, 70) : 0.04 + 0.03 * hash(x >> 2, y >> 2, 71);
+      const row = Math.floor((y - 14) / 5), off = row % 2 ? 6 : 0;
+      const mortar = (y - 14) % 5 === 0 || (x + off) % 12 === 0;
+      const heat = Math.max(0, 1 - Math.hypot(x - cx, (y - 66) * 1.3) / 44);
+      return mortar ? 0.06 : 0.2 + 0.1 * hash(Math.floor((x + off) / 12), row, 72) + 0.3 * heat;
+    });
+    // the chimney
+    rect(g, 78, 0, 24, 14, 0.18);
+    rect(g, 76, 12, 28, 3, 0.3);
+    // the mouth: fire rising through noise
+    const mouth = new Path2D('M66 86L66 62C66 46 114 46 114 62L114 86Z');
+    g.fillStyle = gray(0.02);
+    g.fill(mouth);
+    const img = g.getImageData(0, 0, W, H), d = img.data;
+    for (let y = 48; y < 86; y++) for (let x = 66; x < 114; x++) {
+      if (!g.isPointInPath(mouth, x + 0.5, y + 0.5)) continue;
+      const fy = (86 - y) / 38;
+      const v = fbm(x / 7, y / 6 + t * 1.6, 73) * 1.25 - fy * 0.85 + 0.15 * Math.sin(x * 0.3 + t * 3);
+      const i = (y * W + x) * 4;
+      d[i] = d[i + 1] = d[i + 2] = Math.max(0, Math.min(1, v)) * 255;
+    }
+    g.putImageData(img, 0, 0);
+    g.strokeStyle = gray(0.5);
+    g.lineWidth = 2;
+    g.stroke(mouth);
+    // coals at the bottom of the mouth glow in the second ink
+    for (let k = 0; k < 14; k++) {
+      const x = 68 + k * 3.3, y = 82 + Math.sin(k * 2.1) * 1.5;
+      if (Math.sin(t * 2 + k * 1.7) > -0.2) disc(a, x, y, 1.3, 1);
+    }
+    // embers rising
+    for (let k = 0; k < 16; k++) {
+      const p = (t * 0.25 + hash(k, 1, 74)) % 1;
+      const x = cx + (hash(k, 2, 74) - 0.5) * 40 + Math.sin(t * 2 + k) * 4 * p;
+      const y = 60 - p * 62;
+      rect(a, x, y, 1, 1, p < 0.85 ? 1 : 0);
+    }
+    // tongs and a bucket of ash
+    line(g, 146, 88, 156, 40, 0.45, 1.2);
+    line(g, 150, 88, 157, 40, 0.45, 1.2);
+    shape(g, 0.3, [20, 88, 38, 88, 36, 72, 22, 72]);
+    rect(g, 21, 72, 16, 2, 0.5);
+    for (let k = 0; k < 6; k++) disc(g, 24 + k * 2.5, 71, 1.5, 0.16);
+  },
+};
+
 export const ZONE_SCENES: Scene[] = [bore, conduit, buffer, well, lock, spiral, compiler, murmur, plex];
-export const SCENES = { keeper, lull };
+export const SCENES = { keeper, lull, backroom, instruments, kiln };

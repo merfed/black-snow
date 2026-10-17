@@ -44,7 +44,9 @@ const RELAY = [8, 15, 30, 60];
 export const CORE_SIGNAL = 10;
 
 export const key = (x: number, y: number) => `${x},${y}`;
-export const wiringOpen = (s: GameState) => s.zones[COMPILER].bought > 0;
+/** The Exchange opens once a few Compilers are running. */
+export const EXCHANGE_AT = 5;
+export const wiringOpen = (s: GameState) => s.zones[COMPILER].bought >= EXCHANGE_AT;
 export const portAt = (s: GameState, x: number, y: number) => PORTS.find(p => p.x === x && p.y === y && (!p.late || s.wiring.bus));
 const fixedAt = (x: number, y: number) => (x === CORE.x && y === CORE.y) || PORTS.some(p => p.x === x && p.y === y);
 

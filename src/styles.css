@@ -1096,14 +1096,14 @@ body:has(.warm-flake.rarity-4) .crt { background: radial-gradient(circle at cent
 
 /* ---------- zone boxes, printed ---------- */
 
-/* Each zone is a plate in a double frame: hue ink on near-black, knotted corners, a dotted rule. */
-.panel.zone-panel {
+/* Plate panels (every zone, the back room, the instruments, the kiln): a double frame: hue ink on near-black, knotted corners, a dotted rule. */
+.panel.plate-panel {
   --ink: var(--hue);
   background: color-mix(in srgb, var(--hue) 5%, color-mix(in srgb, var(--bg) 88%, transparent));
   border: 1px solid color-mix(in srgb, var(--hue) 60%, transparent);
   padding: 22px 20px 20px;
 }
-.panel.zone-panel::before {
+.panel.plate-panel::before {
   content: ''; position: absolute; inset: 4px; pointer-events: none;
   --fr: color-mix(in srgb, var(--hue) 32%, transparent);
   background:
@@ -1112,10 +1112,10 @@ body:has(.warm-flake.rarity-4) .crt { background: radial-gradient(circle at cent
     linear-gradient(var(--fr), var(--fr)) 0 12px / 1px calc(100% - 24px) no-repeat,
     linear-gradient(var(--fr), var(--fr)) 100% 12px / 1px calc(100% - 24px) no-repeat;
 }
-.panel.zone-panel.affordable { border-color: var(--hue); }
-.panel.zone-panel > h2 { font-family: 'MEK Mono', var(--font-ui); font-size: 15px; letter-spacing: 0.22em; margin-bottom: 14px; }
-.panel.zone-panel > h2::before { box-shadow: none; width: 6px; height: 6px; }
-.zone-art { margin: 0 0 16px; }
+.panel.plate-panel.affordable { border-color: var(--hue); }
+.panel.plate-panel > h2 { font-family: 'MEK Mono', var(--font-ui); font-size: 15px; letter-spacing: 0.22em; margin-bottom: 14px; }
+.panel.plate-panel > h2::before { box-shadow: none; width: 6px; height: 6px; }
+.zone-art, .panel-art { margin: 0 0 16px; }
 .zone-art .artwork-frame { border-color: color-mix(in srgb, var(--hue) 45%, transparent); }
 .zone-panel .zone-lore { text-align: center; margin: 0 0 12px; }
 .zone-panel .zone-head { padding-bottom: 12px; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--hue) 45%, transparent) 0 2px, transparent 2px 5px) bottom / 100% 1px no-repeat; margin-bottom: 12px; }
@@ -1136,3 +1136,41 @@ body:has(.warm-flake.rarity-4) .crt { background: radial-gradient(circle at cent
 .zone-panel .card-head { background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 16%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; }
 .panel.zone-teaser { opacity: 0.75; border-style: dashed; }
 .decor .artwork { pointer-events: none; }
+
+/* A list that scrolls on its own inside a panel, so long panels stay short. */
+.scroll-list { max-height: 460px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--hue, #888) 50%, transparent) transparent; padding-right: 6px; margin-right: -6px; }
+.scroll-list::-webkit-scrollbar { width: 6px; }
+.scroll-list::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--hue, #888) 45%, transparent); }
+
+/* ---------- the brood as icons ---------- */
+
+.brood-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; font-family: var(--font-ui); font-size: 13px; }
+.brood-tools select { font: inherit; background: var(--bg); color: var(--text); border: 1px solid color-mix(in srgb, var(--hue) 40%, var(--line)); padding: 5px 6px; }
+.pet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 4px; max-height: 320px; }
+.pet { position: relative; display: grid; place-items: center; padding: 4px 2px 8px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.3); min-height: 48px; }
+.pet:hover:not(:disabled) { background: color-mix(in srgb, var(--hue) 12%, transparent); color: inherit; box-shadow: none; border-color: var(--hue); }
+.pet.selected { border-color: var(--hue); box-shadow: inset 0 0 0 1px var(--hue); }
+.pet.picked { outline: 1px dashed var(--hue); outline-offset: 1px; }
+.pet.hungry .pet-sprite { opacity: 0.55; }
+.pet-dots { position: absolute; bottom: 2px; left: 4px; display: flex; gap: 2px; }
+.pet-dots i { width: 4px; height: 3px; background: var(--line); }
+.pet-dots i:nth-child(1).on { background: #b8ff3b; }
+.pet-dots i:nth-child(1).off { background: #ff3b3b; }
+.pet-dots i:nth-child(2).on { background: #ff6bd0; }
+.pet-dots i:nth-child(3).on { background: var(--text); }
+.pet-stage { position: absolute; top: 1px; right: 3px; font-family: var(--font-ui); font-size: 10px; color: var(--dim); }
+.pet-detail { display: flex; gap: 14px; margin-top: 10px; padding: 10px; border: 1px solid var(--hue); background: color-mix(in srgb, var(--hue) 6%, rgba(0, 0, 0, 0.3)); }
+.pet-detail .row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.pet-detail button { padding: 6px 10px; font-size: 13px; }
+.pet-tip {
+  position: fixed; z-index: 40; width: 260px; pointer-events: none; padding: 10px 12px; font-size: 13px;
+  background: #07080c; border: 1px solid var(--hue); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+}
+.pet-tip .creature-name { font-family: var(--font-display); font-size: 18px; }
+.familiars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.familiar { display: grid; gap: 4px; align-content: start; justify-items: start; padding: 8px; border: 1px solid color-mix(in srgb, var(--hue) 50%, var(--line)); background: color-mix(in srgb, var(--hue) 6%, rgba(0, 0, 0, 0.3)); font-size: 12px; min-width: 0; }
+.familiar.locked, .familiar.empty { border-style: dashed; background: rgba(0, 0, 0, 0.25); }
+.familiar-label { font-family: var(--font-ui); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--hue); }
+.familiar-name { font-family: var(--font-display); font-size: 15px; line-height: 1.1; }
+.familiar .row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.familiar button.tiny { padding: 4px 6px; font-size: 11px; }

@@ -30,7 +30,7 @@ describe('pattern buffer', () => {
 describe('barker spiral alchemy', () => {
   const open = () => {
     const s = newGame();
-    s.zones[a.SPIRAL].bought = 1;
+    s.zones[a.SPIRAL].bought = a.SPIRAL_AT;
     s.zones[a.SPIRAL].amount = new Decimal(1);
     s.alchemy.pigment = 1000;
     return s;

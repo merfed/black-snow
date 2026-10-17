@@ -75,6 +75,11 @@ export interface Nursery {
   seen: string[]; // species keys hatched so far
   nextId: number;
   ups: Partial<Record<NurseryUpId, number>>;
+  familiars: (Creature | null)[]; // the three slots by the stove
+  slots: number; // how many of them are open
+  candles: number[]; // ghostwax candles lit at each slot
+  ghostwax: number;
+  rendered: number; // creatures rendered down, ever
 }
 
 export interface GameState {
@@ -156,7 +161,7 @@ export function newGame(rng: () => number = Math.random): GameState {
     freqs: {},
     tuned: null,
     fixtures: {},
-    nursery: { found: false, eggs: [], brood: [], seen: [], nextId: 1, ups: {} },
+    nursery: { found: false, eggs: [], brood: [], seen: [], nextId: 1, ups: {}, familiars: [null, null, null], slots: 0, candles: [0, 0, 0], ghostwax: 0, rendered: 0 },
     wiring: newWiring(),
     patterns: newPatterns(rng),
     alchemy: newAlchemy(),

@@ -18,6 +18,7 @@ import { alchemyOpen, pigmentBase, stepAlchemy, tinctureMult } from './alchemy';
 import { achievementMult, checkAchievements } from './achievements';
 import { breed, giftOf, randomGenome, speciesKey, type Gift } from './genome';
 import type { Creature } from './state';
+import { BROOD_MAX, familiarGift, quirkMult } from './familiars';
 
 export type Rng = () => number;
 
@@ -327,17 +328,19 @@ export function buyNurseryUp(s: GameState, id: NurseryUpId): boolean {
 }
 
 export const eggSlots = (s: GameState) => NEST_EGGS + nurseryUpLevel(s, 'nest');
-export const broodSlots = (s: GameState) => NEST_BROOD + nurseryUpLevel(s, 'nest');
+export const broodSlots = (s: GameState) => Math.min(BROOD_MAX, NEST_BROOD + nurseryUpLevel(s, 'nest') + 8 * nurseryUpLevel(s, 'wing'));
 export const isFed = (c: Creature) => c.hunger > 25;
 
 /** Sum of fed creatures' stages for one kind of gift; each gift scales with how grown its giver is. */
 export function giftTotal(s: GameState, gift: Gift): number {
   let n = 0;
   for (const c of s.nursery.brood) if (isFed(c) && giftOf(c.genome) === gift) n += c.stage;
-  return n;
+  // A big brood still helps, but past 40 each one adds less, so 255 creatures can't run away with it.
+  if (n > 40) n = 40 * Math.sqrt(n / 40);
+  return n + familiarGift(s, gift);
 }
 
-export const eggWarmRate = (s: GameState) => Math.min(comfort(s), 300) * 0.02 * (1 + 0.5 * nurseryUpLevel(s, 'lamp')) * (comfortPerk(s, 4) ? 2 : 1) * tinctureMult(s, 'eggs');
+export const eggWarmRate = (s: GameState) => Math.min(comfort(s), 300) * 0.02 * (1 + 0.5 * nurseryUpLevel(s, 'lamp')) * (comfortPerk(s, 4) ? 2 : 1) * tinctureMult(s, 'eggs') * quirkMult(s, 'eggs');
 
 /** Pigment per second from the Barker Spirals, for the alchemy. */
 export const pigmentRate = (s: GameState) => pigmentBase(s) * patternMult(s, 'pigment') * tinctureMult(s, 'pigment');
@@ -379,6 +382,18 @@ export function singTo(s: GameState, id: number): boolean {
   c.mood = Math.min(100, c.mood + 25);
   c.singIn = 45;
   return true;
+}
+
+/** Feed or sing to a whole set of creatures at once; returns how many it reached. */
+export function feedMany(s: GameState, ids: number[]): number {
+  let n = 0;
+  for (const id of ids) if (feedCreature(s, id)) n++;
+  return n;
+}
+export function singMany(s: GameState, ids: number[]): number {
+  let n = 0;
+  for (const id of ids) if (singTo(s, id)) n++;
+  return n;
 }
 
 export const canBreed = (c: Creature) => c.stage >= BREED_STAGE && c.breedIn <= 0;
@@ -506,6 +521,7 @@ export function zoneMult(s: GameState, i: number): Decimal {
   m = m.mul(wiringMult(s, i));
   if (i <= 4) m = m.mul(tinctureMult(s, `zone${i}` as 'zone0'));
   m = m.mul(tinctureMult(s, 'zones'));
+  m = m.mul(quirkMult(s, 'zones'));
   return m;
 }
 
@@ -585,7 +601,7 @@ export function totalShaftsBought(s: GameState) {
 export function rustPerSecond(s: GameState): number {
   const base = 0.1 * Math.sqrt(totalShaftsBought(s)) * (1 + 0.25 * s.zonesOpened);
   return base * (has(s, 'ring') ? 1.5 : 1) * (owns(s, 'salt_feed') ? 2 : 1)
-    * (tunedTo(s, 'dead') ? 2 : 1) * (comfortPerk(s, 2) ? 1.5 : 1) * patternMult(s, 'rust') * tinctureMult(s, 'rust');
+    * (tunedTo(s, 'dead') ? 2 : 1) * (comfortPerk(s, 2) ? 1.5 : 1) * patternMult(s, 'rust') * tinctureMult(s, 'rust') * quirkMult(s, 'rust');
 }
 
 export function sirenLength(s: GameState) {
@@ -679,7 +695,7 @@ export function catchWarmFlake(s: GameState, rng: Rng = Math.random): Decimal {
   else if (s.kiln.kindling) s.kindled = Math.max(s.kindled, 15);
   const r = s.warmFlake.rarity ?? 0;
   s.stats.flakes[r] = (s.stats.flakes[r] ?? 0) + 1;
-  s.embers += Math.round(((s.kiln.bloom ? 2 : 1) * RARITIES[r].embers + (comfortPerk(s, 5) ? 1 : 0)) * patternMult(s, 'embers') * tinctureMult(s, 'embers'));
+  s.embers += Math.round(((s.kiln.bloom ? 2 : 1) * RARITIES[r].embers + (comfortPerk(s, 5) ? 1 : 0)) * patternMult(s, 'embers') * tinctureMult(s, 'embers') * quirkMult(s, 'embers'));
   maybeWildEgg(s, r > 0 ? 1 : 0.15, rng);
   s.warmFlake = { ...s.warmFlake, active: false, ttl: 0, spawnIn: nextFlakeGap(s, rng), rarity: 0 };
   if (r > 0) log(s, `${RARITIES[r].line} +${fmt(reward)} ASH.`, 'milestone', true);
@@ -691,7 +707,7 @@ export function catchWarmFlake(s: GameState, rng: Rng = Math.random): Decimal {
 // ---- simulation ----
 
 const nextFlakeGap = (s: GameState, rng: Rng) => (40 + rng() * 50) * (owns(s, 'eye') ? 0.5 : 1)
-  * (s.kiln.bellows ? 0.8 : 1) / weatherMult(s, 'fog', 2);
+  * (s.kiln.bellows ? 0.8 : 1) / weatherMult(s, 'fog', 2) / quirkMult(s, 'flakes');
 
 function stepWarmFlake(s: GameState, dt: number, rng: Rng) {
   const w = s.warmFlake;

@@ -88,7 +88,7 @@ export const BoardSvg = memo(function BoardSvg({ game, flow, hover }: { game: Ga
   );
 });
 
-/** The small window onto the board inside the Compiler box. Drag it to look around. */
+/** The small window onto the Exchange inside the Compiler box. Drag it to look around. */
 export function WiringPreview() {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
@@ -115,7 +115,7 @@ export function WiringPreview() {
   return (
     <div className="wiring-box">
       <div className="wiring-head">
-        <span className="sub-head">The board</span>
+        <span className="sub-head">The Exchange</span>
         <span className="wiring-cycles"><b>{fmt(game.wiring.cycles)}</b> cycles · +{fmt(cycleRate(game))}/s</span>
       </div>
       <svg className="wiring-preview" data-nodrag width="100%" viewBox={`0 0 ${W} ${H}`} onPointerDown={down} onPointerMove={move}
@@ -123,9 +123,9 @@ export function WiringPreview() {
         <g transform={`scale(${scale}) translate(${-pan.x} ${-pan.y})`}><BoardSvg game={game} flow={flow} /></g>
       </svg>
       <p className="dim small-note">
-        {lit ? `Signal reaches ${lit} zone${lit > 1 ? 's' : ''}.` : 'Nothing is wired yet.'} Drag to look around; open the board to build.
+        {lit ? `Signal reaches ${lit} zone${lit > 1 ? 's' : ''}.` : 'Nothing is wired yet.'} Drag to look around; open the Exchange to patch it.
       </p>
-      <button className="max-all" onClick={() => setOpen(true)}>Open the board</button>
+      <button className="max-all" onClick={() => setOpen(true)}>Open the Exchange</button>
       {open && <WiringEditor onClose={() => setOpen(false)} />}
     </div>
   );
@@ -228,10 +228,10 @@ export function WiringEditor({ onClose }: { onClose: () => void }) {
 
   return createPortal(
     <div className="dialog-backdrop wiring-backdrop" data-nodrag onClick={onClose}>
-      <div className="wiring-editor panel framed" role="dialog" aria-label="The Compiler's board" onClick={e => e.stopPropagation()}
+      <div className="wiring-editor panel framed" role="dialog" aria-label="The Exchange" onClick={e => e.stopPropagation()}
         style={{ '--hue': ZONE_COLORS[6] } as CSSProperties}>
         <header className="we-head">
-          <h2>The board <span className="h2-note">what the Compiler is trying to say</span></h2>
+          <h2>The Exchange <span className="h2-note">every line the Compiler is trying to put through</span></h2>
           <span className="we-cycles"><b>{fmt(game.wiring.cycles)}</b> cycles <small>+{fmt(cycleRate(game))}/s</small></span>
           <div className="we-actions">
             <button className="secondary" disabled={!lower} onClick={() => runG(s => { const n = upgradeAll(s); setNote(n ? `Upgraded ${n} part${n > 1 ? 's' : ''}.` : 'Not enough cycles to upgrade anything.'); })}>
@@ -273,7 +273,7 @@ export function WiringEditor({ onClose }: { onClose: () => void }) {
               <span><b>Pull up</b><small>Refunds every cycle it cost.</small></span>
             </button>
             <p className="dim we-help">
-              Drag a part onto the board, or pick one and paint. Drop a better tier on a part to upgrade it in place.
+              Drag a part onto the Exchange, or pick one and paint. Drop a better tier on a part to upgrade it in place.
               Drag empty space, shift-drag or right-drag to pan; scroll to zoom; hold alt to pull up.
             </p>
             <p className="dim we-help">
