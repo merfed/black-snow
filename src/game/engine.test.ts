@@ -181,12 +181,87 @@ describe('save', () => {
     expect(e.zoneVisible(back, 0)).toBe(true);
   });
 
-  it('catches up time away without sirens', () => {
-    const s = newGame(fixed);
+  it('catches up time away', () => {
+    const s = newGame(fixed), live = newGame(fixed);
     s.zones[0].amount = new Decimal(5);
-    e.catchUp(s, 3600);
-    expect(s.ash.toNumber()).toBeCloseTo(3600, 0);
+    live.zones[0].amount = new Decimal(5);
+    e.catchUp(s, 3600, fixed);
+    for (let t = 0; t < 3600; t++) e.tick(live, 1, fixed);
+    expect(s.ash.div(live.ash).toNumber()).toBeCloseTo(1, 1); // weather and achievements move both alike
     expect(s.log[0].kind).toBe('away');
+    expect(s.playTime).toBeCloseTo(3600);
+  });
+
+  it('time away runs sirens, rust and echoes like live play, and only the comfort perk helps a little', () => {
+    const make = () => {
+      const s = newGame(fixed);
+      s.upgrades = { thaw: true, floor: true, copper: true, coil: true, antenna: true };
+      s.zones[0].amount = new Decimal(50); s.zones[0].bought = 50;
+      return s;
+    };
+    const live = make(), away = make();
+    for (let t = 0; t < 7200; t++) e.tick(live, 1, fixed);
+    e.catchUp(away, 7200, fixed);
+    expect(away.sirensSeen).toBeGreaterThan(15);
+    expect(Math.abs(away.sirensSeen - live.sirensSeen)).toBeLessThanOrEqual(2);
+    expect(away.rust / live.rust).toBeGreaterThan(0.85);
+    expect(away.echoes / live.echoes).toBeGreaterThan(0.85);
+    expect(away.ash.div(live.ash).toNumber()).toBeCloseTo(1, 1);
+    expect(away.log.filter(l => l.kind === 'siren')).toHaveLength(0); // summarised, not replayed
+    // With the comfort perk, sirens no longer stop the shafts and they dig 80% harder. Over a whole run that is only
+    // about 6 hours sooner, because the deep zones take most of the time.
+    const perk = make();
+    perk.fixtures = { door: 1 };
+    const perkLive = make();
+    perkLive.fixtures = { door: 1 };
+    for (let t = 0; t < 7200; t++) e.tick(perkLive, 1, fixed);
+    e.catchUp(perk, 7200, fixed);
+    const r = perk.ash.div(perkLive.ash).toNumber();
+    expect(r).toBeGreaterThan(1.5);
+    expect(r).toBeLessThan(2.4);
+  });
+
+  it('logs a machine waking once, when the deeper zone opens', () => {
+    const s = newGame(fixed);
+    s.upgrades = { thaw: true, floor: true };
+    for (let i = 0; i < 4; i++) s.zones[i].bought = 5;
+    rich(s, 1e30);
+    e.buyShaft(s, 4);
+    expect(s.log.some(l => l.text === e.SYSTEM_OPENS[4])).toBe(true);
+  });
+
+  it('grown creatures get hungry more slowly, and the hopper feeds them', () => {
+    const s = newGame(fixed);
+    s.upgrades = { thaw: true, floor: true };
+    s.nursery.found = true;
+    const g = { body: 0, eyes: 0, limbs: 0, mark: 0, hue: 0, accent: 0, shell: 0, seed: 1 };
+    s.nursery.brood = [
+      { id: 1, genome: g, stage: 1, hunger: 100, mood: 90, growth: 0, singIn: 0, breedIn: 0 },
+      { id: 2, genome: g, stage: 5, hunger: 100, mood: 90, growth: 0, singIn: 0, breedIn: 0 },
+    ];
+    expect(e.hungerRate(s, s.nursery.brood[1])).toBeCloseTo(e.hungerRate(s, s.nursery.brood[0]) / 3);
+    expect(e.setAutoFeed(s, true)).toBe(false); // no hopper yet
+    rich(s, 1e9);
+    expect(e.buyNurseryUp(s, 'hopper')).toBe(true);
+    expect(s.nursery.autoFeed).toBe(true);
+    const ash = s.ash;
+    for (let t = 0; t < 3600; t++) e.tick(s, 1, fixed);
+    expect(s.nursery.brood.every(e.isFed)).toBe(true);
+    expect(s.ash.lt(ash)).toBe(true);
+    e.setAutoFeed(s, false);
+    for (let t = 0; t < 3600; t++) e.tick(s, 1, fixed);
+    expect(e.isFed(s.nursery.brood[0])).toBe(false);
+  });
+
+  it('rust and echoes have a sink once the rites and the dial are done', () => {
+    const s = newGame(fixed);
+    expect(e.buySink(s, 'tower')).toBe(false);
+    s.rites = { salt: true, name: true, ring: true, wire: true, leave: true, stop: true };
+    s.rust = 1e4;
+    const before = e.globalMult(s).toNumber();
+    expect(e.buySink(s, 'tower')).toBe(true);
+    expect(e.sinkCost(s, 'tower')).toBe(5000);
+    expect(e.globalMult(s).toNumber()).toBeCloseTo(before * 1.08);
   });
   it('dev ash counts as caught ash and ignores non-positive amounts', () => {
     const s = newGame();
@@ -263,6 +338,7 @@ describe('save', () => {
   it('zone upgrades level up again and again, each level needing more dug', () => {
     const s = newGame();
     s.ash = new Decimal(1e30);
+    s.mats = [1e6];
     s.zones[0].bought = 25;
     expect(e.buyZoneUp(s, 0, 0)).toBe(true);
     expect(e.buyZoneUp(s, 0, 0)).toBe(true);
@@ -274,6 +350,7 @@ describe('save', () => {
     const s = newGame();
     s.upgrades = { thaw: true, floor: true };
     s.ash = new Decimal(1e30);
+    s.mats = [1e6];
     s.zones[0].bought = 100;
     e.maxZone(s, 0);
     expect(s.zones[0].bought).toBe(100);
@@ -296,12 +373,55 @@ describe('save', () => {
   it('zone upgrades open at their bought count', () => {
     const s = newGame();
     s.ash = new Decimal(1e9);
+    s.mats = [1e6];
     expect(e.zoneUpStatus(s, 0, 0)).toBe('locked');
     s.zones[0].bought = 10;
     const before = e.zoneMult(s, 0).toNumber();
     expect(e.zoneUpStatus(s, 0, 0)).toBe('available');
     expect(e.buyZoneUp(s, 0, 0)).toBe(true);
     expect(e.zoneMult(s, 0).toNumber()).toBeCloseTo(before * 1.25);
+  });
+
+  it('zone upgrades cost ash plus the zone\'s own material, which its shafts trickle', () => {
+    const s = newGame();
+    s.ash = new Decimal(1e10);
+    s.zones[1].bought = 10;
+    s.mats = Array(9).fill(0);
+    expect(e.zoneUpMatCost(s, 1, 0)).toBe(40);
+    expect(e.buyZoneUp(s, 1, 0)).toBe(false); // no pipe scale
+    const rate = e.matRate(s, 1);
+    expect(rate).toBeCloseTo(0.05 * 10);
+    s.zones[2].bought = 20; // the zone below speeds it up
+    expect(e.matRate(s, 1)).toBeCloseTo(rate * 2);
+    for (let k = 0; k < 40; k++) e.tick(s, 1);
+    expect(e.matOf(s, 1)).toBeGreaterThanOrEqual(40);
+    const ash = s.ash, mat = e.matOf(s, 1);
+    expect(e.buyZoneUp(s, 1, 0)).toBe(true);
+    expect(e.matOf(s, 1)).toBeCloseTo(mat - 40);
+    expect(s.ash.lt(ash)).toBe(true);
+    expect(e.zoneUpMatCost(s, 1, 0)).toBe(100); // x2.5 a level
+  });
+
+  it('old saves without materials get a stock that covers what they could buy', () => {
+    const s = newGame();
+    s.zones[0].bought = 30;
+    s.zones[1].bought = 12;
+    s.mats = [];
+    e.tick(s, 0.01);
+    expect(s.mats.length).toBe(9);
+    expect(e.matOf(s, 0)).toBeGreaterThanOrEqual(e.zoneUpMatCost(s, 0, 0) + e.zoneUpMatCost(s, 0, 1));
+    expect(e.matOf(s, 1)).toBeGreaterThanOrEqual(e.zoneUpMatCost(s, 1, 0));
+    expect(e.matOf(s, 5)).toBe(0);
+  });
+
+  it('the zone below steadies a zone a little, tapering to at most x1.15', () => {
+    const s = newGame();
+    expect(e.underpin(s, 0)).toBe(1);
+    s.zones[1].bought = 100;
+    expect(e.underpin(s, 0)).toBeCloseTo(1.075);
+    s.zones[1].bought = 1e6;
+    expect(e.underpin(s, 0)).toBeLessThan(1.15);
+    expect(e.underpin(s, 8)).toBe(1);
   });
 
   it('dev set changes any stored resource', () => {
@@ -327,7 +447,7 @@ describe('wiring', () => {
     lay(s);
     const f = w.flow(s);
     expect(f.ports[3]).toBeCloseTo(10 - 22 * 0.1);
-    expect(w.wiringMult(s, 3)).toBeCloseTo(1 + Math.sqrt(10 - 2.2) / 7);
+    expect(w.wiringMult(s, 3)).toBeCloseTo(1 + w.PORT_GAIN.deep * Math.log2(1 + 10 - 2.2));
   });
 
   it('upgrades in place for the difference and refunds on removal', () => {
@@ -342,7 +462,7 @@ describe('wiring', () => {
     expect(s.wiring.cycles).toBe(100);
   });
 
-  it('a branch divides the signal unless it is a splitter', () => {
+  it('a branch divides the signal; a splitter divides it too, adding a little', () => {
     const s = newGame();
     s.wiring.tier = 4; s.wiring.cycles = 1e9;
     w.place(s, 2, 8, 'relay', 4); // lifts to 60
@@ -351,8 +471,28 @@ describe('wiring', () => {
     expect(f.strength['3,8']).toBeCloseTo(30 - 0.1);
     w.place(s, 2, 8, 'split', 4);
     f = w.flow(s);
-    expect(f.strength['3,8']).toBeCloseTo(10 - 0.1);
-    expect(f.strength['2,7']).toBeCloseTo(10 - 0.1);
+    expect(f.strength['3,8']).toBeCloseTo(10 * 1.4 / 2 - 0.1);
+    expect(f.strength['2,7']).toBeCloseTo(10 * 1.4 / 2 - 0.1);
+  });
+
+  it('a chain of amplifiers levels off instead of running away', () => {
+    const s = newGame();
+    s.wiring.tier = 4; s.wiring.cycles = 1e12;
+    for (let x = 2; x <= 21; x++) w.place(s, x, 8, 'amp', 4);
+    w.place(s, 22, 8, 'wire', 4); w.place(s, 22, 7, 'wire', 4);
+    const sig = w.flow(s).ports[3];
+    // the k-th amplifier adds 4/k^2: the product converges to about x42
+    expect(sig).toBeGreaterThan(10 * 30);
+    expect(sig).toBeLessThan(10 * 43);
+    expect(w.portMult(3, sig)).toBeLessThan(1.6);
+  });
+
+  it('the Exchange waits for the first Murmur', () => {
+    const s = newGame();
+    s.zones[w.COMPILER].bought = 40;
+    expect(w.wiringOpen(s)).toBe(false);
+    s.zones[w.EXCHANGE_ZONE].bought = 1;
+    expect(w.wiringOpen(s)).toBe(true);
   });
 
   it('upgrade all lifts every part to the best known tier', () => {
@@ -374,7 +514,7 @@ describe('rarities and achievements', () => {
     s.warmFlake = { active: true, x: 0.5, y: 0.5, ttl: 5, spawnIn: 0, rarity: 0 };
     const common = e.warmFlakeReward(s);
     s.warmFlake.rarity = 2;
-    expect(e.warmFlakeReward(s).toNumber()).toBe(common.toNumber() * 40);
+    expect(e.warmFlakeReward(s).toNumber()).toBe(common.toNumber() * 6);
     const embers = s.embers;
     e.catchWarmFlake(s, () => 0.9);
     expect(s.embers - embers).toBe(8);

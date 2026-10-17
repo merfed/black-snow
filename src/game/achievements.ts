@@ -4,7 +4,7 @@ import Decimal from 'break_eternity.js';
 import type { GameState } from './state';
 import { flowCached } from './wiring';
 
-export type AchCategory = 'ash' | 'shafts' | 'flakes' | 'sirens' | 'nursery' | 'rooms' | 'board' | 'secret';
+export type AchCategory = 'ash' | 'shafts' | 'flakes' | 'sirens' | 'nursery' | 'rooms' | 'board' | 'citadel' | 'secret';
 
 export interface AchDef { id: string; name: string; desc: string; cat: AchCategory; secret?: boolean; check: (s: GameState) => boolean }
 
@@ -57,7 +57,7 @@ export const ACHIEVEMENTS: AchDef[] = [
   { id: 'breed', cat: 'nursery', name: 'Lineage', desc: 'Breed two creatures.', check: s => s.stats.bred >= 1 },
   { id: 'species10', cat: 'nursery', name: 'Field guide', desc: 'Record 10 species.', check: s => s.nursery.seen.length >= 10 },
   { id: 'species50', cat: 'nursery', name: 'Bestiary', desc: 'Record 50 species.', check: s => s.nursery.seen.length >= 50 },
-  { id: 'grown', cat: 'nursery', name: 'All grown up', desc: 'Raise a creature to its final stage.', check: s => s.nursery.brood.some(c => c.stage >= 4) },
+  { id: 'grown', cat: 'nursery', name: 'All grown up', desc: 'Raise a creature to its final stage.', check: s => s.nursery.brood.some(c => c.stage >= 5) },
   // rooms
   { id: 'kettle', cat: 'rooms', name: 'Put the kettle on', desc: 'Build your first fixture.', check: s => fixtures(s) >= 1 },
   { id: 'cosy', cat: 'rooms', name: 'Somewhere to stay', desc: 'Build 40 fixture levels.', check: s => fixtures(s) >= 40 },
@@ -69,6 +69,13 @@ export const ACHIEVEMENTS: AchDef[] = [
   { id: 'wire4', cat: 'board', name: 'Bus master', desc: 'Light four ports at once.', check: s => Object.values(flowCached(s).ports).filter(v => v > 0).length >= 4 },
   { id: 'void', cat: 'board', name: 'Void-plated', desc: 'Learn void parts.', check: s => s.wiring.tier >= 4 },
   // secret
+  // the citadel (seven rites end it; read from state, not citadel.ts, to keep imports one way)
+  { id: 'rite1', cat: 'citadel', name: 'First rite', desc: 'Answer the Citadel once.', check: s => (s.citadel.rites ?? 0) >= 1 },
+  { id: 'rite4', cat: 'citadel', name: 'Four floors answered', desc: 'Answer four of its rites.', check: s => (s.citadel.rites ?? 0) >= 4 },
+  { id: 'listening', cat: 'citadel', name: 'It is listening', desc: 'Answer every rite.', check: s => (s.citadel.rites ?? 0) >= 7 },
+  { id: 'fortnight', cat: 'citadel', name: 'Awake a fortnight', desc: 'Keep the Citadel awake for 14 days.', check: s => s.citadel.time >= 336 * 3600 },
+  { id: 'nul100k', cat: 'citadel', name: 'Nothing, in bulk', desc: 'Make 100,000 nul in total.', check: s => s.citadel.nulTotal >= 1e5 },
+  { id: 'burned10k', cat: 'citadel', name: 'Ten thousand dreams', desc: 'Burn 10,000 dreams.', check: s => s.dreams.burned >= 1e4 },
   { id: 'night', cat: 'secret', secret: true, name: 'Night shift', desc: 'Stay on shift for 8 hours.', check: s => s.playTime >= 8 * 3600 },
   { id: 'still', cat: 'secret', secret: true, name: 'Stillness', desc: 'Have 50,000 ash and still not dig a shaft.', check: s => s.ash.gte(5e4) && bought(s) === 0 },
 ];

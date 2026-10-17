@@ -2,7 +2,7 @@ import { dreamsHeld, nulRate } from '../game/citadel';
 import { useState, type CSSProperties } from 'react';
 import { ZONES } from '../game/data';
 import {
-  ashPerSecond, comfort, comfortMult, dialOpen, echoRate, kilnOpen, pigmentRate, rustPerSecond, sirenEnabled, stationOpen,
+  ashPerSecond, comfort, comfortMult, dialOpen, echoRate, kilnOpen, matOf, matRate, pigmentRate, rustPerSecond, sirenEnabled, stationOpen,
 } from '../game/engine';
 import { fmt, fmtTime } from '../game/format';
 import { useGame } from '../game/store';
@@ -58,6 +58,15 @@ export function ResourcesHud() {
               {game.zones.map((z, i) => z.amount.gt(0) && (
                 <div key={i} style={{ '--hue': ZONE_COLORS[i] } as CSSProperties}>
                   <dt><Sprite rows={ZONE_ICONS[i]} px={1.5} className="res-icon" />{ZONES[i].name}s</dt><dd>{fmt(z.amount)}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          {game.zones.some(z => z.bought > 0) && (
+            <dl className="res-rows res-zones res-mats" aria-label="Zone materials">
+              {game.zones.map((z, i) => z.bought > 0 && (
+                <div key={i} style={{ '--hue': ZONE_COLORS[i] } as CSSProperties} title={`${ZONES[i].mat}: ${ZONES[i].matLore}`}>
+                  <dt><i className="res-dot res-mat-dot" />{ZONES[i].matShort}</dt><dd>{fmt(matOf(game, i))}<small>+{fmt(matRate(game, i))}/s</small></dd>
                 </div>
               ))}
             </dl>

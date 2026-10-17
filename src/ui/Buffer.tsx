@@ -57,7 +57,6 @@ export function PatternBuffer() {
   const slot = open ? game.patterns.slots[i] ?? newSlot() : null;
   const q = slot ? match(game, slot) : 0;
   const sig = slot?.target ? signature(game, slot.target) : null;
-  const bought = game.zones[BUFFER].bought;
   const set = useCallback((patch: Partial<PatternSlot>) => run(s => setSlot(s, i, patch)), [run, i]);
   const shade = screen(slot?.target ? slot : null, sig, q);
   const meter = washes.fill(q);
@@ -74,7 +73,7 @@ export function PatternBuffer() {
         {open && slot?.target && <span className="buffer-tag">{q === 1 ? 'LOCKED' : `${pct}%`}</span>}
       </div>
       {!open ? (
-        <p className="dim small-note">The buffer plays its pattern back to itself. At {SLOT_AT[0]} Pattern Buffers ({bought}/{SLOT_AT[0]}) the modulator wakes, and the pattern can be bent toward other things.</p>
+        <p className="dim small-note wake-note">The buffer plays its pattern back to itself. Its modulator sleeps until the first <b>Vacuum Lock</b> holds (zone 5). Then the pattern can be bent toward other things.</p>
       ) : (
         <>
           {slots > 1 && (

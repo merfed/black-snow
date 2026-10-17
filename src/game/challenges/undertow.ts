@@ -38,7 +38,7 @@ const EMBERS = [1, 3, 8, 20];
 const LUCK = [1, 2, 4, 8];
 
 export const DELIVERY = 150; // seconds per object
-export const TRAY = 10;
+export const TRAY = 14; // 35 minutes of deliveries: more than a check-in gap
 export const BORE_BUDGET = 24;
 export const SEGMENTS = 3;
 export const DEPTH_STEP = 25; // Conduits per shift of the gauge's optimum
@@ -70,12 +70,13 @@ export interface UndertowState {
   patched: number;
   bore: number[]; // diameters, summing to at most BORE_BUDGET
   held: number; // best gauge bonus reached, which stays when the optimum moves
+  priceRef: number; // slow log10 income the bins are priced off (kept by stepChallenges, see slowRef), 0 = unset
 }
 
 export const fresh = (): UndertowState => ({
   tray: [], next: 'key', pull: 0, delivered: 0, kept: {}, keptTotal: 0, burned: 0, sentDown: 0, luck: 0,
   bins: { keep: 0, burn: 0, down: 0 }, rules: {}, approaches: 0, walk: 0, sight: 0,
-  leaks: [17, 46], leakT: 0, patched: 0, bore: [8, 8, 8], held: 1,
+  leaks: [17, 46], leakT: 0, patched: 0, bore: [8, 8, 8], held: 1, priceRef: 0,
 });
 
 const st = (s: GameState) => s.challenges.undertow;
@@ -183,10 +184,14 @@ export function sortByRules(s: GameState): number {
   return n;
 }
 
-/** Bins learn to sort by themselves at level 1; every level after pays more for what lands in them. */
+const liveLog = (s: GameState) => passiveRate(s).log10().toNumber();
+/**
+ * Bins learn to sort by themselves at level 1; every level after pays more for what lands in them.
+ * Five minutes of the Undertow's slow income for the first level, then 3x each.
+ */
 export function binCost(s: GameState, b: Bin): Decimal {
-  const l = binLevel(s, b);
-  return Decimal.max(1e30, passiveRate(s).mul(1200 * Math.pow(3, l))).floor();
+  const l = binLevel(s, b), ref = st(s).priceRef > 0 ? st(s).priceRef : liveLog(s);
+  return Decimal.max(1e30, Decimal.pow(10, ref).mul(300 * Math.pow(3, l))).floor();
 }
 
 export function upgradeBin(s: GameState, b: Bin): boolean {
@@ -293,10 +298,15 @@ export function setBore(s: GameState, i: number, d: number): boolean {
 export const keepMult = (s: GameState) => 1 + 0.06 * Math.pow(st(s).keptTotal, 0.6) * (1 + 0.25 * binLevel(s, 'keep')) * (perk(s, 7) ? 1.5 : 1);
 export const setMult = (s: GameState) => 1 + 0.25 * Math.pow(totalSets(s), 0.7);
 export const patchMult = (s: GameState) => 1 + 0.1 * Math.pow(st(s).patched, 0.6) * (perk(s, 5) ? 1.5 : 1);
-/** Everything the Undertow gives the Conduit, with open leaks taken off but never below nothing. */
+/** Above this the Undertow's bonus grows only by log, so its many parts never compound away. */
+export const TAPER_AT = 3;
+/** Everything the Undertow gives the Conduit, before the taper. */
+export const rawBonus = (s: GameState) => gaugeMult(s) * keepMult(s) * setMult(s) * patchMult(s) * (perk(s, 9) ? 1.5 : 1);
+/** raw as is up to TAPER_AT, then TAPER_AT x (1 + ln(raw / TAPER_AT)): about x16 at a day, x25 at a week. */
+export const taper = (raw: number) => (raw <= TAPER_AT ? raw : TAPER_AT * (1 + Math.log(raw / TAPER_AT)));
+/** Everything the Undertow gives the Conduit, tapered, with open leaks taken off but never below nothing. */
 export function zoneBonus(s: GameState): number {
-  const raw = gaugeMult(s) * keepMult(s) * setMult(s) * patchMult(s) * (perk(s, 9) ? 1.5 : 1);
-  return Math.max(1, raw * (1 - LEAK_SHAVE * st(s).leaks.length));
+  return Math.max(1, taper(rawBonus(s)) * (1 - LEAK_SHAVE * st(s).leaks.length));
 }
 
 function step(s: GameState, dt: number, rng: Rng) {
@@ -363,5 +373,9 @@ export const undertow: ChallengeModule<UndertowState> = {
     text: `Approach the figure ${MILESTONE_APPROACHES} times and keep ${MILESTONE_KEPT} objects`,
     done: s => st(s).approaches >= MILESTONE_APPROACHES && st(s).keptTotal >= MILESTONE_KEPT,
   },
-  level: s => st(s).approaches + st(s).patched + totalSets(s),
+  /** Approaches, patches, whole sets, every dozen kept and every bin level: about 4-6 at the milestone. */
+  level: s => {
+    const u = st(s);
+    return u.approaches + u.patched + totalSets(s) + Math.floor(u.keptTotal / MILESTONE_KEPT) + BINS.reduce((n, b) => n + binLevel(s, b), 0);
+  },
 };

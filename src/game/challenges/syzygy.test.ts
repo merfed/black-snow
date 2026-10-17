@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { newGame } from '../state';
 import { CHALLENGES } from './index';
 import {
-  buyLantern, buyLens, buyShade, buyWire, chapters, cut, darkLen, dreamMap, EDGES, edgeKey, gateReady, liveCurrents, neighbours, openGate,
+  buyLantern, buyLens, buyShade, buyWire, chapters, cut, darkLen, dreamMap, EDGES, edgeKey, gateCost, gateReady, liveCurrents, neighbours, openGate,
   PAGES_PER_CHAPTER, refreshNodes, ROOMS, routeEdge, syzygy, TAPE13, toggle, totality, wireCost, wiresFree,
 } from './syzygy';
 
@@ -29,7 +29,7 @@ describe('syzygy', () => {
     const z = s.challenges.syzygy;
     expect(z.dreams).toBe(0);
     expect(z.gateOpen).toBe(false);
-    expect(wiresFree(z)).toBe(1);
+    expect(wiresFree(z)).toBe(2); // two wires come free
     for (const t of ['ash', 'zones', 'zone0', 'zone8'] as const) expect(syzygy.mult(s, t)).toBe(1);
     expect(syzygy.level(s)).toBe(0);
     expect(syzygy.milestone.done(s)).toBe(false);
@@ -56,6 +56,15 @@ describe('syzygy', () => {
     expect(za.rooms).toBe(zb.rooms);
   });
 
+  it('totality comes out the same in hour-long steps as in fine ones', () => {
+    const a = late(), b = late();
+    b.challenges.syzygy.seed = a.challenges.syzygy.seed;
+    for (let i = 0; i < 30; i++) syzygy.step(a, 3600, Math.random);
+    for (let i = 0; i < 30 * 60; i++) syzygy.step(b, 60, Math.random);
+    const da = a.challenges.syzygy.dreams, db = b.challenges.syzygy.dreams;
+    expect(Math.abs(da - db) / db).toBeLessThan(0.01);
+  });
+
   it('crosses nights in big steps and writes one page a night', () => {
     const s = late();
     for (let i = 0; i < 2000; i++) syzygy.step(s, (3600 * 24 + 60) / 2000, Math.random);
@@ -71,7 +80,9 @@ describe('syzygy', () => {
     const z = s.challenges.syzygy;
     refreshNodes(s);
     expect(routeEdge(s, key(8, 1))).toBe(true);
-    expect(routeEdge(s, key(5, 4))).toBe(false); // out of wires
+    expect(routeEdge(s, key(5, 4))).toBe(true);
+    expect(routeEdge(s, key(7, 2))).toBe(false); // out of wires
+    cut(s, key(5, 4));
     expect(liveCurrents(z)).toBe(1);
     expect(syzygy.mult(s, 'ash')).toBeGreaterThan(1);
     expect(syzygy.mult(s, 'zone7')).toBeGreaterThan(1); // node 8 is zone index 7
@@ -88,7 +99,7 @@ describe('syzygy', () => {
     const c = wireCost(z);
     expect(buyWire(s)).toBe(true);
     expect(z.dreams).toBe(1e6 - c);
-    expect(wiresFree(z)).toBe(2);
+    expect(wiresFree(z)).toBe(3);
     expect(buyShade(s)).toBe(true);
     const dark = darkLen(z);
     s.ash = new Decimal(1e20);
@@ -144,28 +155,54 @@ describe('syzygy', () => {
     expect(s.tapes).toContain(TAPE13);
   });
 
-  it('paces the gate at a couple of hours of checking in', () => {
+  /** Check in every 30 minutes: buy one wire, route them, buy `lanterns` lanterns at the first check-in, open the gate. */
+  const paceGate = (lanterns: number) => {
     const s = late();
-    s.ash = new Decimal(0);
     fakeOthers(20);
     const z = s.challenges.syzygy;
+    z.sun = 0;
     let t = 0;
-    // Check in every 30 minutes: buy wires and route them, then save for the gate.
     while (!z.gateOpen && t < 12 * 3600) {
       for (let i = 0; i < 360; i++) syzygy.step(s, 5, Math.random);
       t += 1800;
-      // Ash is plentiful this late: pretend a few lanterns get bought along the way.
-      z.lanterns = Math.min(6, Math.floor(t / 1800) * 2);
-      while (z.wires < 4 && z.dreams >= wireCost(z) + (z.wires >= 3 ? 3000 : 0)) buyWire(s);
-      for (const [a, b] of [[8, 1], [7, 2], [5, 4], [6, 3]]) if (wiresFree(z) > 0 && !z.links[key(a, b)]) routeEdge(s, key(a, b));
-      s.ash = new Decimal(1e300);
+      z.lanterns = lanterns;
+      if (z.wires < 2 && z.dreams >= wireCost(z)) buyWire(s);
+      for (const [a, b] of [[8, 1], [7, 2], [5, 4]]) if (wiresFree(z) > 0 && !z.links[key(a, b)]) routeEdge(s, key(a, b));
       openGate(s);
     }
-    expect(t / 3600).toBeGreaterThanOrEqual(1.5);
-    expect(t / 3600).toBeLessThanOrEqual(3);
+    return { s, h: t / 3600 };
+  };
+
+  it('paces the gate at 1.5 to 3 hours of checking in, lanterns or not', () => {
+    for (const n of [0, 1, 3]) {
+      const { s, h } = paceGate(n);
+      expect(h).toBeGreaterThanOrEqual(1.5);
+      expect(h).toBeLessThanOrEqual(3);
+      const ash = syzygy.mult(s, 'ash');
+      expect(ash).toBeGreaterThan(3);
+      expect(ash).toBeLessThan(6.5);
+    }
+  });
+
+  it('the gate wants only a minute of income in ash', () => {
+    const s = late();
+    s.ash = new Decimal(0);
+    expect(gateCost(s).ash.toNumber()).toBeLessThanOrEqual(1e15);
+  });
+
+  it('a week of wires and finds tapers the ash bonus', () => {
+    const s = late();
+    fakeOthers(60);
+    const z = s.challenges.syzygy;
+    z.gateOpen = true;
+    z.wires = 10;
+    z.pages = 30;
+    refreshNodes(s);
+    for (const e of EDGES.slice(0, 11)) routeEdge(s, edgeKey(e));
     const ash = syzygy.mult(s, 'ash');
-    expect(ash).toBeGreaterThan(3);
-    expect(ash).toBeLessThan(12);
+    expect(ash).toBeGreaterThan(8);
+    expect(ash).toBeLessThan(30);
+    for (let i = 0; i < 8; i++) expect(syzygy.mult(s, `zone${i}` as 'zone0')).toBeLessThan(1.4);
   });
 
   it('touching two nodes lays a wire, touching them again takes it back', () => {
@@ -175,10 +212,31 @@ describe('syzygy', () => {
     expect(toggle(s, 3, 9)).toBe(false); // no route between them
     expect(toggle(s, 1, 8)).toBe(true);
     expect(z.links[key(8, 1)]).toBe(1);
+    expect(toggle(s, 5, 4)).toBe(true);
     expect(wiresFree(z)).toBe(0);
     expect(toggle(s, 2, 7)).toBe(false); // no wire left
     expect(toggle(s, 8, 1)).toBe(true);
     expect(z.links[key(8, 1)]).toBeUndefined();
     expect(wiresFree(z)).toBe(1);
+  });
+});
+
+describe('the 7-1 pair', () => {
+  it('wires the Gt-28 gate by its own key, and by touching 7 and 1 twice', () => {
+    const s = newGame();
+    const z = s.challenges.syzygy;
+    z.wires = 3;
+    const gate = EDGES.find(e => e.kind === 'gate' && [e.a, e.b].includes(7) && [e.a, e.b].includes(1));
+    if (!gate) return;
+    const gk = edgeKey(gate);
+    expect(routeEdge(s, gk)).toBe(true);
+    expect(z.links[gk]).toBe(1);
+    cut(s, gk);
+    toggle(s, 7, 1);
+    expect(z.links[gk] ?? 0).toBe(0);
+    toggle(s, 7, 1);
+    expect(z.links[gk]).toBe(1);
+    toggle(s, 7, 1);
+    expect(Object.values(z.links).reduce((a, b) => a + b, 0)).toBe(0);
   });
 });

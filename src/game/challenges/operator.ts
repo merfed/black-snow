@@ -59,7 +59,9 @@ export const BEAT_CAP = 8; // beats actually interpreted per step, so a long abs
 export const MOTH_CAP = 5;
 export const MOTH_TAX = 0.02; // share of the burn each moth eats: at most 10%
 export const MOTH_RATE = 1 / 1500; // per idle line per second
-export const GOAL_LINES = 20000;
+export const GOAL_LINES = 50000;
+/** A faster clock waits on the machine's own work: lines run, so a hoard of cycles cannot skip ahead. */
+export const CLOCK_LINES = 2000;
 
 const L = (op: Op, arg = 0, cond?: Partial<Cond>): Line =>
   cond ? { op, arg, cond: { a: 'SIREN', na: false, join: '', b: 'FLAKE', nb: false, ...cond } } : { op, arg };
@@ -216,10 +218,10 @@ function step(s: GameState, dt: number, rng: Rng) {
 
 // ---- payouts ----
 
-/** The Operator's main figure: lines run (log), stack depth and bank signals multiply. */
+/** The Operator's main figure: lines run (log), stack depth (square root) and bank signals multiply. */
 export const basePay = (st: OperatorState) => 1 + 0.5 * Math.log10(1 + st.lines / 200);
-export const depthPay = (st: OperatorState) => 1 + 0.3 * st.depth;
-export const sigPay = (st: OperatorState) => 1 + 0.3 * st.sig;
+export const depthPay = (st: OperatorState) => 1 + 0.3 * Math.sqrt(st.depth);
+export const sigPay = (st: OperatorState) => 1 + 0.2 * st.sig;
 
 function mult(s: GameState, t: string): number {
   const st = op(s);
@@ -233,6 +235,8 @@ function mult(s: GameState, t: string): number {
 
 export const punchCost = (st: OperatorState) => Math.round(200 * Math.pow(2, Math.max(0, st.cards.length - 3)));
 export const clockCost = (st: OperatorState) => Math.round(300 * Math.pow(2.4, st.clock));
+/** Lines the reader must have run before the next clock: doubling each level. */
+export const clockNeed = (st: OperatorState) => CLOCK_LINES * Math.pow(2, st.clock);
 export const stackCost = (st: OperatorState) => ({ cycles: Math.round(500 * Math.pow(4, st.stack - 1)), parts: st.stack });
 export const bankCost = (st: OperatorState) => ({ cycles: Math.round(400 * Math.pow(3, st.banks.length - 1)), parts: st.banks.length });
 
@@ -296,7 +300,7 @@ export function moveLine(s: GameState, c: number, l: number, d: -1 | 1): boolean
 
 export function buyClock(s: GameState): boolean {
   const st = op(s), cost = clockCost(st);
-  if (s.wiring.cycles < cost) return false;
+  if (s.wiring.cycles < cost || st.lines < clockNeed(st)) return false;
   s.wiring.cycles -= cost;
   st.clock++;
   return true;
@@ -371,6 +375,6 @@ export const operator: ChallengeModule<OperatorState> = {
   milestone: { text: `Execute ${GOAL_LINES.toLocaleString('en-US')} lines`, done: s => op(s).lines >= GOAL_LINES },
   level: s => {
     const st = op(s);
-    return Math.max(0, st.cards.length - 3) + (st.stack - 1) + (st.banks.length - 1) + st.clock + Math.floor(st.lines / 2500);
+    return Math.max(0, st.cards.length - 3) + (st.stack - 1) + (st.banks.length - 1) + st.clock + Math.floor(Math.sqrt(st.lines / 500));
   },
 };

@@ -11,36 +11,48 @@ export interface ZoneDef {
   rate: number; // per shaft per second: ash for zone 1, shafts of zone n-1 otherwise
   openLine: string; // logged the first time a shaft in this zone is bought
   lore: string; // what the zone is, shown in its box
+  mat: string; // the zone's own material, trickled by its shafts and spent on its upgrades
+  matShort: string; // the same, short, for the resources corner
+  matLore: string; // one line on what it is
 }
 
 export const ZONES: ZoneDef[] = [
   { id: 1, verb: 'Bore', name: 'Shallow Bore', produces: 'catches ash', baseCost: 60, growth: 1.18, bonus: 1.6, rate: 0.2,
     openLine: 'SHAFT 1 OPEN. THE SNOW FALLS UP IT AS WELL AS DOWN.',
-    lore: 'A hole just deep enough to catch what falls. Every bit of ash you do not catch by hand comes through here.' },
+    lore: 'A hole just deep enough to catch what falls. Every bit of ash you do not catch by hand comes through here.',
+    mat: 'core silt', matShort: 'Silt', matLore: 'Grey grit the bores bring up with the ash. It never quite settles.' },
   { id: 2, verb: 'Lay pipe', name: 'Conduit', produces: 'bores Shallow Bores', baseCost: 3e4, growth: 1.25, bonus: 1.15, rate: 0.04,
     openLine: 'ZONE 2: CONDUIT LIVE. SOMETHING BELOW IS ACCUSTOMED TO BEING FED.',
-    lore: 'Pipes that run down into the dark and carry something back up. Whatever it carries builds new Shallow Bores.' },
+    lore: 'Pipes that run down into the dark and carry something back up. Whatever it carries builds new Shallow Bores.',
+    mat: 'pipe scale', matShort: 'Scale', matLore: 'Flakes off the inside of the pipes. It is warm, and furred, and grows back.' },
   { id: 3, verb: 'Buffer', name: 'Pattern Buffer', produces: 'bores Conduits', baseCost: 1e9, growth: 1.4, bonus: 1.15, rate: 0.02,
     openLine: 'ZONE 3: TIME IN THIS SHAFT RUNS IN THE WRONG ORDER. PRODUCTION UNAFFECTED.',
-    lore: 'A machine that records the shaft and plays it back. Every playback is a new Conduit, in the wrong order.' },
+    lore: 'A machine that records the shaft and plays it back. Every playback is a new Conduit, in the wrong order.',
+    mat: 'tape oxide', matShort: 'Oxide', matLore: 'Brown dust shed by the loops. Under a lens it is still recording.' },
   { id: 4, verb: 'Sink a well', name: 'Rampant Well', produces: 'bores Pattern Buffers', baseCost: 1e16, growth: 1.6, bonus: 1.15, rate: 0.01,
     openLine: 'ZONE 4: WATER AT THE BOTTOM. IT IS WARM. IT IS NOT WATER.',
-    lore: 'Warm water at the bottom that is not water. It fills new Pattern Buffers the way a well fills buckets.' },
+    lore: 'Warm water at the bottom that is not water. It fills new Pattern Buffers the way a well fills buckets.',
+    mat: 'warm brine', matShort: 'Brine', matLore: 'Drawn up from the well in buckets. It does not evaporate. It waits.' },
   { id: 5, verb: 'Seal a lock', name: 'Vacuum Lock', produces: 'bores Rampant Wells', baseCost: 1e24, growth: 1.9, bonus: 1.15, rate: 0.01,
     openLine: 'ZONE 5: SOMETHING IS BEING KEPT DOWN HERE. THE LOCK IS ON OUR SIDE.',
-    lore: 'A hatch that holds something down. Each turn of the wheel lets a Rampant Well out.' },
+    lore: 'A hatch that holds something down. Each turn of the wheel lets a Rampant Well out.',
+    mat: 'gasket tar', matShort: 'Tar', matLore: 'Black seal compound. It weeps out of the lock when the wheel turns.' },
   { id: 6, verb: 'Wind it', name: 'Barker Spiral', produces: 'bores Vacuum Locks', baseCost: 1e31, growth: 2.2, bonus: 1.15, rate: 0.01,
     openLine: 'ZONE 6: THE SHAFT TURNS LEFT FOREVER AND ARRIVES ABOVE ITSELF.',
-    lore: 'A staircase that turns left forever and arrives above itself. It drops Vacuum Locks on the way down.' },
-  { id: 7, verb: 'Compile', name: 'Compiler', produces: 'bores Barker Spirals', baseCost: 1e41, growth: 2.6, bonus: 1.15, rate: 0.01,
+    lore: 'A staircase that turns left forever and arrives above itself. It drops Vacuum Locks on the way down.',
+    mat: 'spiral filings', matShort: 'Filings', matLore: 'Iron filings that line up along the stair, pointing left.' },
+  { id: 7, verb: 'Compile', name: 'Compiler', produces: 'bores Barker Spirals', baseCost: 1e42, growth: 2.6, bonus: 1.15, rate: 0.01,
     openLine: 'ZONE 7: IT HAS BEEN WAITING. IT IS GLAD.',
-    lore: 'Something that writes shafts the way a compiler writes programs. It writes Barker Spirals.' },
-  { id: 8, verb: 'Transcribe', name: 'Murmur', produces: 'bores Compilers', baseCost: 1e54, growth: 3, bonus: 1.15, rate: 0.01,
+    lore: 'Something that writes shafts the way a compiler writes programs. It writes Barker Spirals.',
+    mat: 'kernel shards', matShort: 'Shards', matLore: 'Splinters of compiled code. They fit together in more ways than they should.' },
+  { id: 8, verb: 'Transcribe', name: 'Murmur', produces: 'bores Compilers', baseCost: 1e58, growth: 3, bonus: 1.15, rate: 0.01,
     openLine: 'ZONE 8: THE WALLS ARE SPEAKING IN THE VOICE OF THE PERSON WHO DUG THEM.',
-    lore: 'The walls talking in the voice of whoever dug them. What they say becomes Compilers.' },
-  { id: 9, verb: 'Plex', name: 'Plex', produces: 'bores Murmurs', baseCost: 1e70, growth: 3.5, bonus: 1.15, rate: 0.01,
+    lore: 'The walls talking in the voice of whoever dug them. What they say becomes Compilers.',
+    mat: 'voice lacquer', matShort: 'Lacquer', matLore: 'Lacquer scraped from the walls where the voices dried. It hums under a needle.' },
+  { id: 9, verb: 'Plex', name: 'Plex', produces: 'bores Murmurs', baseCost: 1e69, growth: 3.5, bonus: 1.15, rate: 0.01,
     openLine: 'ZONE 9: THE BOTTOM. THE IRON IS DREAMING. THE DREAM IS YOU.',
-    lore: 'The bottom. The iron is dreaming, and the dream is made of Murmurs.' },
+    lore: 'The bottom. The iron is dreaming, and the dream is made of Murmurs.',
+    mat: 'dream iron', matShort: 'Iron', matLore: 'Iron from the very bottom. Warm, heavy, and asleep.' },
 ];
 
 export type RiteId = 'salt' | 'name' | 'ring' | 'wire' | 'stop' | 'leave';
@@ -62,7 +74,7 @@ export const RITES: RiteDef[] = [
     line: 'YOU STOP COVERING YOUR EARS. THE SIREN SOUNDS LIKE A CHOIR NOW.' },
   { id: 'wire', name: 'Wire the static', cost: 150, desc: 'Ash keeps falling at 25% during the siren.',
     line: 'THE STATIC IS ROUTED INTO THE SHAFTS. THEY KEEP DIGGING THROUGH THE RUST.' },
-  { id: 'leave', name: 'Leave it running', cost: 400, desc: 'Listen presses itself once a second.',
+  { id: 'leave', name: 'Leave it running', cost: 400, desc: 'Every second it catches what one bare press of Listen would, with no resonance.',
     line: 'THE BUTTON PRESSES ITSELF. YOU WERE NEVER SURE IT WAS YOU PRESSING IT.' },
   { id: 'stop', name: 'Stop counting', cost: 1500, desc: 'Every zone also catches ash directly, 1 per shaft per second.',
     line: 'YOU STOP COUNTING THE HOLES. THE HOLES START COUNTING YOU.' },
@@ -171,7 +183,7 @@ export const UPGRADES: UpgradeDef[] = [
     line: 'YOU STOP BLINKING. THE WARM FLAKES NOTICE.' },
 
   { id: 'ear2', name: 'Ear to the floor', cost: 3e5, requires: ['ear'],
-    desc: 'Each Listen also catches 20% of your ash per second.' },
+    desc: 'Each Listen also catches 20% of your ash per second, up to 50% at full resonance.' },
   { id: 'ear3', name: 'Tinnitus', cost: 1e8, requires: ['ear2'],
     desc: 'Resonance never fades below half.' },
   { id: 'spade2', name: 'Deeper spades', cost: 3e5, requires: ['spade'],

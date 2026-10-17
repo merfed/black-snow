@@ -2,7 +2,7 @@ import Decimal from 'break_eternity.js';
 import { describe, expect, it } from 'vitest';
 import { newGame, type GameState } from '../state';
 import {
-  buyPump, combination, comboLength, digitOf, feel, grow, gardenSymmetry, GW, harvest, pressSeal, restDial, seal, sealPower,
+  buyHand, buyPump, combination, handTime, restCost, comboLength, digitOf, feel, grow, gardenSymmetry, GW, harvest, pressSeal, restDial, seal, sealPower,
   sealsPending, setStance, target, tendCell, tierCost, turnWheel, wantDir,
 } from './seal';
 
@@ -18,6 +18,7 @@ function late(): GameState {
 /** Dial in the whole combination of the current tier. */
 function crack(s: GameState) {
   let k = 0;
+  s.challenges.seal.voidAsh += restCost(s);
   while (target(s) !== null) {
     expect(restDial(s, target(s)!, wantDir(k))).toBe(true);
     k++;
@@ -54,10 +55,42 @@ describe('the seal', () => {
     const t = target(s)!;
     expect(feel(s, t)).toBe(1);
     expect(feel(s, t + 20)).toBe(0);
+    expect(feel(s, t) - feel(s, t + 1)).toBeGreaterThan(0.2); // the meter kicks on the number itself
+    expect(restDial(s, t, wantDir(0))).toBe(false); // no void ash in hand: the wheel will not settle
+    expect(c.found).toEqual([]);
+    c.voidAsh = 3 * restCost(s);
     expect(restDial(s, t, -wantDir(0))).toBe(false); // wrong way round
     expect(restDial(s, t + 1, wantDir(0))).toBe(false);
+    expect(c.voidAsh).toBe(restCost(s)); // each miss cost a rest
     expect(restDial(s, t, wantDir(0))).toBe(true);
+    expect(c.voidAsh).toBe(restCost(s)); // a catch is free
     expect(c.found).toEqual([t]);
+  });
+
+  it('guessing every mark costs far more than reading the meter', () => {
+    const s = late();
+    const c = s.challenges.seal;
+    c.voidAsh = 1e6;
+    for (let k = 0; target(s) !== null; k++) {
+      const t = target(s)!;
+      for (let p = 0; p < 40 && target(s) === t; p++) restDial(s, (t + 1 + p) % 40, wantDir(k)); // brute force: last mark tried is right
+    }
+    const brute = 1e6 - c.voidAsh;
+    expect(brute).toBeGreaterThan(tierCost(0) * 3);
+  });
+
+  it('a patient hand finds the numbers by itself, slowly, and banks nothing once done', () => {
+    const s = late();
+    const c = s.challenges.seal;
+    c.voidAsh = 1000;
+    expect(buyHand(s)).toBe(true);
+    seal.step(s, handTime(1) - 1, Math.random);
+    expect(c.found.length).toBe(0);
+    seal.step(s, 2, Math.random);
+    expect(c.found.length).toBe(1);
+    seal.step(s, 3600 * 24, Math.random);
+    expect(c.found.length).toBe(comboLength(0));
+    expect(c.handT).toBeLessThanOrEqual(handTime(1));
   });
 
   it('turning the wheel spends void ash and pays a burst and a bonus', () => {

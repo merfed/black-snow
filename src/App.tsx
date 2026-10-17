@@ -14,7 +14,7 @@ import { NurseryPanel } from './ui/Nursery';
 import { Scenery } from './ui/Scenery';
 import { DialPanel } from './ui/Dial';
 import { ShopPanel, TvPanel } from './ui/TV';
-import { KilnPanel, StationPanel } from './ui/SidePanels';
+import { KilnPanel, SinksPanel, StationPanel } from './ui/SidePanels';
 import { CitadelPanel, DreamEnginePanel, Omen } from './ui/CitadelPanel';
 import { Snowfall } from './ui/Snowfall';
 import { Sprite } from './ui/Sprite';
@@ -74,7 +74,7 @@ export function App() {
     { id: 'lull', x: 2060, y: 560, w: 440, decor: true, content: <Artwork scene={SCENES.lull} ink="#b9a8ff" accent="#ffcf6b" caption='"Lull was a town once. The lights still come on."' /> },
     { id: 'far', x: -1160, w: 420, content: <>{show('station') && <StationPanel />}{show('egg') && <NurseryPanel />}</> },
     { id: 'left', x: -700, w: 450, content: <>{show('instruments') && <InstrumentsPanel />}{show('kiln') && <KilnPanel />}</> },
-    { id: 'center', x: -210, w: 420, content: <><AshPanel /><TvPanel /><ShopPanel />{show('dial') && <DialPanel />}{show('rites') && <RitesPanel />}</> },
+    { id: 'center', x: -210, w: 420, content: <><AshPanel /><TvPanel /><ShopPanel />{show('dial') && <DialPanel />}{show('rites') && <RitesPanel />}{show('rites') && <SinksPanel />}</> },
     ...zoneCols.map((c, k) => ({ id: `zones${k}`, x: ZONE_X[k], w: 540, content: c.length ? c : null })),
     // Past Lull, once the gate is open: the Citadel, and the engine that keeps it from drinking everything.
     { id: 'citadel', x: 2600, w: 460, content: show('citadel') ? <><CitadelPanel /><DreamEnginePanel /></> : null },

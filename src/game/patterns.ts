@@ -22,14 +22,15 @@ export const PATTERN_TARGETS: { id: PatternTarget; name: string; max: number }[]
   { id: 'embers', name: 'Embers', max: 1 },
 ];
 
-/** The modulator wakes at 25 Pattern Buffers dug; more slots open at 100 and 250. */
+/** The modulator sleeps until the first Vacuum Lock (zone 5) holds. More slots open at 100 and 250 Pattern Buffers. */
+export const MODULATOR_ZONE = 4;
 export const SLOT_AT = [25, 100, 250];
 
 export const newSlot = (): PatternSlot => ({ target: null, freq: 1, phase: 0, harm: 1 });
 export const newPatterns = (rng: () => number = Math.random): Patterns => ({ seed: Math.floor(rng() * 2 ** 31), slots: [] });
 
-export const patternsOpen = (s: GameState) => s.zones[BUFFER].bought >= SLOT_AT[0];
-export const patternSlots = (s: GameState) => SLOT_AT.filter(n => s.zones[BUFFER].bought >= n).length;
+export const patternsOpen = (s: GameState) => s.zones[MODULATOR_ZONE].bought >= 1;
+export const patternSlots = (s: GameState) => (patternsOpen(s) ? Math.max(1, SLOT_AT.filter(n => s.zones[BUFFER].bought >= n).length) : 0);
 
 /** A small seeded hash so each save has its own signatures. */
 function hash(seed: number, n: number) {

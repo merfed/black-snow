@@ -35,6 +35,8 @@ export interface SealState {
   harvests: number;
   seedUps: number;
   cold: number; // faster growth, levels
+  hand: number; // a patient hand on the wheel: finds numbers by itself, slowly
+  handT: number; // seconds toward the hand's next number
 }
 
 export const DIAL = 40;
@@ -44,6 +46,7 @@ const bare = () => '.'.repeat(GW * GH);
 const fresh = (): SealState => ({
   seed: Math.floor(Math.random() * 2147483647), tier: 0, found: [], dial: 0, seals: [], voidAsh: 0, rime: 0, frost: 0,
   stance: 'ash', phase: 0, pumps: 0, ear: 0, garden: bare(), gardenT: 0, crystals: 0, harvests: 0, seedUps: 0, cold: 0,
+  hand: 0, handT: 0,
 });
 
 const st = (s: GameState) => s.challenges.seal;
@@ -80,26 +83,53 @@ export const wantDir = (k: number) => (k % 2 === 0 ? 1 : -1);
 export const comboDone = (s: GameState) => st(s).found.length >= comboLength(st(s).tier);
 export const target = (s: GameState) => (comboDone(s) ? null : combination(st(s).seed, st(s).tier)[st(s).found.length]);
 
-/** How hard the meter twitches with the dial at pos: 0 far away, 1 on the number. */
+/** How hard the meter twitches with the dial at pos: 0 far away, 1 on the number, with a clear kick on the number itself. */
 export function feel(s: GameState, pos: number): number {
   const t = target(s);
   if (t === null) return 0;
   const d = circ(pos, t);
-  return Math.max(0, 1 - d / earReach(s)) ** 2;
+  return 0.8 * Math.max(0, 1 - d / earReach(s)) ** 2 + (d === 0 ? 0.2 : 0);
 }
 
-/** Let the dial rest at pos after turning in dir. If it sits on the number, turned the right way, it catches. */
+/** Void ash the wheel needs to bleed the next tier open. */
+export const tierCost = (tier: number) => Math.round(200 * Math.pow(3.6, tier));
+/** Void ash a rest that does not catch costs: guessing every mark is slow, reading the meter is nearly free. The stethoscope softens it. */
+export const restCost = (s: GameState) => Math.max(1, Math.round(0.03 * tierCost(st(s).tier) * Math.pow(0.85, st(s).ear)));
+export const canRest = (s: GameState) => st(s).voidAsh >= restCost(s);
+
+/**
+ * Let the dial rest at pos after turning in dir. If it sits on the number, turned the right way, it catches.
+ * A rest needs restCost void ash in hand; it is spent only when the rest does not catch.
+ */
 export function restDial(s: GameState, pos: number, dir: number): boolean {
   const c = st(s);
   c.dial = ((Math.round(pos) % DIAL) + DIAL) % DIAL;
   const t = target(s);
-  if (t === null || c.dial !== t || Math.sign(dir) !== wantDir(c.found.length)) return false;
+  if (t === null || !canRest(s)) return false;
+  if (c.dial !== t || Math.sign(dir) !== wantDir(c.found.length)) { c.voidAsh -= restCost(s); return false; }
   c.found.push(t);
   return true;
 }
 
-/** Void ash the wheel needs to bleed the next tier open. */
-export const tierCost = (tier: number) => Math.round(150 * Math.pow(3.6, tier));
+/** Seconds the patient hand takes to find one number, by its level. */
+export const handTime = (lv: number) => (lv <= 0 ? Infinity : 1800 / (1 + 0.5 * (lv - 1)));
+export const handCost = (c: SealState) => Math.round(300 * Math.pow(3, c.hand));
+export function buyHand(s: GameState): boolean {
+  const c = st(s), cost = handCost(c);
+  if (c.voidAsh < cost) return false;
+  c.voidAsh -= cost;
+  c.hand++;
+  return true;
+}
+/** The hand works on its own while a number is still missing; it does not bank time once the combination is done. */
+function stepHand(s: GameState, dt: number) {
+  const c = st(s), ht = handTime(c.hand);
+  if (!c.hand) return;
+  if (comboDone(s)) { c.handT = Math.min(c.handT, ht); return; }
+  c.handT += dt;
+  while (c.handT >= ht && !comboDone(s)) { c.handT -= ht; c.found.push(target(s)!); }
+  if (comboDone(s)) c.handT = Math.min(c.handT, ht);
+}
 /** Seconds of income the burst pays for the tier just opened. */
 export const burstSeconds = (tier: number) => 600 * (tier + 1);
 export const burstFor = (s: GameState) => Decimal.max(1e6, passiveRate(s).mul(burstSeconds(st(s).tier)));
@@ -194,10 +224,9 @@ function sealPowers(c: SealState) {
   return powCache.pow;
 }
 /** What the pressed seals give a target. Tapers as seals stack up. */
-export const sealMult = (c: SealState, t: MultTarget) => {
-  const p = sealPowers(c)[t] ?? 0;
-  return p ? 1 + (t === 'ash' ? 0.6 : 0.5) * Math.pow(p, 0.8) : 1;
-};
+export const sealMult = (c: SealState, t: MultTarget) => powerMult(t, sealPowers(c)[t] ?? 0);
+/** Seal power p on target t as a multiplier. */
+export const powerMult = (t: MultTarget, p: number) => (p ? 1 + (t === 'ash' ? 0.45 : 0.5) * Math.pow(p, 0.8) : 1);
 
 // ---- the airlock ----
 
@@ -333,6 +362,7 @@ export function buyCold(s: GameState): boolean {
 
 function step(s: GameState, dt: number) {
   const c = st(s);
+  stepHand(s, dt);
   // the airlock: linear, so any split of time gives the same result
   c.phase = (c.phase + (3 * dt) / cycleLen(c)) % 3;
   c.voidAsh += voidRate(c) * dt;

@@ -1,10 +1,11 @@
 // The Archive: the zone 3 challenge. A machine that records the shaft and plays it back in the wrong order.
 // Locks from the modulator are recorded to tape and shelved, where they keep paying while the slot is
-// freed for something new. Glitches on the plate leave wrong frames that collect in an album, the
+// freed for something new. Recording uses up a blank reel (one comes every half hour) and spins the slot's
+// dials back to rest, so the same lock has to be found again. Glitches on the plate leave wrong frames that collect in an album, the
 // signatures drift a little each station day, and every exact lock opens a hidden channel.
 import Decimal from 'break_eternity.js';
 import { log, passiveRate } from '../engine';
-import { BUFFER, FREQ_MAX, HARM_MAX, match, PATTERN_TARGETS, patternSlots, patternsOpen, patternStrength, PHASE_STEPS, setSlot, signature, type PatternSlot, type PatternTarget } from '../patterns';
+import { BUFFER, FREQ_MAX, HARM_MAX, match, newSlot, PATTERN_TARGETS, patternSlots, patternsOpen, patternStrength, PHASE_STEPS, setSlot, signature, type PatternSlot, type PatternTarget } from '../patterns';
 import type { GameState } from '../state';
 import type { ChallengeModule, MultTarget } from './types';
 
@@ -23,9 +24,12 @@ export interface ArchiveState {
   channels: string[]; // targets whose broadcast has been found
   freshLeft: number; // seconds left on the fresh-lock boost
   freshDay: number; // the station day a fresh lock last paid
+  blanks: number; // blank reels waiting to be recorded on
+  blankProg: number; // progress toward the next blank reel
+  priceRef: number; // slow log10 income the shelf and stock are priced off (kept by stepChallenges, see slowRef), 0 = unset
 }
 
-export const SHELF_BASE = 3;
+export const SHELF_BASE = 5; // the milestone's five tapes fit without buying space
 export const SHELF_MAX = 32; // the shelf never holds more tapes than this
 export const RECORD_MIN = 0.6; // a slot must match at least this to be worth recording
 export const GOLD_AT = 0.98;
@@ -38,6 +42,9 @@ export const SITTERS = 6;
 export const WRONGS = 4;
 export const RECENT = 8;
 export const CHANNEL_MULT = 1.1;
+export const BLANK_EVERY = 1800; // seconds per blank reel
+export const BLANK_START = 2;
+export const BLANK_CAP = 4;
 
 const MAX: Record<string, number> = Object.fromEntries(PATTERN_TARGETS.map(p => [p.id, p.max]));
 const at = (s: GameState) => s.challenges.archive;
@@ -75,8 +82,17 @@ export const tapeValue = (s: GameState, tape: Tape) =>
 const live = (s: GameState) => (patternsOpen(s) ? s.patterns.slots.slice(0, patternSlots(s)) : []);
 export const canRecord = (s: GameState, i: number) => {
   const slot = live(s)[i];
-  return !!slot?.target && match(s, slot) >= RECORD_MIN && at(s).shelf.length < shelfSize(s);
+  return !!slot?.target && match(s, slot) >= RECORD_MIN && at(s).shelf.length < shelfSize(s) && at(s).blanks >= 1;
 };
+/** Why a slot can't be recorded right now, or '' if it can. */
+export function recordBlock(s: GameState, i: number): string {
+  const slot = live(s)[i];
+  if (!slot?.target) return 'Point the slot at something first';
+  if (match(s, slot) < RECORD_MIN) return `Needs a ${Math.round(RECORD_MIN * 100)}% match`;
+  if (at(s).shelf.length >= shelfSize(s)) return 'The shelf is full';
+  if (at(s).blanks < 1) return 'No blank reel';
+  return '';
+}
 
 function addChannel(s: GameState, t: string) {
   const a = at(s);
@@ -85,16 +101,17 @@ function addChannel(s: GameState, t: string) {
   if (a.channels.length === PATTERN_TARGETS.length) log(s, 'SEVEN CHANNELS RECEIVED. THE SHELF HAS ROOM FOR A THIRTEENTH TAPE. NOBODY RECORDED IT.', 'milestone', true);
 }
 
-/** Record a slot's match to tape and shelve it. The slot lets go of its target, free for a new one. */
+/** Record a slot's match onto a blank reel and shelve it. The slot lets go of its target and its dials spin back to rest. */
 export function recordSlot(s: GameState, i: number): boolean {
   if (!canRecord(s, i)) return false;
   const a = at(s);
   const slot = s.patterns.slots[i];
   const q = match(s, slot);
   const tape: Tape = { id: a.recorded++, target: slot.target!, q, gold: q >= GOLD_AT };
+  a.blanks--;
   a.shelf = [...a.shelf, tape].sort((x, y) => tapeWeight(y) - tapeWeight(x) || x.id - y.id);
   if (tape.gold) addChannel(s, tape.target);
-  setSlot(s, i, { target: null });
+  setSlot(s, i, newSlot());
   return true;
 }
 
@@ -105,8 +122,12 @@ export function eraseTape(s: GameState, id: number): boolean {
   return true;
 }
 
-export const shelfCost = (s: GameState) => Decimal.max(1e15, passiveRate(s).mul(900 * Math.pow(2.2, at(s).space))).floor();
-export const stockCost = (s: GameState) => Decimal.max(1e15, passiveRate(s).mul(600 * Math.pow(1.8, at(s).stock))).floor();
+const liveLog = (s: GameState) => passiveRate(s).log10().toNumber();
+/** sec seconds of the Archive's slow income. */
+const income = (s: GameState, sec: number) => Decimal.max(1e15, Decimal.pow(10, at(s).priceRef > 0 ? at(s).priceRef : liveLog(s)).mul(sec)).floor();
+/** A shelf space: five minutes of slow income, then 2.2x each. */
+export const shelfCost = (s: GameState) => income(s, 300 * Math.pow(2.2, at(s).space));
+export const stockCost = (s: GameState) => income(s, 600 * Math.pow(1.8, at(s).stock));
 
 export function buyShelf(s: GameState): boolean {
   if (shelfFull(s)) return false;
@@ -175,13 +196,21 @@ export function albumSets(s: GameState): number {
   }
   return n;
 }
-export const albumMult = (s: GameState) => 1 + 0.5 * Math.pow(albumSets(s), 0.7);
+/** Pattern Buffers from full album sets, by square root: x1.5 for the first, about x10 after a week. */
+export const albumMult = (s: GameState) => 1 + 0.5 * Math.sqrt(albumSets(s));
 
 // ---------- module ----------
 
 function step(s: GameState, dt: number) {
   const a = at(s);
   a.clock += dt;
+  if (a.blanks >= BLANK_CAP) a.blankProg = 0;
+  else {
+    a.blankProg += dt / BLANK_EVERY;
+    const whole = Math.floor(a.blankProg);
+    if (whole > 0) { a.blanks = Math.min(BLANK_CAP, a.blanks + whole); a.blankProg -= whole; }
+    if (a.blanks >= BLANK_CAP) a.blankProg = 0;
+  }
   // Old saves may carry more than the shelf holds: keep the best, let the rest go.
   if (a.space > SHELF_MAX - SHELF_BASE) a.space = SHELF_MAX - SHELF_BASE;
   if (a.shelf.length > SHELF_MAX) a.shelf = a.shelf.slice(0, SHELF_MAX);
@@ -221,6 +250,7 @@ export const archive: ChallengeModule<ArchiveState> = {
   fresh: () => ({
     clock: 0, shelf: [], space: 0, stock: 0, recorded: 0, frameProg: 0, frames: 0,
     album: Array(SITTERS * WRONGS).fill(0), recent: [], channels: [], freshLeft: 0, freshDay: -1,
+    blanks: BLANK_START, blankProg: 0, priceRef: 0,
   }),
   step: (s, dt) => step(s, dt),
   mult,

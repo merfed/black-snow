@@ -20,7 +20,7 @@ export interface SyzygyState {
   finds: number; // relics brought back, kept forever
   pages: number; // pages written in the dream log
   pageNight: number; // the last night whose page is written
-  wires: number; // wires bought (one comes free)
+  wires: number; // wires bought (one comes free; wiresTotal adds a second)
   links: Record<string, number>; // edge key -> wires laid on it
   lanterns: number;
   shades: number;
@@ -86,23 +86,22 @@ export function edgeWeight(z: SyzygyState, e: Edge): number {
 
 export const liveCurrents = (z: SyzygyState) => EDGES.filter(e => edgeWeight(z, e) > 0).length;
 export const wiresLaid = (z: SyzygyState) => Object.values(z.links).reduce((n, t) => n + t, 0);
-export const wiresTotal = (z: SyzygyState) => z.wires + (chapters(z) >= 4 ? 1 : 0);
+export const wiresTotal = (z: SyzygyState) => z.wires + 1 + (chapters(z) >= 4 ? 1 : 0);
 export const wiresFree = (z: SyzygyState) => wiresTotal(z) - wiresLaid(z);
 export const wireCost = (z: SyzygyState) => Math.round(120 * Math.pow(2.4, z.wires - 1));
 
-/** Lay a wire along a, b (another one on the same edge braids it). */
-export function route(s: GameState, a: number, b: number): boolean {
+/** Lay a wire on one exact route (another one on the same route braids it). */
+export function routeEdge(s: GameState, k: string): boolean {
   const z = s.challenges.syzygy;
-  const e = EDGES.find(x => (x.a === a && x.b === b) || (x.a === b && x.b === a));
-  if (!e || wiresFree(z) <= 0) return false;
-  const k = edgeKey(e);
+  if (!edgeByKey(k) || wiresFree(z) <= 0) return false;
   z.links = { ...z.links, [k]: (z.links[k] ?? 0) + 1 };
   refreshNodes(s);
   return true;
 }
-export function routeEdge(s: GameState, k: string): boolean {
-  const e = edgeByKey(k);
-  return !!e && route(s, e.a, e.b);
+/** Lay a wire between a and b, on the first route joining them. */
+export function route(s: GameState, a: number, b: number): boolean {
+  const e = EDGES.find(x => (x.a === a && x.b === b) || (x.a === b && x.b === a));
+  return !!e && routeEdge(s, edgeKey(e));
 }
 
 /** Take one wire back off an edge. Free, so rerouting costs nothing. */
@@ -119,15 +118,18 @@ export function cut(s: GameState, k: string): boolean {
 export const neighbours = (n: number) => [...new Set(EDGES.filter(e => e.a === n || e.b === n).map(e => e.a === n ? e.b : e.a))];
 
 /**
- * Touching two nodes on the plate: takes a wire back if the pair is already wired, else lays one.
- * Braiding a second wire on the same route stays with the list's +.
+ * Touching two nodes on the plate: lays a wire, and touching them again takes it back.
+ * Where two routes join the same pair (7 and 1: a current and the Gt-28 gate), the second touch moves
+ * the wire onto the other route and the third takes it back. Braiding stays with the list's +.
  */
 export function toggle(s: GameState, a: number, b: number): boolean {
   const z = s.challenges.syzygy;
   const pair = EDGES.filter(e => (e.a === a && e.b === b) || (e.a === b && e.b === a));
-  const wired = pair.filter(e => z.links[edgeKey(e)]).pop();
-  if (wired) return cut(s, edgeKey(wired));
-  return route(s, a, b);
+  const at = pair.findIndex(e => z.links[edgeKey(e)]);
+  if (at < 0) return route(s, a, b);
+  cut(s, edgeKey(pair[at]));
+  const next = pair[at + 1];
+  return next && !z.links[edgeKey(next)] ? routeEdge(s, edgeKey(next)) : true;
 }
 
 export function buyWire(s: GameState): boolean {
@@ -206,8 +208,10 @@ export const dreamMult = (z: SyzygyState) =>
   (1 + 0.2 * Math.sqrt(z.finds)) * (totality(z) ? 2 : 1) * (1 + 0.1 * Math.max(0, chapters(z) - 6));
 export const wanderMult = (z: SyzygyState) => chapters(z) >= 5 ? 2 : 1;
 
+/** Lanterns are priced in seconds of income on a power curve, so the tenth is hours of income, not days. */
+export const lanternSecs = (n: number) => 120 * Math.pow(1 + n, 1.8);
 export function lanternCost(s: GameState): Decimal {
-  return Decimal.max(1e9, passiveRate(s).mul(120 * Math.pow(1.9, s.challenges.syzygy.lanterns))).floor();
+  return Decimal.max(1e9, passiveRate(s).mul(lanternSecs(s.challenges.syzygy.lanterns))).floor();
 }
 export function buyLantern(s: GameState): boolean {
   const c = lanternCost(s);
@@ -222,7 +226,6 @@ function walk(s: GameState, d: number) {
   const z = s.challenges.syzygy;
   const before = z.explored;
   const after = before + pilgrimSpeed(z) * d;
-  const dm = dreamMult(z);
   if (before < ROOMS) {
     const map = dreamMap(z.seed, z.night);
     const hi = Math.min(ROOMS, Math.floor(after));
@@ -231,11 +234,11 @@ function walk(s: GameState, d: number) {
       z.rooms++;
       if (kind === 'relic') z.finds++;
       if (kind === 'page' && z.pageNight < z.night) writePage(s);
-      add(z, YIELD[kind] * dm);
+      add(z, YIELD[kind] * dreamMult(z)); // read per room: a relic found mid-step counts from the next room on
     }
   }
   const wander = after - Math.max(before, ROOMS);
-  if (wander > 0) add(z, wander * WANDER_YIELD * dm * wanderMult(z));
+  if (wander > 0) add(z, wander * WANDER_YIELD * dreamMult(z) * wanderMult(z));
   z.explored = after;
 }
 const add = (z: SyzygyState, n: number) => { z.dreams += n; z.dreamsEver += n; };
@@ -256,8 +259,9 @@ export const totalityLeft = (z: SyzygyState) => Math.max(0, darkLen(z) + totalit
 export const totalityMult = (z: SyzygyState) => 1.2 + 0.04 * Math.sqrt(z.shades + z.lenses) + (chapters(z) >= 2 ? 0.1 : 0);
 
 export const shadeCost = (z: SyzygyState) => Math.round(300 * Math.pow(1.9, z.shades));
+export const lensSecs = (n: number) => 600 * Math.pow(1 + n, 1.6);
 export function lensCost(s: GameState): Decimal {
-  return Decimal.max(1e10, passiveRate(s).mul(600 * Math.pow(2.2, s.challenges.syzygy.lenses))).floor();
+  return Decimal.max(1e10, passiveRate(s).mul(lensSecs(s.challenges.syzygy.lenses))).floor();
 }
 export function buyShade(s: GameState): boolean {
   const z = s.challenges.syzygy;
@@ -311,7 +315,9 @@ function writePage(s: GameState) {
 
 export const GATE_LEVEL = 6;
 export const GATE_CURRENTS = 3;
-export const GATE_DREAMS = 3000;
+export const GATE_DREAMS = 1500;
+/** The gate's ash is a token: a minute of income, so nobody has to stop buying to pay it. */
+export const GATE_ASH_SECS = 60;
 
 export interface Offering { zone: number; name: string; level: number; done: boolean; ok: boolean }
 /** One offering from each zone's system: its milestone reached, and its level at GATE_LEVEL. */
@@ -321,7 +327,7 @@ export function offerings(s: GameState): Offering[] {
     return { zone: c.zone, name: c.name, level, done, ok: done && level >= GATE_LEVEL };
   });
 }
-export const gateCost = (s: GameState) => ({ dreams: GATE_DREAMS, ash: Decimal.max(1e15, passiveRate(s).mul(1800)).floor() });
+export const gateCost = (s: GameState) => ({ dreams: GATE_DREAMS, ash: Decimal.max(1e15, passiveRate(s).mul(GATE_ASH_SECS)).floor() });
 export const gateReady = (s: GameState) => offerings(s).every(o => o.ok) && liveCurrents(s.challenges.syzygy) >= GATE_CURRENTS;
 
 export function openGate(s: GameState): boolean {
@@ -348,19 +354,24 @@ const fresh = (): SyzygyState => ({
 function step(s: GameState, dt: number) {
   const z = s.challenges.syzygy;
   refreshNodes(s);
+  // Segments end at each new night and at each turn of the black sun, so dreams come out the same in any step size.
   let left = dt;
-  while (left > 0) {
+  for (let g = 0; left > 1e-9 && g < 10000; g++) {
     const edge = (z.night + 1) * NIGHT - z.clock;
-    const d = Math.min(left, edge);
+    const dark = darkLen(z), cycle = dark + totalityLen(z);
+    const turn = z.sun < dark ? dark - z.sun : cycle - z.sun;
+    const d = Math.min(left, edge, Math.max(1e-6, turn));
     walk(s, d);
     z.clock += d;
+    z.sun += d;
     left -= d;
     if (z.clock >= (z.night + 1) * NIGHT - 1e-9) { z.night = Math.floor(z.clock / NIGHT + 1e-9); z.explored = 0; }
+    if (z.sun >= cycle - 1e-9) z.sun = Math.max(0, z.sun - cycle);
   }
-  z.sun += dt;
-  const cycle = darkLen(z) + totalityLen(z);
-  if (z.sun >= cycle) z.sun %= cycle;
 }
+
+/** All ash from the summed edge weights: a 0.7 power, so more wires keep paying but never run away. */
+export const ashPay = (sum: number) => 1 + 0.7 * Math.pow(Math.max(0, sum), 0.7);
 
 function mult(s: GameState, t: MultTarget): number {
   const z = s.challenges.syzygy;
@@ -368,13 +379,13 @@ function mult(s: GameState, t: MultTarget): number {
   if (t === 'ash') {
     let sum = 0;
     for (const e of EDGES) sum += edgeWeight(z, e);
-    return 1 + 0.35 * sum;
+    return ashPay(sum);
   }
   if (t.startsWith('zone')) {
     const node = Number(t.slice(4)) + 1; // zone index i is node i+1; Plex (zone 8) is node 9
-    let m = 1;
-    for (const e of EDGES) if (e.a === node || e.b === node) m *= 1 + 0.1 * edgeWeight(z, e);
-    return m;
+    let w = 0;
+    for (const e of EDGES) if (e.a === node || e.b === node) w += edgeWeight(z, e);
+    return 1 + 0.05 * Math.sqrt(w);
   }
   return 1;
 }

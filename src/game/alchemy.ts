@@ -80,9 +80,10 @@ export interface Alchemy {
 
 export const newAlchemy = (): Alchemy => ({ pigment: 0, colors: [...START_COLORS], found: {}, tried: [], hints: {}, slots3: false, quick: 0, winding: null, last: null });
 
-/** The spiral starts taking colour once a few Barker Spirals are wound. */
+/** The spiral stays grey until the first Compiler (zone 7) runs. */
 export const SPIRAL_AT = 5;
-export const alchemyOpen = (s: GameState) => s.zones[SPIRAL].bought >= SPIRAL_AT;
+export const ALCHEMY_ZONE = 6;
+export const alchemyOpen = (s: GameState) => s.zones[ALCHEMY_ZONE].bought >= 1 && s.zones[SPIRAL].bought >= SPIRAL_AT;
 export const mixKey = (mix: string[]) => [...mix].sort().join('+');
 export const recipeFor = (mix: string[]) => RECIPES.find(r => mixKey(r.mix) === mixKey(mix));
 export const ingredientName = (id: string) => (id[0] === 'c' && /^c\d+$/.test(id) ? COLORS[Number(id.slice(1))].name : RECIPES.find(r => r.id === id)?.name ?? id);
@@ -99,8 +100,10 @@ export function pigmentBase(s: GameState): number {
 export const dropCost = (id: string) => (/^c\d+$/.test(id) ? 10 : 0);
 export const windCost = (mix: string[]) => mix.reduce((n, id) => n + dropCost(id), 0);
 export const windTime = (s: GameState) => 6 * Math.pow(0.7, s.alchemy.quick);
+/** Each level of a tincture costs this many times the last, so the grimoire helps without carrying the run. */
+export const BREW_GROWTH = 3.2;
 /** Brewing a found tincture again raises its level; each level costs more. */
-export const brewCost = (s: GameState, r: Recipe) => Math.round(r.base * Math.pow(2.6, s.alchemy.found[r.id] ?? 0));
+export const brewCost = (s: GameState, r: Recipe) => Math.round(r.base * Math.pow(BREW_GROWTH, s.alchemy.found[r.id] ?? 0));
 
 export const hasIngredient = (s: GameState, id: string) => (/^c\d+$/.test(id) ? s.alchemy.colors.includes(Number(id.slice(1))) : (s.alchemy.found[id] ?? 0) > 0);
 export const maxSlots = (s: GameState) => (s.alchemy.slots3 ? 3 : 2);

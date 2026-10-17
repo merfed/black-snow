@@ -1,8 +1,8 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  BREED_EMBERS, breedCost, broodSlots, canBreed, eggSlots, eggWarmRate, feedCost, feedMany, growthRate, isFed, moodTarget,
-  nurseryMaxOpen, nurseryUpCost, nurseryUpLevel, singMany,
+  BREED_EMBERS, breedCost, broodSlots, canBreed, eggSlots, eggWarmRate, feedCost, feedMany, growthRate, HOPPER_AT, hopperOn,
+  hungerRate, isFed, moodTarget, nurseryMaxOpen, nurseryUpCost, nurseryUpLevel, setAutoFeed, singMany,
 } from '../game/engine';
 import {
   candleCost, FAMILIAR_GIFT, familiarPower, lightCandle, openSlot, QUIRK_TEXT, quirkOf, recallFamiliar, renderCreatures,
@@ -83,7 +83,7 @@ function CreatureFacts({ c }: { c: Creature }) {
       <div className="creature-name" style={{ color: HUES[c.genome.hue].hex }}>{speciesName(c.genome)}</div>
       <div className="creature-sub">{EGG_STAGES[c.stage].name} · <b>{GIFT_TEXT[giftOf(c.genome)](c.stage)}</b>{!isFed(c) && ' (hungry)'}</div>
       <div className="creature-sub dim">As a familiar: {QUIRK_TEXT[quirkOf(c.genome)](c.stage)}</div>
-      <div className="meter-label"><span>Fed</span><span>{Math.floor(c.hunger)}</span></div>
+      <div className="meter-label"><span>Fed</span><span>{Math.floor(c.hunger)} · hungry in {isFed(c) ? fmtTime((c.hunger - 25) / hungerRate(game, c)) : 'now'}</span></div>
       <Bar value={c.hunger} tone="#b8ff3b" />
       <div className="meter-label"><span>Mood</span><span>{Math.floor(c.mood)} · settles at {Math.floor(moodTarget(game))}</span></div>
       <Bar value={c.mood} tone="#ff6bd0" />
@@ -206,9 +206,22 @@ export function NurseryPanel() {
         Two grown ones ({EGG_STAGES[BREED_STAGE].name} or older) can breed. Familiars by the stove need no feeding and do not count toward the brood.
       </p>
       {nurseryMaxOpen(game) && (
-        <button className="max-all" onClick={tendAll} title="Buy affordable nursery upgrades, feed the hungry, sing to everyone, warm eggs with spare embers">
+        <button className="max-all" onClick={tendAll} title="Buys affordable nursery upgrades, feeds the hungry, sings to everyone, and warms eggs with up to half your embers">
           Tend to everything
         </button>
+      )}
+      {nurseryMaxOpen(game) && (
+        <p className="small-note dim">Tending warms eggs with up to half your embers, never more.</p>
+      )}
+
+      {nurseryUpLevel(game, 'hopper') > 0 && (
+        <div className="hopper-row">
+          <button className={`max-all hopper ${hopperOn(game) ? 'on' : ''}`} aria-pressed={hopperOn(game)}
+            onClick={() => run(s => setAutoFeed(s, !s.nursery.autoFeed))}>
+            Auto-feed: {hopperOn(game) ? 'on' : 'off'}
+          </button>
+          <small className="dim">The hopper feeds anyone below {HOPPER_AT}, for {fmt(feedCost(game))} ash a feed.</small>
+        </div>
       )}
 
       <h3 className="sub-head">By the stove</h3>

@@ -6,6 +6,7 @@ import type { GameState } from './state';
 import { patternMult } from './patterns';
 import { tinctureMult } from './alchemy';
 import { chMult } from './challenges';
+import { SINKS } from './systems';
 
 export const COLS = 24;
 export const ROWS = 16;
@@ -33,21 +34,23 @@ export const BUS_COST = 25000;
 
 export const PARTS: Record<PartKind, { name: string; base: number; desc: (t: number) => string }> = {
   wire: { name: 'Wire', base: 1, desc: t => `Carries the signal. Loses ${WIRE_LOSS[t - 1]} per tile.` },
-  amp: { name: 'Amplifier', base: 30, desc: t => `Multiplies the signal by ${AMP[t - 1]}.` },
-  split: { name: 'Splitter', base: 20, desc: t => `Feeds up to ${SPLIT[t - 1]} branches without dividing the signal.` },
+  amp: { name: 'Amplifier', base: 30, desc: t => `Multiplies the signal by up to ${AMP[t - 1]}. Each amplifier already on the line gives the next one less to work with.` },
+  split: { name: 'Splitter', base: 20, desc: t => `Shares the signal between up to ${SPLIT[t - 1]} branches, adding ${Math.round((SPLIT_GAIN[t - 1] - 1) * 100)}% as it does.` },
   relay: { name: 'Relay', base: 45, desc: t => `Lifts a weak signal back up to ${RELAY[t - 1]}.` },
 };
 export const PART_KINDS: PartKind[] = ['wire', 'amp', 'split', 'relay'];
 const WIRE_LOSS = [1, 0.5, 0.25, 0.1];
 const AMP = [1.5, 2, 3, 5];
 const SPLIT = [2, 3, 4, 4];
+const SPLIT_GAIN = [1.1, 1.2, 1.3, 1.4];
 const RELAY = [8, 15, 30, 60];
 export const CORE_SIGNAL = 10;
 
 export const key = (x: number, y: number) => `${x},${y}`;
-/** The Exchange opens once a few Compilers are running. */
+/** The Exchange stays dark until the first Murmur (zone 8) is transcribed, and needs a few Compilers. */
 export const EXCHANGE_AT = 5;
-export const wiringOpen = (s: GameState) => s.zones[COMPILER].bought >= EXCHANGE_AT;
+export const EXCHANGE_ZONE = 7;
+export const wiringOpen = (s: GameState) => s.zones[EXCHANGE_ZONE].bought >= 1 && s.zones[COMPILER].bought >= EXCHANGE_AT;
 export const portAt = (s: GameState, x: number, y: number) => PORTS.find(p => p.x === x && p.y === y && (!p.late || s.wiring.bus));
 const fixedAt = (x: number, y: number) => (x === CORE.x && y === CORE.y) || PORTS.some(p => p.x === x && p.y === y);
 
@@ -55,15 +58,23 @@ const fixedAt = (x: number, y: number) => (x === CORE.x && y === CORE.y) || PORT
 export function cycleRate(s: GameState): number {
   if (!wiringOpen(s)) return 0;
   const z = s.zones[COMPILER];
-  return (0.5 + 2 * Decimal.log10(z.amount.add(1)).toNumber() + 0.25 * z.bought) * patternMult(s, 'cycles') * tinctureMult(s, 'cycles') * chMult(s, 'cycles');
+  return (0.5 + 2 * Decimal.log10(z.amount.add(1)).toNumber() + 0.25 * z.bought) * patternMult(s, 'cycles') * tinctureMult(s, 'cycles') * chMult(s, 'cycles') * spliceMult(s);
 }
+
+/** Splicing the dead air (an echo sink in engine.ts) also feeds the board; read here to keep imports one way. */
+function spliceMult(s: GameState) {
+  return Math.pow(SINKS.find(k => k.id === 'splice')!.per, s.sinks?.splice ?? 0);
+}
+
+/** Each circuit of a kind costs this much more than the last one laid. */
+export const PART_GROWTH = 1.6;
 
 /** What one part costs at a tier. Circuits get pricier the more of that kind you have laid. */
 export function partCost(s: GameState, kind: PartKind, tier: number): number {
   const base = PARTS[kind].base * Math.pow(10, tier - 1);
   if (kind === 'wire') return base;
   const owned = Object.values(s.wiring.cells).filter(p => p.kind === kind).length;
-  return Math.round(base * Math.pow(1.2, owned));
+  return Math.round(base * Math.pow(PART_GROWTH, owned));
 }
 
 const valueOf = (s: GameState, p: Part) => partCost(s, p.kind, p.tier);
@@ -146,13 +157,14 @@ const N4 = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 /**
  * Run the signal out from the core, breadth first, so every cell is fed by its nearest powered
  * neighbour and loops can't feed themselves. A cell that feeds several branches divides its signal
- * between them, unless it is a splitter.
+ * between them; a splitter adds a little as it does. The k-th amplifier on a line only adds
+ * 1/k² of its gain, so a chain of them levels off instead of running away.
  */
 export function flow(s: GameState): Flow {
   const out: Flow = { strength: {}, edges: [], ports: {} };
   const cells = s.wiring.cells;
   const seen = new Set([key(CORE.x, CORE.y)]);
-  let frontier: { x: number; y: number; sig: number; part: Part | null }[] = [{ ...CORE, sig: CORE_SIGNAL, part: null }];
+  let frontier: { x: number; y: number; sig: number; part: Part | null; amps: number }[] = [{ ...CORE, sig: CORE_SIGNAL, part: null, amps: 0 }];
   out.strength[key(CORE.x, CORE.y)] = CORE_SIGNAL;
   while (frontier.length) {
     const next: typeof frontier = [];
@@ -165,7 +177,7 @@ export function flow(s: GameState): Flow {
       }
       const limit = c.part?.kind === 'split' ? SPLIT[c.part.tier - 1] : Infinity;
       const fed = kids.slice(0, limit);
-      const share = c.part?.kind === 'split' ? c.sig : c.sig / Math.max(1, fed.length);
+      const share = (c.part?.kind === 'split' ? c.sig * SPLIT_GAIN[c.part.tier - 1] : c.sig) / Math.max(1, fed.length);
       for (const kid of fed) {
         const k = key(kid.x, kid.y);
         seen.add(k);
@@ -177,14 +189,14 @@ export function flow(s: GameState): Flow {
           continue;
         }
         const p = cells[k];
-        let sig = share;
+        let sig = share, amps = c.amps;
         if (p.kind === 'wire') sig -= WIRE_LOSS[p.tier - 1];
-        if (p.kind === 'amp') sig *= AMP[p.tier - 1];
+        if (p.kind === 'amp') sig *= 1 + (AMP[p.tier - 1] - 1) / Math.pow(++amps, 2);
         if (p.kind === 'relay') sig = Math.max(sig, RELAY[p.tier - 1]);
         if (sig <= 0) continue;
         out.strength[k] = sig;
         out.edges.push({ from: [c.x, c.y], to: [kid.x, kid.y], s: sig });
-        next.push({ ...kid, sig, part: p });
+        next.push({ ...kid, sig, part: p, amps });
       }
     }
     frontier = next;
@@ -203,11 +215,13 @@ export function flowCached(s: GameState): Flow {
   return f;
 }
 
-/** How much a port's signal multiplies its zone. Zone 1 feels it fully; deeper zones compound, so less. */
+/** Port bonus per doubling of signal: zone 1 feels it fully; deeper zones compound down the cascade, so less. */
+export const PORT_GAIN = { first: 0.18, deep: 0.018 };
+
+/** How much a port's signal multiplies its zone. Logarithmic, so a big board still pays but can't run away with the cascade. */
 export function portMult(zone: number, signal: number): number {
   if (signal <= 0) return 1;
-  // Square roots so a huge signal still pays, but a board can't run away with the whole cascade.
-  return zone === 0 ? 1 + 0.6 * Math.sqrt(signal) : 1 + Math.sqrt(signal) / 7;
+  return 1 + (zone === 0 ? PORT_GAIN.first : PORT_GAIN.deep) * Math.log2(1 + signal);
 }
 
 export const wiringMult = (s: GameState, zone: number) => portMult(zone, flowCached(s).ports[zone] ?? 0);

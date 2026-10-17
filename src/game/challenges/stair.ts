@@ -12,12 +12,14 @@ import type { ChallengeModule } from './types';
 
 export type Water = 0 | 1 | 2 | 3; // warm, black, sweet, singing
 export type Item = 'ash' | 'zone3' | 'water' | 'breed' | 'wish' | 'eye';
-export type PerkId = Item | 'candle' | 'steps';
+export type PerkId = Item | 'candle' | 'steps'; // 'candle' only on old saves: candles now double a take
 export type Choice = 'take' | 'leave' | 'candle';
 export type WishKind = 'ash' | 'embers' | 'water';
 
 export interface Room { n: number; item: Item; low: boolean }
 export interface Lantern { g: number; c: number; p: number } // glow, colour, pace
+/** A lantern as kept in the save: one small number, (glow * 64 + pace) * 8 + colour. */
+export type Packed = number;
 export interface StairEntry { n: number; text: string }
 
 export interface StairState {
@@ -33,10 +35,10 @@ export interface StairState {
   candles: number;
   stairLog: StairEntry[];
   given: number; // wish points ever dropped
-  since: Record<WishKind, number>; // points since the last wish, by kind
+  since: Record<WishKind, number>; // points toward the next wish of each kind
   wishes: number;
-  boons: Record<WishKind, number>;
-  tank: Lantern[];
+  boons: Record<WishKind, number>; // wishes granted of each kind
+  tank: Packed[]; // at most TANK_MAX
   netted: number;
   born: number;
   breed: number; // progress to the next birth
@@ -58,8 +60,8 @@ export const WATERS = [
 ];
 
 export const ITEMS: Record<Item, { name: string; text: (w: number) => string }> = {
-  ash: { name: 'a wet key', text: w => `All ash x${(1 + 0.05 * tap(w)).toFixed(2)}` },
-  zone3: { name: 'a jar of teeth', text: w => `Rampant Wells x${(1 + 0.07 * tap(w)).toFixed(2)}` },
+  ash: { name: 'a wet key', text: w => `All ash x${(1 + 0.1 * Math.sqrt(w)).toFixed(2)}` },
+  zone3: { name: 'a jar of teeth', text: w => `Rampant Wells x${(1 + 0.12 * Math.sqrt(w)).toFixed(2)}` },
   water: { name: 'a hymnal swollen shut', text: w => `Water drawn x${(1 + 0.1 * tap(w)).toFixed(2)}` },
   breed: { name: 'a small shoe', text: w => `Lanterns breed x${(1 + 0.12 * tap(w)).toFixed(2)}` },
   wish: { name: 'a coin warm to the touch', text: w => `Wishes weigh x${(1 + 0.08 * tap(w)).toFixed(2)}` },
@@ -78,6 +80,7 @@ export const HUES = ['red', 'green', 'pale', 'gold', 'blue'];
 export const TIDE = 7 * 3600; // one tide, high to high
 export const REFLECT = 4 * 3600; // a new reflection forms
 export const QUEUE_MAX = 5;
+export const TANK_MAX = 256;
 export const DIFFS = 5;
 
 /** Linear for a while, then square-root: perks keep counting but matter less. */
@@ -115,7 +118,8 @@ export function tideTurn(s: GameState) {
 // ---- the bucket ----
 
 export const bandOpen = (s: GameState, k: number) => S(s).rope >= WATERS[k].at;
-export const waterMult = (s: GameState) => (1 + 0.1 * tap(perk(s, 'water'))) * (1 + 0.2 * tap(S(s).boons.water));
+/** Water wishes feed the bucket only by a log, so water buying wishes buying water settles instead of running away. */
+export const waterMult = (s: GameState) => (1 + 0.1 * tap(perk(s, 'water'))) * (1 + 0.6 * Math.log(1 + S(s).boons.water / 5));
 
 /** Water of kind k per second at this moment's tide. */
 export const drawRate = (s: GameState, k: number) => baseDraw(s, k) * tideMult(s);
@@ -124,12 +128,15 @@ function baseDraw(s: GameState, k: number) {
   return st.rope < w.at ? 0 : w.rate * (1 + 0.2 * (st.rope - w.at)) * waterMult(s);
 }
 
-export const ropeCost = (s: GameState) => Decimal.max(1e9, passiveRate(s).mul(40 * Math.pow(1.32, S(s).rope))).floor();
+/** Rope is ash and warm water: the ash stays a few minutes of income, the water paces the depth by time in the well. */
+export const ropeCost = (s: GameState) => Decimal.max(1e9, passiveRate(s).mul(60 * Math.pow(1.04, S(s).rope))).floor();
+export const ropeWater = (rope: number) => (rope < 1 ? 0 : Math.round(1.6 * Math.pow(rope, 1.6)));
+export const canRope = (s: GameState) => s.ash.gte(ropeCost(s)) && S(s).water[0] >= ropeWater(S(s).rope);
 
 export function buyRope(s: GameState): boolean {
-  const cost = ropeCost(s);
-  if (s.ash.lt(cost)) return false;
-  s.ash = s.ash.sub(cost);
+  if (!canRope(s)) return false;
+  s.ash = s.ash.sub(ropeCost(s));
+  S(s).water[0] -= ropeWater(S(s).rope);
   S(s).rope++;
   return true;
 }
@@ -155,7 +162,8 @@ function draw(s: GameState, dt: number, t0 = S(s).t) {
 /** Seconds of walking from landing n to the next. */
 export const landingTime = (n: number) => 150 * Math.pow(1 + n / 5, 1.5);
 export const descentSpeed = (s: GameState) => 1 + 0.1 * tap(perk(s, 'steps'));
-export const candleCost = (n: number) => Math.round(3 * Math.pow(1 + n / 4, 1.6));
+/** Warm water to light a candle in the room at landing n. */
+export const candleCost = (n: number) => Math.round(4 * Math.pow(1 + n / 4, 1.6));
 /** What each landing holds, fixed by its number so it is the same however you got there. */
 export const roomAt = (n: number, low: boolean): Room => ({ n, item: ITEM_IDS[Math.floor(hash(n, 1) * ITEM_IDS.length)], low });
 export const roomText = (r: Room) => ROOMS[Math.floor(hash(r.n, 2) * ROOMS.length)];
@@ -172,16 +180,18 @@ export function canChoose(s: GameState, c: Choice) {
   return !!r && (c !== 'candle' || S(s).water[0] >= candleCost(r.n));
 }
 
-/** Answer the room at the front of the queue. Every answer leaves a perk; low rooms leave two. */
+/** How much an answer leaves: low rooms twice, and a candle doubles a take. */
+export const choiceWeight = (r: Room, c: Choice) => (r.low ? 2 : 1) * (c === 'candle' ? 2 : 1);
+
+/** Answer the room at the front of the queue. Take leaves the thing's perk, leave quickens the walk, a candle takes it twice over. */
 export function choose(s: GameState, c: Choice): boolean {
   const st = S(s), r = st.queue[0];
   if (!r || !canChoose(s, c)) return false;
-  const w = r.low ? 2 : 1;
-  const p: PerkId = c === 'take' ? r.item : c === 'leave' ? 'steps' : 'candle';
+  const p: PerkId = c === 'leave' ? 'steps' : r.item;
   if (c === 'candle') { st.water[0] -= candleCost(r.n); st.candles++; }
-  st.perks[p] = (st.perks[p] ?? 0) + w;
+  st.perks[p] = (st.perks[p] ?? 0) + choiceWeight(r, c);
   st.queue.shift();
-  const text = c === 'take' ? `Took ${ITEMS[r.item].name}.` : c === 'leave' ? `Left ${ITEMS[r.item].name}. Walked on.` : 'Lit a candle. Left it burning.';
+  const text = c === 'take' ? `Took ${ITEMS[r.item].name}.` : c === 'leave' ? `Left ${ITEMS[r.item].name}. Walked on.` : `Lit a candle by ${ITEMS[r.item].name}. Took it in the light.`;
   st.stairLog.unshift({ n: r.n, text: (r.low ? 'Below the waterline. ' : '') + text });
   if (st.stairLog.length > 40) st.stairLog.length = 40;
   return true;
@@ -189,27 +199,27 @@ export function choose(s: GameState, c: Choice): boolean {
 
 // ---- wishes ----
 
-export const wishNeed = (k: number) => Math.round(70 * Math.pow(k + 1, 1.5));
+/** Points the nth wish of a kind needs. Ash and embers count by the drop; water by the bucket, steeper. */
+export const wishNeed = (n: number, kind: WishKind = 'water') => (kind === 'water' ? Math.round(60 * Math.pow(n + 1, 1.5)) : 10 * (n + 1));
 export const wishWeight = (s: GameState) => 1 + 0.08 * tap(perk(s, 'wish'));
-export const ashDropCost = (s: GameState) => Decimal.max(1e9, passiveRate(s).mul(900)).floor();
+export const ashDropCost = (s: GameState) => Decimal.max(1e9, passiveRate(s).mul(300)).floor();
 export const EMBER_DROP = 5;
+export const DROP_PTS = 10;
 export const BOON_TEXT: Record<WishKind, string> = {
   ash: 'More ash, from somewhere.', embers: 'The wells pull harder.', water: 'The bucket comes up fuller.',
 };
+export const WISH_KINDS: WishKind[] = ['ash', 'embers', 'water'];
 
-/** Points go in; whenever the total passes the next mark, the well grants one, chosen by what you dropped since the last. */
+/** Each kind fills its own mark; passing it grants one wish of that kind. Points past the mark carry over. */
 function give(s: GameState, kind: WishKind, pts: number) {
   const st = S(s);
   pts *= wishWeight(s);
   st.given += pts;
   st.since[kind] += pts;
-  while (st.given >= wishNeed(st.wishes)) {
-    const tot = st.since.ash + st.since.embers + st.since.water;
-    let h = hash(st.wishes, 99) * tot, pick: WishKind = kind;
-    for (const k of ['ash', 'embers', 'water'] as WishKind[]) { if (h < st.since[k]) { pick = k; break; } h -= st.since[k]; }
-    st.boons[pick] += 1 + 0.25 * st.wishes;
+  for (let n = 0; n < 1000 && st.since[kind] >= wishNeed(st.boons[kind], kind); n++) {
+    st.since[kind] -= wishNeed(st.boons[kind], kind);
+    st.boons[kind]++;
     st.wishes++;
-    st.since = { ash: 0, embers: 0, water: 0 };
   }
 }
 
@@ -217,14 +227,14 @@ export function dropAsh(s: GameState): boolean {
   const cost = ashDropCost(s);
   if (s.ash.lt(cost)) return false;
   s.ash = s.ash.sub(cost);
-  give(s, 'ash', 40);
+  give(s, 'ash', DROP_PTS);
   return true;
 }
 
 export function dropEmbers(s: GameState): boolean {
   if (s.embers < EMBER_DROP) return false;
   s.embers -= EMBER_DROP;
-  give(s, 'embers', 10);
+  give(s, 'embers', DROP_PTS);
   return true;
 }
 
@@ -237,41 +247,72 @@ export function pour(s: GameState, k: number): boolean {
   return true;
 }
 
-export const wishProgress = (s: GameState) => {
-  const st = S(s), lo = st.wishes ? wishNeed(st.wishes - 1) : 0;
-  return Math.max(0, Math.min(1, (st.given - lo) / (wishNeed(st.wishes) - lo)));
+/** How far toward the next wish of a kind; with no kind, the kind closest to its next wish. */
+export const wishProgress = (s: GameState, kind?: WishKind): number => {
+  const st = S(s);
+  if (!kind) return Math.max(...WISH_KINDS.map(k => wishProgress(s, k)));
+  return Math.max(0, Math.min(1, st.since[kind] / wishNeed(st.boons[kind], kind)));
 };
 
 // ---- lanterns ----
 
 export const netCost = (s: GameState) => Math.round(8 * Math.pow(1 + S(s).netted / 2, 1.4));
 
+export const packL = (l: Lantern): Packed => (l.g * 64 + Math.min(63, l.p)) * 8 + l.c;
+/** Read a kept lantern; old saves kept them as objects. */
+export const unpackL = (x: Packed | Lantern): Lantern => (typeof x === 'number' ? { g: Math.floor(x / 512), p: Math.floor(x / 8) % 64, c: x % 8 } : x);
+export const lanterns = (st: StairState) => st.tank.map(unpackL);
+const better = (a: Lantern, b: Lantern) => b.g - a.g || b.p - a.p;
+
 function retank(st: StairState) {
-  st.glow = st.tank.reduce((n, l) => n + l.g, 0);
-  st.hues = new Set(st.tank.map(l => l.c)).size;
+  let g = 0;
+  const seen = new Set<number>();
+  for (const x of st.tank) { const l = unpackL(x); g += l.g; seen.add(l.c); }
+  st.glow = g;
+  st.hues = seen.size;
 }
+
+/** Old saves: pack the tank and keep the brightest TANK_MAX; turn the old swollen boons into wish counts. */
+export function settle(st: StairState) {
+  if (st.tank.length > TANK_MAX || st.tank.some(x => typeof x !== 'number')) {
+    st.tank = st.tank.map(unpackL).sort(better).slice(0, TANK_MAX).map(packL);
+    st.breed = 0;
+    retank(st);
+  }
+  const b = st.boons, tot = b.ash + b.embers + b.water;
+  if (tot > st.wishes + 1e-6 || WISH_KINDS.some(k => !Number.isInteger(b[k]))) {
+    for (const k of WISH_KINDS) b[k] = Math.min(OLD_BOON_MAX, Math.floor(b[k] / Math.max(1, tot) * st.wishes));
+    st.wishes = b.ash + b.embers + b.water;
+    st.since = { ash: 0, embers: 0, water: 0 };
+  }
+}
+const OLD_BOON_MAX = 30;
 
 export function net(s: GameState): boolean {
   const st = S(s), cost = netCost(s);
-  if (!bandOpen(s, 1) || st.water[1] < cost) return false;
+  settle(st);
+  if (!bandOpen(s, 1) || st.water[1] < cost || st.tank.length >= TANK_MAX) return false;
   st.water[1] -= cost;
   const n = st.netted++;
-  st.tank.push({ g: 1 + Math.floor(hash(n, 7) * 2), c: Math.floor(hash(n, 8) * HUES.length), p: 1 + Math.floor(hash(n, 9) * 3) });
+  st.tank.push(packL({ g: 1 + Math.floor(hash(n, 7) * 2), c: Math.floor(hash(n, 8) * HUES.length), p: 1 + Math.floor(hash(n, 9) * 3) }));
   retank(st);
   return true;
 }
 
+const BREED = 0.00004;
+/** Births a second; none once the tank is full. */
 export function breedRate(s: GameState) {
   const st = S(s), n = st.tank.length;
-  if (n < 2) return 0;
-  const pace = st.tank.reduce((a, l) => a + l.p, 0) / n;
-  return 0.0002 * Math.sqrt(n - 1) * (pace / 2) * (1 + 0.12 * tap(perk(s, 'breed')));
+  if (n < 2 || n >= TANK_MAX) return 0;
+  let pace = 0;
+  for (const x of st.tank) pace += unpackL(x).p;
+  return BREED * Math.sqrt(n - 1) * (pace / n / 2) * (1 + 0.12 * tap(perk(s, 'breed')));
 }
 
 /** A child of two lanterns: the brighter glow, sometimes brighter still, rarely a new colour. */
 function birth(st: StairState) {
   const b = st.born++, n = st.tank.length;
-  const a = st.tank[Math.floor(hash(b, 11) * n)], c = st.tank[Math.floor(hash(b, 12) * n)];
+  const a = unpackL(st.tank[Math.floor(hash(b, 11) * n)]), c = unpackL(st.tank[Math.floor(hash(b, 12) * n)]);
   const r = hash(b, 13), q = hash(b, 14);
   let g = Math.max(a.g, c.g);
   if (r < 0.3 / g) g++;
@@ -280,10 +321,11 @@ function birth(st: StairState) {
   if (q < 0.2) p++;
   else if (q > 0.9 && p > 1) p--;
   const col = hash(b, 15) < 0.12 ? (a.c + 1 + Math.floor(hash(b, 16) * 4)) % HUES.length : hash(b, 17) < 0.5 ? a.c : c.c;
-  st.tank.push({ g, c: col, p });
+  st.tank.push(packL({ g, c: col, p }));
 }
 
-export const tankMult = (st: StairState) => 1 + 0.2 * Math.sqrt(st.glow) * (1 + 0.06 * st.hues);
+/** The tank lights Rampant Wells: quick at first, slow by the time it is full. */
+export const tankMult = (st: StairState) => 1 + 0.6 * Math.pow(st.glow, 0.3) * (1 + 0.05 * st.hues);
 
 // ---- reflections ----
 
@@ -334,14 +376,17 @@ export function still(s: GameState): boolean {
 
 // ---- payouts ----
 
-export const sightPow = (st: StairState) => Math.pow(st.spots, 0.75);
+/** Differences seen, tapered by a square root. */
+export const sightPow = (st: StairState) => Math.sqrt(st.spots);
 const perkOf = (st: StairState, p: PerkId) => tap(st.perks[p] ?? 0);
 
+/** Perks, boons and sight all pay by square roots: they keep counting and never run away. */
+const rt = Math.sqrt;
 export function stairMult(st: StairState, t: string): number {
-  if (t === 'zone3') return (1 + 0.08 * perkOf(st, 'candle')) * (1 + 0.07 * perkOf(st, 'zone3')) * (1 + 0.15 * tap(st.boons.embers))
-    * (1 + 0.06 * tap(st.boons.water)) * tankMult(st) * (1 + 0.04 * sightPow(st));
-  if (t === 'ash') return (1 + 0.05 * perkOf(st, 'ash')) * (1 + 0.12 * tap(st.boons.ash)) * (1 + 0.06 * sightPow(st));
-  if (t === 'comfort') return 1 + 0.02 * Math.sqrt(st.candles);
+  if (t === 'zone3') return (1 + 0.05 * perkOf(st, 'candle')) * (1 + 0.12 * rt(st.perks.zone3 ?? 0)) * (1 + 0.15 * rt(st.boons.embers))
+    * (1 + 0.08 * rt(st.boons.water)) * tankMult(st) * (1 + 0.04 * sightPow(st));
+  if (t === 'ash') return (1 + 0.1 * rt(st.perks.ash ?? 0)) * (1 + 0.1 * rt(st.boons.ash)) * (1 + 0.03 * sightPow(st));
+  if (t === 'comfort') return 1 + 0.03 * rt(st.candles);
   return 1;
 }
 
@@ -361,6 +406,7 @@ export const stair: ChallengeModule<StairState> = {
   }),
   step: (s, dt) => {
     const st = S(s);
+    settle(st);
     draw(s, dt, st.t);
     st.t += dt;
     if (st.sent) {
@@ -377,7 +423,8 @@ export const stair: ChallengeModule<StairState> = {
     if (br > 0) {
       st.breed += dt * br;
       let n = 0;
-      while (st.breed >= 1 && n++ < 50) { st.breed -= 1; birth(st); }
+      while (st.breed >= 1 && st.tank.length < TANK_MAX && n++ < 200) { st.breed -= 1; birth(st); }
+      if (st.tank.length >= TANK_MAX) st.breed = 0;
       if (n) retank(st);
     }
     const id = reflIdAt(st);

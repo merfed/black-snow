@@ -9,12 +9,12 @@ import {
 import { randomSirenGap, type GameState, type LogEntry } from './state';
 import {
   BREED_COOLDOWN, BREED_STAGE, COMFORT_PERKS, EGG_FOUND_AT, EGG_GROWTH, EGG_LINES, FIXTURE_GROWTH, FIXTURES, FREQS,
-  KILN, NEST_BROOD, NEST_EGGS, NURSERY_UPS, RARITIES, WEATHER, ZONE_UP_NAMES, ZONE_UP_SLOTS,
-  type FixtureId, type FreqId, type KilnId, type NurseryUpId, type WeatherId,
+  KILN, NEST_BROOD, NEST_EGGS, NURSERY_UPS, RARITIES, SINKS, WEATHER, ZONE_UP_NAMES, ZONE_UP_SLOTS,
+  type FixtureId, type FreqId, type KilnId, type NurseryUpId, type SinkId, type WeatherId,
 } from './systems';
 import { cycleRate, wiringMult } from './wiring';
 import { patternMult } from './patterns';
-import { alchemyOpen, pigmentBase, stepAlchemy, tinctureMult } from './alchemy';
+import { pigmentBase, stepAlchemy, tinctureMult } from './alchemy';
 import { achievementMult, checkAchievements } from './achievements';
 import { breed, giftOf, randomGenome, speciesKey, type Gift } from './genome';
 import type { Creature } from './state';
@@ -147,6 +147,7 @@ export function globalMult(s: GameState): Decimal {
   m = m.mul(weatherMult(s, 'thunder', 1.1));
   for (let i = 0; i < 9; i++) m = m.mul(Math.pow(1.02, zoneUpLevel(s, i, 3)));
   m = m.mul(achievementMult(s));
+  m = m.mul(sinkMult(s, 'tower'));
   m = m.mul(patternMult(s, 'ash') * tinctureMult(s, 'ash') * chMult(s, 'ash'));
   return m;
 }
@@ -225,6 +226,26 @@ export function tune(s: GameState, id: FreqId): boolean {
   return true;
 }
 
+// ---- late sinks for rust and echoes ----
+
+export const sinkLevel = (s: GameState, id: SinkId) => s.sinks?.[id] ?? 0;
+export const sinkMult = (s: GameState, id: SinkId) => Math.pow(SINKS.find(k => k.id === id)!.per, sinkLevel(s, id));
+export const sinkCost = (s: GameState, id: SinkId) => {
+  const d = SINKS.find(k => k.id === id)!;
+  return Math.round(d.base * Math.pow(d.growth, sinkLevel(s, id)));
+};
+/** The tower opens once every rite is done; the splice once every frequency is found. */
+export const sinkOpen = (s: GameState, id: SinkId) => id === 'tower' ? RITES.every(r => has(s, r.id)) : FREQS.every(f => !!s.freqs[f.id]);
+
+export function buySink(s: GameState, id: SinkId): boolean {
+  const d = SINKS.find(k => k.id === id)!;
+  const cost = sinkCost(s, id);
+  if (!sinkOpen(s, id) || s[d.res] < cost) return false;
+  s[d.res] -= cost;
+  s.sinks = { ...s.sinks, [id]: sinkLevel(s, id) + 1 };
+  return true;
+}
+
 export function zoneUpMult(i: number, k: 0 | 2): number {
   if (i === 0) return k === 0 ? 1.25 : 1.5;
   return k === 0 ? 1.05 : 1.1;
@@ -262,12 +283,66 @@ export function zoneUpStatus(s: GameState, i: number, k: number): 'maxed' | 'ava
   return s.zones[i].bought >= zoneUpGate(s, i, k) ? 'available' : 'locked';
 }
 
+/** The zone's own material a level costs, on top of the ash. */
+export function zoneUpMatCost(s: GameState, i: number, k: number): number {
+  const slot = ZONE_UP_SLOTS[k];
+  return Math.round(slot.mat * Math.pow(slot.matGrowth, zoneUpLevel(s, i, k)));
+}
+
+/** Both prices met: the ash and the zone's material. */
+export const zoneUpAffordable = (s: GameState, i: number, k: number) =>
+  s.ash.gte(zoneUpCost(s, i, k)) && matOf(s, i) >= zoneUpMatCost(s, i, k);
+
 export function buyZoneUp(s: GameState, i: number, k: number): boolean {
   const cost = zoneUpCost(s, i, k);
-  if (zoneUpStatus(s, i, k) !== 'available' || s.ash.lt(cost)) return false;
+  const mat = zoneUpMatCost(s, i, k);
+  if (zoneUpStatus(s, i, k) !== 'available' || s.ash.lt(cost) || matOf(s, i) < mat) return false;
   s.ash = s.ash.sub(cost);
+  s.mats[i] = matOf(s, i) - mat;
   s.zoneUps[zoneUpKey(i, k)] = zoneUpLevel(s, i, k) + 1;
   return true;
+}
+
+// ---- zone materials: each zone trickles its own, and the zone below it speeds that up ----
+
+export const matOf = (s: GameState, i: number) => s.mats?.[i] ?? 0;
+
+/** Per shaft bought, per second. */
+export const MAT_RATE = 0.05;
+/** How much each shaft of the zone below adds to this zone's material, and the most it can steady this zone's output. */
+export const MAT_BELOW = 1 / 20, UNDERPIN_MAX = 0.15;
+
+/** The zone below's push on this zone's material: x(1 + bought below / 20). */
+export const matBoost = (s: GameState, i: number) => (i < 8 ? 1 + MAT_BELOW * s.zones[i + 1].bought : 1);
+
+/** Material per second for a zone: from the shafts bought there, faster with every shaft dug in the zone below. */
+export function matRate(s: GameState, i: number): number {
+  const b = s.zones[i].bought;
+  return b > 0 ? MAT_RATE * b * matBoost(s, i) : 0;
+}
+
+/** The zone below also steadies this one's output a little: up to x1.15, tapering, from shafts bought below. */
+export function underpin(s: GameState, i: number): number {
+  if (i >= 8) return 1;
+  const b = s.zones[i + 1].bought;
+  return 1 + UNDERPIN_MAX * b / (b + 100);
+}
+
+/**
+ * Old saves had no materials. Seed each zone with half an hour of its trickle plus the price of the next level
+ * of every upgrade it could already buy, so nothing that was buyable a moment ago is suddenly out of reach.
+ */
+export function seedMats(s: GameState) {
+  s.mats = ZONES.map((_, i) => {
+    let m = 1800 * matRate(s, i);
+    for (const sl of ZONE_UP_SLOTS) if (zoneUpStatus(s, i, sl.k) === 'available') m += zoneUpMatCost(s, i, sl.k);
+    return Math.round(m);
+  });
+}
+
+function stepMats(s: GameState, dt: number) {
+  if (s.mats.length < 9) seedMats(s);
+  for (let i = 0; i < 9; i++) s.mats[i] += matRate(s, i) * dt;
 }
 
 // ---- max all: opens once every upgrade in a box has been bought at least once ----
@@ -276,10 +351,10 @@ export const zoneMaxOpen = (s: GameState, i: number) => ZONE_UP_SLOTS.every(sl =
 export const stationMaxOpen = (s: GameState) => FIXTURES.every(f => fixtureLevel(s, f.id) > 0);
 export const nurseryMaxOpen = (s: GameState) => NURSERY_UPS.every(u => nurseryUpLevel(s, u.id) > 0);
 
-/** Spend ash on the cheapest thing in the box, again and again, until nothing is affordable. */
-function buyCheapest(s: GameState, options: () => { cost: Decimal; buy: () => boolean }[]) {
+/** Spend ash on the cheapest thing in the box, again and again, until nothing is affordable. `ok` adds any other price (a material). */
+function buyCheapest(s: GameState, options: () => { cost: Decimal; ok?: boolean; buy: () => boolean }[]) {
   for (let guard = 0; guard < 5000; guard++) {
-    const open = options().filter(o => s.ash.gte(o.cost)).sort((a, b) => a.cost.cmp(b.cost));
+    const open = options().filter(o => s.ash.gte(o.cost) && o.ok !== false).sort((a, b) => a.cost.cmp(b.cost));
     if (!open.length || !open[0].buy()) return;
   }
 }
@@ -289,7 +364,7 @@ export function maxZone(s: GameState, i: number) {
   buyCheapest(s, () => [
     { cost: zoneCost(s, i), buy: () => buyShaft(s, i) },
     ...ZONE_UP_SLOTS.filter(sl => zoneUpStatus(s, i, sl.k) === 'available')
-      .map(sl => ({ cost: zoneUpCost(s, i, sl.k), buy: () => buyZoneUp(s, i, sl.k) })),
+      .map(sl => ({ cost: zoneUpCost(s, i, sl.k), ok: matOf(s, i) >= zoneUpMatCost(s, i, sl.k), buy: () => buyZoneUp(s, i, sl.k) })),
   ]);
 }
 
@@ -299,7 +374,7 @@ export function maxStation(s: GameState) {
     .map(f => ({ cost: fixtureCost(s, f.id), buy: () => buildFixture(s, f.id) })));
 }
 
-/** Tend the whole nursery: buy affordable upgrades, feed the hungry, sing to everyone, warm eggs with spare embers. */
+/** Tend the whole nursery: buy affordable upgrades, feed the hungry, sing to everyone, warm eggs with up to half the embers. */
 export function tendAll(s: GameState) {
   if (!nurseryMaxOpen(s)) return;
   buyCheapest(s, () => NURSERY_UPS.filter(u => nurseryUpLevel(s, u.id) < u.max)
@@ -308,7 +383,9 @@ export function tendAll(s: GameState) {
     if (c.hunger < 60) feedCreature(s, c.id);
     singTo(s, c.id);
   }
-  for (const e of s.nursery.eggs) while (e.warmth < 100 && warmEgg(s, e.id));
+  // Eggs only ever get half the embers on hand, so the kiln and familiar slots are not emptied by surprise.
+  const keep = s.embers / 2;
+  for (const e of s.nursery.eggs) while (e.warmth < 100 && s.embers - 1 >= keep && warmEgg(s, e.id));
 }
 
 // ---- the nursery ----
@@ -326,6 +403,7 @@ export function buyNurseryUp(s: GameState, id: NurseryUpId): boolean {
   if (!s.nursery.found || nurseryUpLevel(s, id) >= def.max || s.ash.lt(cost)) return false;
   s.ash = s.ash.sub(cost);
   s.nursery.ups[id] = nurseryUpLevel(s, id) + 1;
+  if (id === 'hopper') s.nursery.autoFeed = true;
   return true;
 }
 
@@ -333,19 +411,31 @@ export const eggSlots = (s: GameState) => NEST_EGGS + nurseryUpLevel(s, 'nest');
 export const broodSlots = (s: GameState) => Math.min(BROOD_MAX, NEST_BROOD + nurseryUpLevel(s, 'nest') + 8 * nurseryUpLevel(s, 'wing'));
 export const isFed = (c: Creature) => c.hunger > 25;
 
+/** Hunger lost per second. Grown creatures eat less often, and every trough level slows it too. */
+export const hungerRate = (s: GameState, c: Creature) => 0.15 * Math.pow(0.85, nurseryUpLevel(s, 'trough')) / (1 + 0.5 * (c.stage - 1));
+
+/** The hopper feeds anyone below this, at the usual price, while it is switched on. */
+export const HOPPER_AT = 40;
+export const hopperOn = (s: GameState) => !!s.nursery.autoFeed && nurseryUpLevel(s, 'hopper') > 0;
+export function setAutoFeed(s: GameState, on: boolean): boolean {
+  if (nurseryUpLevel(s, 'hopper') < 1) return false;
+  s.nursery.autoFeed = on;
+  return true;
+}
+
 /** Sum of fed creatures' stages for one kind of gift; each gift scales with how grown its giver is. */
 export function giftTotal(s: GameState, gift: Gift): number {
   let n = 0;
   for (const c of s.nursery.brood) if (isFed(c) && giftOf(c.genome) === gift) n += c.stage;
-  // A big brood still helps, but past 40 each one adds less, so 255 creatures can't run away with it.
-  if (n > 40) n = 40 * Math.sqrt(n / 40);
+  // A big brood still helps, but past 40 each one adds less (cube root), so 255 creatures can't run away with it.
+  if (n > 40) n = 40 * Math.cbrt(n / 40);
   return n + familiarGift(s, gift);
 }
 
 export const eggWarmRate = (s: GameState) => Math.min(comfort(s), 300) * 0.02 * (1 + 0.5 * nurseryUpLevel(s, 'lamp')) * (comfortPerk(s, 4) ? 2 : 1) * tinctureMult(s, 'eggs') * quirkMult(s, 'eggs');
 
 /** Pigment per second from the Barker Spirals, for the alchemy. */
-export const pigmentRate = (s: GameState) => pigmentBase(s) * patternMult(s, 'pigment') * tinctureMult(s, 'pigment') * chMult(s, 'pigment');
+export const pigmentRate = (s: GameState) => pigmentBase(s) * patternMult(s, 'pigment') * tinctureMult(s, 'pigment') * chMult(s, 'pigment') * sinkMult(s, 'splice');
 export const growthRate = (s: GameState, c: Creature) =>
   (1 + 0.5 * nurseryUpLevel(s, 'straw')) * (c.mood > 70 ? 1.5 : 1) * (tunedTo(s, 'lullaby') ? 1.5 : 1);
 export const feedCost = (s: GameState) => Decimal.max(50, passiveRate(s).mul(30)).floor();
@@ -451,11 +541,12 @@ function stepNursery(s: GameState, dt: number) {
   }
   const target = moodTarget(s);
   const pull = 0.05 * (tunedTo(s, 'lullaby') ? 3 : 1) * dt;
-  const hungerFall = 0.15 * Math.pow(0.85, nurseryUpLevel(s, 'trough')) * dt;
+  const feeder = hopperOn(s);
   for (const c of n.brood) {
     c.singIn = Math.max(0, c.singIn - dt);
     c.breedIn = Math.max(0, c.breedIn - dt);
-    c.hunger = Math.max(0, c.hunger - hungerFall);
+    c.hunger = Math.max(0, c.hunger - hungerRate(s, c) * dt);
+    if (feeder && c.hunger < HOPPER_AT) feedCreature(s, c.id);
     c.mood += Math.max(-pull, Math.min(pull, target - c.mood));
     if (comfortPerk(s, 1)) c.mood = Math.max(50, c.mood);
     if (c.stage < 1 + EGG_GROWTH.length && isFed(c) && c.mood > 30) {
@@ -469,8 +560,12 @@ function stepNursery(s: GameState, dt: number) {
   }
 }
 
+const WILD_SOFT = 30;
+
 /** A wild egg turns up now and then: sometimes with a caught warm flake, sometimes after a siren. */
 function maybeWildEgg(s: GameState, chance: number, rng: Rng) {
+  // Wild eggs thin out as the brood grows: a full nursery hears fewer of them.
+  chance *= WILD_SOFT / (WILD_SOFT + s.nursery.brood.length);
   if (s.nursery.found && rng() < chance && addEgg(s, randomGenome(rng))) log(s, EGG_LINES.wild, 'milestone');
 }
 
@@ -520,7 +615,7 @@ export function zoneMult(s: GameState, i: number): Decimal {
   if (i === 0) m = m.mul(1 + 0.1 * giftTotal(s, 'bores'));
   if (i === 0 && tunedTo(s, 'hum')) m = m.mul(2);
   if (i === 0) m = m.mul(weatherMult(s, 'wind', 1.5));
-  m = m.mul(wiringMult(s, i));
+  m = m.mul(wiringMult(s, i) * underpin(s, i));
   if (i <= 4) m = m.mul(tinctureMult(s, `zone${i}` as 'zone0'));
   m = m.mul(tinctureMult(s, 'zones'));
   m = m.mul(quirkMult(s, 'zones') * chMult(s, 'zones') * chMult(s, `zone${i}` as 'zone0'));
@@ -537,6 +632,12 @@ export function zoneGrowth(s: GameState, i: number): number {
 
 export function zoneCost(s: GameState, i: number): Decimal {
   return new Decimal(ZONES[i].baseCost).mul(Decimal.pow(zoneGrowth(s, i), s.zones[i].bought)).floor();
+}
+
+/** What the next n shafts of a zone cost together, at today's price growth. */
+export function shaftsCost(s: GameState, i: number, n: number): Decimal {
+  const g = zoneGrowth(s, i);
+  return zoneCost(s, i).mul(Decimal.pow(g, n).sub(1).div(g - 1)).floor();
 }
 
 /** Shafts open with the floorboards; each deeper zone shows once you own 5 of the zone above. */
@@ -563,6 +664,7 @@ export function passiveRate(s: GameState): Decimal {
 /** Ash per second right now (zero during the siren unless wired). */
 export function ashPerSecond(s: GameState): Decimal {
   const rate = passiveRate(s);
+  if (awayPerk(s)) return rate.mul(AWAY_BONUS);
   return s.siren.active ? rate.mul(has(s, 'wire') ? 0.25 : 0) : rate;
 }
 
@@ -578,7 +680,7 @@ export function listenBase(s: GameState): Decimal {
 /** Ash per Listen: base, times resonance, plus a slice of passive income from later upgrades. */
 export function listenPower(s: GameState): Decimal {
   let p = listenBase(s).mul(1 + s.resonance);
-  const share = (owns(s, 'ear2') ? 0.2 : 0) + (owns(s, 'hatch') ? 0.01 : 0);
+  const share = (owns(s, 'ear2') ? 0.2 + 0.3 * s.resonance : 0) + (owns(s, 'hatch') ? 0.01 : 0);
   if (share) p = p.add(passiveRate(s).mul(share));
   return p;
 }
@@ -670,6 +772,7 @@ export function devUnlockAll(s: GameState) {
   s.embers = Math.max(s.embers, 1e5);
   s.echoes = Math.max(s.echoes, 1e7);
   s.rust = Math.max(s.rust, 1e7);
+  s.mats = ZONES.map((_, i) => Math.max(matOf(s, i), 1e6));
   if (s.ash.lt(1e60)) gainAsh(s, new Decimal(1e60).sub(s.ash));
   checkMilestones(s);
 }
@@ -701,9 +804,17 @@ export function buyShaft(s: GameState, i: number): boolean {
   if (i + 1 > s.zonesOpened) {
     s.zonesOpened = i + 1;
     log(s, ZONES[i].openLine, 'milestone');
+    if (SYSTEM_OPENS[i]) log(s, SYSTEM_OPENS[i], 'milestone', true);
   }
   return true;
 }
+
+/** The machines in the upper zones wake as you dig deeper: one line each, the first time. */
+export const SYSTEM_OPENS: Record<number, string> = {
+  4: 'THE LOCK CLOSES AND THE PATTERN BUFFER HEARS IT. ITS MODULATOR WAKES. THE PATTERN CAN BE BENT NOW.',
+  6: 'THE COMPILER READS THE SPIRAL ALOUD. THE STAIR TAKES COLOUR. PIGMENT RUNS DOWN THE STEPS.',
+  7: 'THE MURMUR REACHES THE COMPILER. THE EXCHANGE LIGHTS UP, AND ITS LINES CAN BE PATCHED.',
+};
 
 /** Buy shafts until the next x2 step or until ash runs out. */
 export function buyShaftsToTen(s: GameState, i: number) {
@@ -846,13 +957,18 @@ function stepAchievements(s: GameState, dt: number) {
   checkAchievements(s); // announced by a toast in the UI, not the log, which stays rare
 }
 
-export function tick(s: GameState, dt: number, rng: Rng = Math.random) {
+/** True while catchUp runs, so away-only rules (the comfort perk, quiet logs) can tell. */
+let awayNow = false;
+
+/** One step of everything. Away, nobody is there to catch flakes, and the log is summarised afterwards. */
+function advance(s: GameState, dt: number, rng: Rng, away: boolean) {
   s.playTime += dt;
   if (s.kindled > 0) s.kindled = Math.max(0, s.kindled - dt);
   produce(s, dt);
+  stepMats(s, dt);
   stepSiren(s, dt, rng);
   stepResonance(s, dt);
-  stepWarmFlake(s, dt, rng);
+  if (!away) stepWarmFlake(s, dt, rng);
   stepWeather(s, dt, rng);
   stepNursery(s, dt);
   stepAlchemy(s, dt, pigmentRate(s));
@@ -860,6 +976,7 @@ export function tick(s: GameState, dt: number, rng: Rng = Math.random) {
   if (!s.citadel.awake && citadelOpen(s) && wakeCitadel(s)) log(s, 'SOMETHING BEHIND THE GATE OPENS ITS EYES. THE BLACK CITADEL IS AWAKE, AND IT IS THIRSTY.', 'milestone', true);
   stepCitadel(s, dt, rng);
   stepAchievements(s, dt);
+  if (away) return;
   stepLog(s, dt);
   s.ambientIn -= dt;
   if (s.ambientIn <= 0) {
@@ -868,25 +985,46 @@ export function tick(s: GameState, dt: number, rng: Rng = Math.random) {
   }
 }
 
+export function tick(s: GameState, dt: number, rng: Rng = Math.random) {
+  advance(s, dt, rng, false);
+}
+
+/** Comfort perk 4: away, the shafts dig through sirens at full strength and a little harder. */
+export const AWAY_BONUS = 1.8;
+export const awayPerk = (s: GameState) => awayNow && comfortPerk(s, 3);
+
+/** Steps per catch-up: about one every ten seconds, so sirens and their pauses still happen. */
+const AWAY_STEP = 10, AWAY_MAX_STEPS = 2000, AWAY_LINES = 4;
+
 /**
- * Catch up time spent away. Sirens are skipped, so only the cascade runs, in at most 2,000
- * coarse steps. Capped at 12 hours.
+ * Catch up time spent away, capped at 12 hours (more with the Citadel's sealed room). It runs the
+ * same rules as live play in coarse steps: sirens pause the shafts and pay rust, echoes, the
+ * nursery, weather and pigment all move. Only warm flakes are missed. The log gets one summary
+ * line plus at most a few of the notable lines that happened while away.
  */
-export function catchUp(s: GameState, seconds: number) {
-  const capped = Math.min(seconds, (12 + awayHours(s)) * 3600) * (comfortPerk(s, 3) ? 2 : 1);
+export function catchUp(s: GameState, seconds: number, rng: Rng = Math.random) {
+  const capped = Math.min(seconds, (12 + awayHours(s)) * 3600);
   if (capped < 10) return;
-  const before = s.ash;
-  const wasActive = s.siren.active;
-  s.siren.active = false;
-  s.kindled = 0;
-  const steps = Math.min(2000, Math.ceil(capped));
+  const before = s.ash, rustBefore = s.rust, seq = s.logSeq;
+  const keptLog = [...s.log], keptQueue = [...s.logQueue];
+  if (s.warmFlake.active) s.warmFlake = { ...s.warmFlake, active: false, ttl: 0, spawnIn: nextFlakeGap(s, rng) };
+  const steps = Math.min(AWAY_MAX_STEPS, Math.ceil(capped / AWAY_STEP));
   const dt = capped / steps;
-  for (let k = 0; k < steps; k++) { produce(s, dt); stepChallenges(s, dt, Math.random); stepCitadel(s, dt); }
-  if (alchemyOpen(s)) s.alchemy.pigment += pigmentRate(s) * capped;
-  s.siren.active = wasActive;
-  s.playTime += capped;
+  awayNow = true;
+  try {
+    for (let k = 0; k < steps; k++) advance(s, dt, rng, true);
+  } finally {
+    awayNow = false;
+  }
+  // Keep only the notable lines (zones, eggs, openings), once each, newest last.
+  const fresh = [...s.log, ...s.logQueue].filter(e => e.id >= seq && e.kind === 'milestone').sort((a, b) => a.id - b.id);
+  const lines = fresh.filter((e, i) => fresh.findIndex(o => o.text === e.text) === i).slice(-AWAY_LINES);
+  s.log = keptLog;
+  s.logQueue = keptQueue;
+  for (const e of lines) print(s, e);
   if (capped < 120) return;
   const hours = Math.floor(capped / 3600), mins = Math.floor((capped % 3600) / 60);
   const away = hours ? `${hours} HOURS ${mins} MINUTES` : `${mins} MINUTES`;
-  log(s, `YOU WERE AWAY ${away}. THE SHAFTS KEPT DIGGING. +${fmt(s.ash.sub(before))} ASH.`, 'away');
+  const rust = s.rust - rustBefore > 0.5 ? `, +${fmt(s.rust - rustBefore)} RUST` : '';
+  log(s, `YOU WERE AWAY ${away}. THE SHAFTS KEPT DIGGING. +${fmt(Decimal.max(0, s.ash.sub(before)))} ASH${rust}.`, 'away');
 }

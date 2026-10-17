@@ -23,6 +23,7 @@ const CAT: Record<AchCategory, { color: string; icon: string[] }> = {
   nursery: { color: SYSTEM_COLORS.nursery, icon: EGG_SPRITES[0] },
   rooms: { color: SYSTEM_COLORS.comfort, icon: FIXTURE_SPRITES.kettle },
   board: { color: ZONE_COLORS[6], icon: ZONE_ICONS[6] },
+  citadel: { color: '#e8c21c', icon: ZONE_ICONS[8] },
   secret: { color: '#ff2a2a', icon: RARE_FLAKES[3] },
 };
 

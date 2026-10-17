@@ -4,7 +4,8 @@ import { createElement, Fragment } from 'react';
 import { newGame } from './state';
 import { devUnlockAll } from './engine';
 import { guideHasLocked, visibleGuide, zoneGuide } from './guide';
-import { CHALLENGES } from './challenges';
+import { CHALLENGES, plexNeeded } from './challenges';
+import { ZONES } from './data';
 
 const ids = (s: ReturnType<typeof newGame>, zone: number) => visibleGuide(s, zone).map(x => x.id);
 
@@ -41,6 +42,20 @@ describe('zone guide', () => {
     expect(ids(s, 6)).toContain('z6-exchange');
     expect(ids(s, 8)).toContain('z8-citadel');
     expect(ids(s, 8)).toContain('z8-dreams');
+    expect(ids(s, 8)).toContain('z8-floors');
+  });
+
+  it('each zone names its own material, and the challenge intros name their Plex', () => {
+    const s = newGame(() => 0.5);
+    devUnlockAll(s);
+    for (let z = 0; z < 9; z++) {
+      const ups = zoneGuide(z).find(sec => sec.id === `z${z}-ups`)!;
+      expect(renderToStaticMarkup(createElement(Fragment, null, ups.body(s)))).toContain(ZONES[z].mat);
+    }
+    for (const c of CHALLENGES) {
+      const intro = zoneGuide(c.zone).find(sec => sec.id === `ch-${c.id}`)!;
+      expect(renderToStaticMarkup(createElement(Fragment, null, intro.body(s)))).toContain(`${plexNeeded(c.id)} Plex dug`);
+    }
   });
 
   it('every section renders without throwing, locked state or not', () => {
@@ -50,7 +65,7 @@ describe('zone guide', () => {
       for (let z = 0; z < 9; z++) {
         const html = renderToStaticMarkup(createElement(Fragment, null, ...zoneGuide(z).map(sec => createElement(Fragment, { key: sec.id }, sec.body(s)))));
         expect(html.length).toBeGreaterThan(100);
-        expect(html).not.toMatch(/NaN|undefined|Infinity/);
+        expect(html).not.toMatch(/NaN|undefined|Infinity|\[object/);
       }
     }
   });

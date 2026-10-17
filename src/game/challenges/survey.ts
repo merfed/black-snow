@@ -1,6 +1,7 @@
 // The Survey: the zone 1 challenge. The bore pulls up cores on its own and racks them; reading one is a
-// small swap puzzle (line up three bands of a kind and they are read). Bore heads placed on the snow map
-// pay survey by how thick the ash falls on their tile; the map drifts slowly with the Survey's own clock.
+// small swap puzzle (line up three bands of a kind and they are read). A core reader, once bought, reads
+// racked cores on its own, slowly and at half value. Bore heads placed on the snow map pay survey by how
+// thick the ash falls on their tile; the map drifts slowly with the Survey's own clock.
 // Pure functions over GameState, like the engine.
 import Decimal from 'break_eternity.js';
 import { log, passiveRate } from '../engine';
@@ -13,6 +14,10 @@ export const CORE_EVERY = 240;
 export const RACK_BASE = 6, RACK_STEP = 2;
 /** Bands of each kind in a core, and kinds per core. A core is always KINDS_PER * RUN bands. */
 export const RUN = 3, KINDS_PER = 3;
+/** Seconds per core the reader takes at level 1; each level after reads half again as fast. */
+export const READ_EVERY = 1200;
+/** The share of a core's tally the reader keeps; reading by hand keeps it all. */
+export const AUTO_SHARE = 0.5;
 
 export interface Stratum { id: string; name: string; hex: string; weight: number; value: number; rare?: boolean; lore?: string[] }
 
@@ -66,11 +71,14 @@ export interface SurveyState {
   last: string[]; // strata read from the last finished core
   heads: number[]; // tile index (y * MAP_W + x) of each bore head
   surveyed: number; // survey ever gathered
+  reader: number; // core reader level, 0 = none
+  readProg: number; // progress toward the reader's next core
+  priceRef: number; // slow log10 income the Survey prices off (kept by stepChallenges, see slowRef), 0 = unset
 }
 
 const fresh = (): SurveyState => ({
   started: false, seed: Math.floor(Math.random() * 1e9), clock: 0, coreProg: 0, rack: 1, rackLv: 0, core: null,
-  read: 0, tally: {}, lore: [], last: [], heads: [], surveyed: 0,
+  read: 0, tally: {}, lore: [], last: [], heads: [], surveyed: 0, reader: 0, readProg: 0, priceRef: 0,
 });
 
 const st = (s: GameState) => s.challenges.survey;
@@ -112,21 +120,41 @@ export function surveyRate(s: GameState, t = st(s).clock): number {
 /* ---------- payouts ---------- */
 
 export const tallyTotal = (v: SurveyState) => Object.values(v.tally).reduce((n, x) => n + x, 0);
-/** All ash from reading cores: the tallies, tapering. */
-export const coreMult = (v: SurveyState) => 1 + 0.12 * Math.sqrt(tallyTotal(v));
-/** Shallow Bores from survey gathered, by cube root. */
-export const zoneBonus = (v: SurveyState) => 1 + 0.1 * Math.cbrt(v.surveyed);
-/** A little all ash from survey too. */
-export const surveyAsh = (v: SurveyState) => 1 + 0.05 * Math.log10(1 + v.surveyed);
+/** All ash from reading cores: the tallies, tapering (about x2 at the milestone, x8 after a week of steady reading). */
+export const coreMult = (v: SurveyState) => 1 + 0.12 * Math.pow(tallyTotal(v), 0.45);
+/** Shallow Bores from survey gathered, by log (about x2 at the milestone, under x3 after a week). */
+export const zoneBonus = (v: SurveyState) => 1 + 0.25 * Math.log10(1 + v.surveyed);
+/** Retired: the Survey's ash now comes from the cores alone. Always 1; kept so old readers still work. */
+export const surveyAsh = (v: SurveyState) => (v ? 1 : 1);
 
 export const rackSize = (s: GameState) => RACK_BASE + RACK_STEP * st(s).rackLv;
-const income = (s: GameState, sec: number) => Decimal.max(1e7 * sec, passiveRate(s).mul(sec));
-/** The next bore head, priced off income: 90 s of ash, then 1.75x each. */
-export const headCost = (s: GameState) => income(s, 90 * Math.pow(1.75, st(s).heads.length));
-/** A wider rack: 5 minutes of ash, then 2.2x each. */
-export const rackCost = (s: GameState) => income(s, 300 * Math.pow(2.2, st(s).rackLv));
+const liveLog = (s: GameState) => passiveRate(s).log10().toNumber();
+/** sec seconds of the Survey's slow income: what an item costs. */
+const income = (s: GameState, sec: number) => {
+  const ref = st(s).priceRef > 0 ? st(s).priceRef : liveLog(s);
+  return Decimal.max(1e7 * sec, Decimal.pow(10, ref).mul(sec)).floor();
+};
+/** The next bore head: a minute of slow income, 1.6x each to the sixth, then 3x each. */
+export const headCost = (s: GameState) => {
+  const n = st(s).heads.length;
+  return income(s, 60 * Math.pow(1.6, Math.min(n, 6)) * Math.pow(3, Math.max(0, n - 6)));
+};
+/** A wider rack: 5 minutes of slow income, then 2.5x each. */
+export const rackCost = (s: GameState) => income(s, 300 * Math.pow(2.5, st(s).rackLv));
+/** The core reader: 10 minutes of slow income, then 3x each level. */
+export const readerCost = (s: GameState) => income(s, 600 * Math.pow(3, st(s).reader));
+/** Cores per second the reader gets through. */
+export const readerRate = (s: GameState) => (st(s).reader ? (1 + 0.5 * (st(s).reader - 1)) / READ_EVERY : 0);
 
 /* ---------- actions ---------- */
+
+export function buyReader(s: GameState): boolean {
+  const cost = readerCost(s);
+  if (s.ash.lt(cost)) return false;
+  s.ash = s.ash.sub(cost);
+  st(s).reader++;
+  return true;
+}
 
 export function buyRack(s: GameState): boolean {
   const cost = rackCost(s);
@@ -195,9 +223,9 @@ export function openCore(s: GameState, rng: Rng = Math.random): boolean {
 }
 
 /** Read a run: its stratum's tally grows, and a rare one gives up its next lore line. */
-function readRun(s: GameState, id: string) {
+function readRun(s: GameState, id: string, share = 1) {
   const v = st(s), k = stratum(id);
-  v.tally[id] = (v.tally[id] ?? 0) + k.value;
+  v.tally[id] = (v.tally[id] ?? 0) + k.value * share;
   v.last.push(id);
   if (!k.lore) return;
   const n = v.lore.filter(l => l.startsWith(id + ':')).length;
@@ -217,6 +245,14 @@ export function swapBands(s: GameState, i: number): boolean {
   return true;
 }
 
+/** The reader takes a core off the rack and reads it whole, at AUTO_SHARE of the tally. */
+function autoRead(s: GameState, rng: Rng) {
+  const v = st(s);
+  v.rack--;
+  for (const id of new Set(makeCore(rng))) readRun(s, id, AUTO_SHARE);
+  v.read++;
+}
+
 export const loreText = (key: string) => {
   const [id, n] = key.split(':');
   return stratum(id).lore![Number(n)];
@@ -230,7 +266,7 @@ export const survey: ChallengeModule<SurveyState> = {
   name: 'The Survey',
   tagline: 'Read the cores, and map where the snow falls thickest.',
   fresh,
-  step: (s, dt) => {
+  step: (s, dt, rng) => {
     const v = st(s);
     // Midpoint rate: the map drifts over hours, so this agrees between small and large steps.
     v.surveyed += surveyRate(s, v.clock + dt / 2) * dt;
@@ -242,10 +278,16 @@ export const survey: ChallengeModule<SurveyState> = {
       if (whole > 0) { v.rack = Math.min(cap, v.rack + whole); v.coreProg -= whole; }
       if (v.rack >= cap) v.coreProg = 0;
     }
+    const rr = readerRate(s);
+    if (rr > 0) {
+      v.readProg += rr * dt;
+      while (v.readProg >= 1 && v.rack > 0) { v.readProg -= 1; autoRead(s, rng); }
+      if (v.rack < 1) v.readProg = Math.min(v.readProg, 1);
+    }
   },
   mult: (s, t) => {
     const v = st(s);
-    if (t === 'ash') return coreMult(v) * surveyAsh(v);
+    if (t === 'ash') return coreMult(v);
     if (t === 'zone0') return zoneBonus(v);
     return 1;
   },

@@ -1,10 +1,13 @@
 // The Black Citadel and the Dream Engine. Once the Syzygy's gate is open the Citadel wakes: it grows
 // nul, a black resource it makes out of nothing, and it drinks a slice of everything the station holds,
-// a little more the longer it is awake. The Dream Engine slows the drinking by feeding it dreams; each
-// kind of dream also bends the station, for better and for worse. Pure functions over GameState.
+// a little more the longer it is awake. Now and then it climbs a floor and drinks harder until a rite
+// answers it; the seventh rite is the end of the story. The Dream Engine slows the drinking by feeding
+// it dreams; each kind of dream also bends the station, for better and for worse. Wards taper and the
+// drain has a ceiling, so it never takes everything. Pure functions over GameState.
 import Decimal from 'break_eternity.js';
 import type { MultTarget } from './challenges/types';
 import type { GameState } from './state';
+import { log } from './engine';
 
 export interface Citadel {
   awake: boolean;
@@ -13,6 +16,8 @@ export interface Citadel {
   nulTotal: number;
   ups: Partial<Record<CitadelUpId, number>>;
   drunk: number; // log10 of all ash it has taken, for the record
+  rites: number; // rites answered, in order
+  bedMade: boolean; // the lucid dream was put in the first bed when it woke
 }
 
 export type DreamId = 'lucid' | 'nightmare' | 'falling' | 'drowning' | 'childhood' | 'fever' | 'prophetic' | 'recurring' | 'dreamless' | 'citadel';
@@ -30,7 +35,7 @@ export interface Dreams {
   badClicked: number;
 }
 
-export const newCitadel = (): Citadel => ({ awake: false, time: 0, nul: 0, nulTotal: 0, ups: {}, drunk: 0 });
+export const newCitadel = (): Citadel => ({ awake: false, time: 0, nul: 0, nulTotal: 0, ups: {}, drunk: 0, rites: 0, bedMade: false });
 export const newDreams = (): Dreams => ({
   known: ['lucid'], slots: [null, null, null], slotCount: 1, burned: 0, burning: {},
   omen: { active: false, kind: 'bad', x: 0.5, y: 0.5, ttl: 0, spawnIn: 60 }, omensCaught: 0, badClicked: 0,
@@ -59,20 +64,61 @@ export function meltWax(s: GameState, wax: number): boolean {
 export const citadelOpen = (s: GameState) => !!syz(s).gateOpen;
 const hours = (c: Citadel) => c.time / 3600;
 
-/** Its appetite: a fraction of every held resource per second, before the Dream Engine's wards. */
-export const appetite = (s: GameState) => 1e-5 * (1 + 0.6 * Math.sqrt(hours(s.citadel)));
+// ---- floors and rites: the long escalation ----
+
+/** Hours awake at which it climbs another floor. Each unanswered floor makes it drink a quarter harder. */
+export const FLOORS = [24, 60, 110, 170, 240, 320, 420];
+export const FLOOR_BITE = 0.25;
+export interface Rite { name: string; nul: number; dreams: number; text: string }
+/** One rite answers each floor, in order. The seventh is the last. */
+export const RITES: Rite[] = [
+  { name: 'Leave the lamp on', nul: 1000, dreams: 300, text: 'A light in the lowest window. It looks at the light instead of you.' },
+  { name: 'Read it the dream log', nul: 3000, dreams: 800, text: 'It listens to the pilgrim. It did not know anyone else went down.' },
+  { name: 'Brick up the eighth door', nul: 6000, dreams: 1500, text: 'Mortar, bitter, by hand. It knocks once, politely.' },
+  { name: 'Count the shifts aloud', nul: 10000, dreams: 2500, text: 'Every name, twice. Nobody extra this time.' },
+  { name: 'Bury the ninth lantern', nul: 16000, dreams: 4000, text: 'It keeps burning under the snow. It is warmer down there now.' },
+  { name: 'Give it a name', nul: 25000, dreams: 6000, text: 'It does not say whether it likes it. It answers to it.' },
+  { name: 'Sing it to sleep', nul: 40000, dreams: 9000, text: 'The station hums in tens. The Citadel hums back, slower, and stops.' },
+];
+export const RITE_WARD = 0.06; // each rite answered holds back a little more, for good
+export const ENDING = 'The Citadel is quiet. It is not asleep. It is listening to the station breathe, and it has decided to let it.';
+
+export const floorsReached = (s: GameState) => FLOORS.filter(h => hours(s.citadel) >= h).length;
+export const unanswered = (s: GameState) => Math.max(0, floorsReached(s) - (s.citadel.rites ?? 0));
+/** The rite it is waiting for, or null: none due yet, or all seven given. */
+export const riteDue = (s: GameState): Rite | null => {
+  const k = s.citadel.rites ?? 0;
+  return k < RITES.length && floorsReached(s) > k ? RITES[k] : null;
+};
+export const citadelEnded = (s: GameState) => (s.citadel.rites ?? 0) >= RITES.length;
+export function answerRite(s: GameState): boolean {
+  const r = riteDue(s);
+  if (!r || s.citadel.nul < r.nul || dreamsHeld(s) < r.dreams) return false;
+  s.citadel.nul -= r.nul;
+  spendDreams(s, r.dreams);
+  s.citadel.rites = (s.citadel.rites ?? 0) + 1;
+  if (citadelEnded(s)) log(s, 'THE CITADEL HUMS BACK, SLOWER, AND STOPS. IT IS NOT ASLEEP. IT IS LISTENING.', 'milestone', true);
+  return true;
+}
+
+/** Its appetite: a fraction of every held resource per second, before the wards. It grows with the log of time awake. */
+export const appetite = (s: GameState) => 1e-5 * (1 + 1.2 * Math.log(1 + hours(s.citadel) / 12)) * (1 + FLOOR_BITE * unanswered(s));
+/** However hungry it gets, what it holds back from you never drops below four hours of income. */
+export const DRAIN_CEIL = 1 / (4 * 3600);
+/** The most the wards can ever hold back: it always gets a tenth of its appetite. */
+export const WARD_CAP = 0.9;
 
 export type CitadelUpId = 'lantern' | 'mortar' | 'undersong' | 'choir' | 'eye' | 'shift' | 'room' | 'snow';
 export interface CitadelUp { id: CitadelUpId; name: string; desc: string; base: number; growth: number }
 export const CITADEL_UPS: CitadelUp[] = [
-  { id: 'lantern', name: 'Black lantern', desc: 'All ash x3 a level.', base: 5, growth: 2.4 },
-  { id: 'mortar', name: 'Bitter mortar', desc: 'Its mouth narrows: the drain is a tenth smaller a level.', base: 8, growth: 2.2 },
-  { id: 'undersong', name: 'The undersong', desc: 'Echoes, rust, embers, pigment and cycles x2 a level.', base: 12, growth: 2.6 },
-  { id: 'choir', name: 'Hollow choir', desc: 'Every zone x1.15 a level.', base: 20, growth: 2.8 },
-  { id: 'eye', name: 'Eye in the keep', desc: 'Nul comes x1.6 faster a level.', base: 15, growth: 2.5 },
-  { id: 'shift', name: 'Night shift', desc: 'Listening x4 a level, and warm flakes come a fifth more often.', base: 10, growth: 2.3 },
+  { id: 'lantern', name: 'Black lantern', desc: 'All ash +50% a level.', base: 5, growth: 2.4 },
+  { id: 'mortar', name: 'Bitter mortar', desc: 'Its mouth narrows: holds back more of the drain, less with each level (toward half).', base: 8, growth: 2.2 },
+  { id: 'undersong', name: 'The undersong', desc: 'Echoes, rust, embers, pigment and cycles +50% a level.', base: 12, growth: 2.6 },
+  { id: 'choir', name: 'Hollow choir', desc: 'Every zone +4% a level.', base: 20, growth: 2.8 },
+  { id: 'eye', name: 'Eye in the keep', desc: 'Nul +60% a level.', base: 15, growth: 2.5 },
+  { id: 'shift', name: 'Night shift', desc: 'Listening +150% a level, and warm flakes come a tenth more often.', base: 10, growth: 2.3 },
   { id: 'room', name: 'A sealed room', desc: 'Time away counts for 6 more hours a level.', base: 40, growth: 3 },
-  { id: 'snow', name: 'Black snow', desc: 'All ash grows with the square root of all nul ever made.', base: 300, growth: 10 },
+  { id: 'snow', name: 'Black snow', desc: 'All ash grows with the logarithm of all nul ever made.', base: 300, growth: 10 },
 ];
 export const citadelUpLevel = (s: GameState, id: CitadelUpId) => s.citadel.ups[id] ?? 0;
 export const citadelUpCost = (s: GameState, u: CitadelUp) => Math.round(u.base * Math.pow(u.growth, citadelUpLevel(s, u.id)));
@@ -86,18 +132,26 @@ export function buyCitadelUp(s: GameState, id: CitadelUpId): boolean {
   return true;
 }
 
-/** How much of the appetite the wards hold back, 0 to just under 1. */
+/** Bitter mortar's share: tapers toward a half, never past it. */
+export const mortarWard = (n: number) => (0.5 * n) / (n + 4);
+/** How much of the appetite the wards hold back: mortar, rites and dreams stack, then WARD_CAP scales the lot. */
 export function ward(s: GameState): number {
-  let open = Math.pow(0.9, citadelUpLevel(s, 'mortar'));
+  let open = (1 - mortarWard(citadelUpLevel(s, 'mortar'))) * Math.pow(1 - RITE_WARD, s.citadel.rites ?? 0);
   for (const id of activeDreams(s)) open *= 1 - dreamWard(s, id);
-  return 1 - open;
+  return WARD_CAP * (1 - open);
 }
-export const drainRate = (s: GameState) => (s.citadel.awake ? appetite(s) * (1 - ward(s)) : 0);
+/** The drain per second: appetite past the wards, eased under DRAIN_CEIL so it can never strand you. */
+export function drainRate(s: GameState): number {
+  if (!s.citadel.awake) return 0;
+  return ease(appetite(s) * (1 - ward(s)));
+}
+/** A raw drain eased under DRAIN_CEIL. */
+export const ease = (d: number) => (d * DRAIN_CEIL) / (d + DRAIN_CEIL);
 
 /** Nul per second: it grows from nothing, faster the longer it is awake. */
 export function nulRate(s: GameState): number {
   if (!s.citadel.awake) return 0;
-  let r = 0.004 * (1 + Math.sqrt(hours(s.citadel))) * Math.pow(1.6, citadelUpLevel(s, 'eye'));
+  let r = 0.004 * (1 + Math.sqrt(hours(s.citadel))) * (1 + 0.6 * citadelUpLevel(s, 'eye'));
   for (const id of activeDreams(s)) r *= DREAMS[id].nul ?? 1;
   return r;
 }
@@ -105,7 +159,15 @@ export function nulRate(s: GameState): number {
 export function wakeCitadel(s: GameState): boolean {
   if (!citadelOpen(s) || s.citadel.awake) return false;
   s.citadel.awake = true;
+  makeFirstBed(s);
   return true;
+}
+
+/** The engine wakes with the lucid dream already in the first bed, so someone who never opens it still has a ward. */
+function makeFirstBed(s: GameState) {
+  if (s.citadel.bedMade) return;
+  s.citadel.bedMade = true;
+  if (!s.dreams.slots.slice(0, s.dreams.slotCount).some(Boolean) && s.dreams.known.includes('lucid')) s.dreams.slots[0] = 'lucid';
 }
 
 /** Extra hours the station counts while away. */
@@ -156,7 +218,9 @@ export function dreamWard(s: GameState, id: DreamId): number {
   return DREAMS[id].ward;
 }
 /** Dreams burned per second by everything in the engine. */
-export const burnRate = (s: GameState) => activeDreams(s).reduce((n, id) => n + DREAMS[id].burn / 60, 0) * (1 + 0.15 * Math.sqrt(hours(s.citadel)));
+export const burnRate = (s: GameState) => activeDreams(s).reduce((n, id) => n + DREAMS[id].burn / 60, 0) * burnGrowth(s);
+/** Dreams burn faster the longer it is awake, by a logarithm, so the pilgrim can always keep a bed or two lit. */
+export const burnGrowth = (s: GameState) => 1 + 0.3 * Math.log(1 + hours(s.citadel) / 24);
 
 export function learnDream(s: GameState, id: DreamId): boolean {
   const d = DREAMS[id];
@@ -201,13 +265,16 @@ function stepOmens(s: GameState, dt: number, rng: () => number) {
 /** What a bad ash takes when it is touched. */
 export const BAD_TAKE = { ash: 0.04, embers: 0.15, echoes: 0.1 };
 
+/** A bright flake brings back ten minutes of what the engine burns, and never less than a handful. */
+export const brightGift = (s: GameState) => Math.max(3 + Math.floor(Math.sqrt(s.dreams.burned) / 4), Math.round(burnRate(s) * 600));
+
 /** Touch the omen. A bright one gives dreams and ghostwax; a bad one takes a bite of what you hold. */
 export function touchOmen(s: GameState): 'bright' | 'bad' | null {
   const o = s.dreams.omen;
   if (!o.active) return null;
   o.active = false;
   if (o.kind === 'bright') {
-    addDreams(s, 3 + Math.floor(Math.sqrt(s.dreams.burned) / 4));
+    addDreams(s, brightGift(s));
     s.nursery.ghostwax += 10;
     s.dreams.omensCaught++;
     return 'bright';
@@ -224,6 +291,8 @@ export function touchOmen(s: GameState): 'bright' | 'bad' | null {
 export function stepCitadel(s: GameState, dt: number, rng: () => number = Math.random) {
   if (!s.citadel.awake) return;
   const c = s.citadel;
+  makeFirstBed(s); // saves that woke before the engine made its own first bed
+  const floors = floorsReached(s);
   const hunger = activeDreams(s).includes('citadel') ? 1.5 : 1;
   c.time += dt * hunger;
   const n = nulRate(s) * dt;
@@ -238,20 +307,24 @@ export function stepCitadel(s: GameState, dt: number, rng: () => number = Math.r
   }
   drink(s, dt);
   stepOmens(s, dt, rng);
+  if (floorsReached(s) > floors && !citadelEnded(s)) log(s, `THE CITADEL HAS CLIMBED ANOTHER FLOOR. IT IS DRINKING HARDER.`, 'milestone', true);
 }
+
+export const snowMult = (nulTotal: number) => 1 + Math.log10(1 + nulTotal);
 
 export function citadelMult(s: GameState, t: MultTarget): number {
   if (!s.citadel.awake) return 1;
   let m = 1;
   const lvl = (id: CitadelUpId) => s.citadel.ups[id] ?? 0;
+  // Each level adds a fixed amount: with prices growing by a power, the gains taper like everything else this late.
   if (t === 'ash') {
-    m *= Math.pow(3, lvl('lantern'));
-    if (lvl('snow')) m *= 1 + Math.sqrt(s.citadel.nulTotal);
+    m *= 1 + 0.5 * lvl('lantern');
+    if (lvl('snow')) m *= snowMult(s.citadel.nulTotal);
   }
-  if (t === 'echoes' || t === 'rust' || t === 'embers' || t === 'pigment' || t === 'cycles') m *= Math.pow(2, lvl('undersong'));
-  if (t === 'zones') m *= Math.pow(1.15, lvl('choir'));
-  if (t === 'listen') m *= Math.pow(4, lvl('shift'));
-  if (t === 'flakes') m *= Math.pow(1.2, lvl('shift'));
+  if (t === 'echoes' || t === 'rust' || t === 'embers' || t === 'pigment' || t === 'cycles') m *= 1 + 0.5 * lvl('undersong');
+  if (t === 'zones') m *= 1 + 0.04 * lvl('choir');
+  if (t === 'listen') m *= 1 + 1.5 * lvl('shift');
+  if (t === 'flakes') m *= 1 + 0.1 * lvl('shift');
   for (const id of activeDreams(s)) m *= DREAMS[id].mult[t] ?? 1;
   return m;
 }

@@ -1,17 +1,17 @@
 // The Archive: the panel inside the zone 3 box, and the archive room with the shelf, the album and the channels.
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  albumMult, albumSets, buyShelf, buyStock, canRecord, CHANNEL_MULT, dayLeft, driftMatch, eraseTape, FRESH_MULT, frameRate,
-  RECORD_MIN, recordSlot, shelfCost, shelfFull, shelfSize, SHELF_MAX, SITTERS, sitterOf, stockCost, tapeMult, tapeShare, tapeValue, WRONGS, wrongOf,
+  albumMult, albumSets, BLANK_CAP, BLANK_EVERY, buyShelf, buyStock, canRecord, recordBlock, CHANNEL_MULT, dayLeft, driftMatch, eraseTape, FRESH_MULT, frameRate,
+  recordSlot, shelfCost, shelfFull, shelfSize, SHELF_MAX, SITTERS, sitterOf, stockCost, tapeMult, tapeShare, tapeValue, WRONGS, wrongOf,
   type Tape,
 } from '../../game/challenges/archive';
-import { fmt } from '../../game/format';
+import { fmt, fmtTime } from '../../game/format';
 import { BUFFER, match, PATTERN_TARGETS, patternSlots, patternsOpen, type PatternTarget } from '../../game/patterns';
 import { useGame } from '../../game/store';
 import { ZONE_COLORS } from '../colors';
 import { hex, threshold } from '../dither';
 import { hash } from '../scenes';
-import { ChallengeRoom } from './ChallengeSlot';
+import { ChallengeRoom, SaveHint } from './ChallengeSlot';
 import './archive.css';
 
 type Shade = (x: number, y: number, t: number, w: number, h: number) => number;
@@ -263,6 +263,9 @@ export function ArchivePanel() {
       </div>
       <div className="ch-row">
         <span className="ch-stat">Shelf <b>{a.shelf.length}/{size}</b></span>
+        <span className="ch-stat" title={`A blank reel comes every ${BLANK_EVERY / 60} minutes, up to ${BLANK_CAP}. Each tape uses one.`}>
+          Blank reels <b>{a.blanks}</b>{a.blanks < BLANK_CAP && <span className="dim"> · next {fmtTime((1 - a.blankProg) * BLANK_EVERY)}</span>}
+        </span>
         <span className="ch-stat">Frames <b>{a.frames}</b></span>
         <span className="ch-stat">Sets <b>{sets}</b></span>
         <span className="ch-stat">Channels <b>{a.channels.length}/7</b></span>
@@ -273,13 +276,17 @@ export function ArchivePanel() {
           {Array.from({ length: slots }, (_, i) => {
             const slot = game.patterns.slots[i];
             const q = slot?.target ? match(game, slot) : 0;
+            const why = recordBlock(game, i);
             return (
               <div key={i} className="archive-slot">
-                <span className="ch-stat">Slot {i + 1} · {slot?.target ? <>{name(slot.target)} <b>{Math.round(q * 100)}%</b></> : <span className="dim">empty</span>}</span>
+                <span className="ch-stat">Slot {i + 1} · {slot?.target
+                  ? <>{name(slot.target)} <b>{Math.round(q * 100)}%</b> <span className="dim" title="How close it sits to today's drifted signature. Meet it exactly for a fresh lock.">· drift today {Math.round(driftMatch(game, slot) * 100)}%</span></>
+                  : <span className="dim">empty</span>}</span>
                 <button className="secondary" disabled={!canRecord(game, i)} onClick={() => run(s => recordSlot(s, i))}
-                  title={q < RECORD_MIN ? `Needs a ${Math.round(RECORD_MIN * 100)}% match` : a.shelf.length >= size ? 'The shelf is full' : 'Record this match to tape. The slot lets go of it.'}>
+                  title={why || 'Record this match onto a blank reel. The slot lets go of it and its dials spin back to rest.'}>
                   Record slot {i + 1}
                 </button>
+                {why && slot?.target && <span className="dim small-note">{why}.</span>}
               </div>
             );
           })}
@@ -288,7 +295,7 @@ export function ArchivePanel() {
       <div className="ch-row">
         <button className="max-all" onClick={() => setRoom(true)}>Open the archive</button>
         {shelfFull(game) ? <span className="ch-stat archive-full">Shelf full: <b>{SHELF_MAX}</b></span>
-          : <button className="secondary" disabled={game.ash.lt(cost)} onClick={() => run(buyShelf)}>More shelf · {fmt(cost)} ash</button>}
+          : <><button className="secondary" disabled={game.ash.lt(cost)} onClick={() => run(buyShelf)}>More shelf · {fmt(cost)} ash</button><SaveHint game={game} cost={cost} /></>}
       </div>
       {room && <ArchiveRoom onClose={() => setRoom(false)} />}
     </div>
@@ -325,7 +332,7 @@ function ArchiveRoom({ onClose }: { onClose: () => void }) {
           <span className="sub-head">The shelf</span>
           <p className="dim small-note">Tapes keep paying {Math.round(tapeShare(game) * 100)}% of a live lock. Gold labels pay double. A second tape of the same thing pays half, a third a third.</p>
           <div className="archive-tapes" data-scroll>
-            {a.shelf.length === 0 && <p className="dim small-note">Empty. Lock a slot on the modulator, then record it.</p>}
+            {a.shelf.length === 0 && <p className="dim small-note">Empty. Lock a slot on the modulator, then record it. Each tape takes a blank reel, and the slot's dials spin back to rest.</p>}
             {a.shelf.map(t => (
               <div key={t.id} className={`archive-tape ${t.gold ? 'gold' : ''}`}>
                 <span className="archive-label">{t.gold ? '◆ ' : ''}{name(t.target).toUpperCase()} · {Math.round(t.q * 100)}%</span>
@@ -341,6 +348,7 @@ function ArchiveRoom({ onClose }: { onClose: () => void }) {
           </div>
           <div className="ch-row">
             <button className="secondary" disabled={game.ash.lt(sc)} onClick={() => run(buyStock)} title="Better tape keeps more of the lock">Better stock ({a.stock}) · {fmt(sc)} ash</button>
+            <SaveHint game={game} cost={sc} />
           </div>
 
           <span className="sub-head">Drift</span>

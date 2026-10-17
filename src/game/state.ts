@@ -1,6 +1,6 @@
 import Decimal from 'break_eternity.js';
 import type { RiteId, UpgradeId } from './data';
-import type { FixtureId, FreqId, KilnId, NurseryUpId, WeatherId } from './systems';
+import type { FixtureId, FreqId, KilnId, NurseryUpId, SinkId, WeatherId } from './systems';
 import type { Genome } from './genome';
 import { newWiring, type Wiring } from './wiring';
 import { newPatterns, type Patterns } from './patterns';
@@ -82,6 +82,7 @@ export interface Nursery {
   candles: number[]; // ghostwax candles lit at each slot
   ghostwax: number;
   rendered: number; // creatures rendered down, ever
+  autoFeed: boolean; // the feed hopper is switched on
 }
 
 export interface GameState {
@@ -105,6 +106,7 @@ export interface GameState {
   kindled: number; // seconds left on the Glass eye x2 buff
   shaftsDug: number;
   zoneUps: Record<string, number>; // `${zone}-${slot}` -> level
+  mats: number[]; // each zone's own material, index 0 is zone 1; empty until the first step seeds it (old saves get a stock)
   weather: Weather;
   embers: number;
   echoes: number;
@@ -112,6 +114,7 @@ export interface GameState {
   freqs: Partial<Record<FreqId, boolean>>;
   tuned: FreqId | null;
   fixtures: Partial<Record<FixtureId, number>>;
+  sinks: Partial<Record<SinkId, number>>; // levels bought with spare rust and echoes
   nursery: Nursery;
   wiring: Wiring;
   patterns: Patterns;
@@ -160,6 +163,7 @@ export function newGame(rng: () => number = Math.random): GameState {
     kindled: 0,
     shaftsDug: 0,
     zoneUps: {},
+    mats: [],
     weather: { id: 'calm', timer: 150 },
     embers: 0,
     echoes: 0,
@@ -167,7 +171,8 @@ export function newGame(rng: () => number = Math.random): GameState {
     freqs: {},
     tuned: null,
     fixtures: {},
-    nursery: { found: false, eggs: [], brood: [], seen: [], nextId: 1, ups: {}, familiars: [null, null, null], slots: 0, candles: [0, 0, 0], ghostwax: 0, rendered: 0 },
+    sinks: {},
+    nursery: { found: false, eggs: [], brood: [], seen: [], nextId: 1, ups: {}, familiars: [null, null, null], slots: 0, candles: [0, 0, 0], ghostwax: 0, rendered: 0, autoFeed: false },
     wiring: newWiring(),
     patterns: newPatterns(rng),
     alchemy: newAlchemy(),

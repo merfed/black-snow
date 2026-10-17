@@ -1,9 +1,9 @@
 // The Black Citadel and the Dream Engine: two boxes past Lull, once the Syzygy's gate is open.
 import { useState, type CSSProperties, type MouseEvent } from 'react';
 import {
-  activeDreams, appetite, ashDrainPerSecond, awayHours, burnRate, buyCitadelUp, CITADEL_UPS, citadelUpCost, citadelUpLevel,
-  DREAM_ORDER, DREAMS, dreamsHeld, dreamWard, drainRate, learnDream, meltWax, nulRate, openDreamSlot, setDream, SLOT_NUL,
-  touchOmen, ward, WAX_PER_DREAM,
+  activeDreams, answerRite, appetite, ashDrainPerSecond, awayHours, burnRate, buyCitadelUp, CITADEL_UPS, citadelEnded, citadelUpCost,
+  citadelUpLevel, DREAM_ORDER, ease, DREAMS, dreamsHeld, dreamWard, drainRate, ENDING, FLOORS, floorsReached, learnDream, meltWax, nulRate,
+  openDreamSlot, riteDue, RITES, setDream, SLOT_NUL, touchOmen, unanswered, ward, WARD_CAP, WAX_PER_DREAM,
 } from '../game/citadel';
 import { fmt } from '../game/format';
 import { useGame } from '../game/store';
@@ -26,6 +26,8 @@ export function CitadelPanel() {
   const run = useGame(st => st.run);
   const c = game.citadel;
   const d = drainRate(game);
+  const due = riteDue(game), floors = floorsReached(game), owed = unanswered(game);
+  const nextFloor = FLOORS[floors];
   return (
     <section className="panel citadel-panel plate-panel knots reveal" data-panel="citadel" style={{ '--hue': CITADEL_INK } as CSSProperties}>
       <h2>The Black Citadel <span className="h2-note">it drinks the station slowly</span></h2>
@@ -34,12 +36,27 @@ export function CitadelPanel() {
         <div><span className="big-number small hue-text">{fmt(c.nul)}</span> nul <small>+{fmt(nulRate(game) * 60)} a minute</small></div>
         <div className="citadel-drain">
           It takes <b>{perHour(d)}</b> of your ash, embers, echoes, rust, pigment and cycles an hour
-          <small> (−{fmt(ashDrainPerSecond(game))} ash/s). Unwarded it would take {perHour(appetite(game))}. Wards hold back {pct(ward(game))}.</small>
+          <small> (−{fmt(ashDrainPerSecond(game))} ash/s). Unwarded it would take {perHour(ease(appetite(game)))}. Wards hold back {pct(ward(game))}.</small>
         </div>
         <div className="drain-bar" title="How much of its appetite gets through"><div style={{ width: `${(1 - ward(game)) * 100}%` }} /></div>
-        {awayHours(game) > 0 && <small className="dim">Time away now counts up to {12 + awayHours(game)} hours.</small>}
+        {awayHours(game) > 0 && <small className="dim">A sealed room: time away counts {awayHours(game)} hours longer.</small>}
       </div>
-      <p className="dim small-note">Nul grows out of nothing, faster the longer it has been awake. Feed it dreams in the Dream Engine to narrow its mouth.</p>
+      <h3 className="sub-head">The floors <span className="h2-note">{citadelEnded(game) ? 'all seven rites given' : `${game.citadel.rites} of ${RITES.length} rites given`}</span></h3>
+      {citadelEnded(game) ? <p className="citadel-ending" style={{ fontSize: 16, color: CITADEL_INK, fontFamily: "'MEK Mono', monospace" }}>"{ENDING}"</p> : <>
+        <p className="small-note">
+          {floors === 0 ? 'It has not climbed yet.' : `It has climbed ${floors} floor${floors > 1 ? 's' : ''}.`}
+          {owed > 0 && <> {owed} unanswered: it drinks {Math.round(owed * 25)}% harder until a rite is given.</>}
+          {nextFloor !== undefined && <span className="dim"> Next floor in {fmt(Math.max(0, nextFloor - c.time / 3600))} hours awake.</span>}
+        </p>
+        {due && (
+          <button className="max-all" disabled={c.nul < due.nul || dreamsHeld(game) < due.dreams} onClick={() => run(answerRite)}
+            title="A rite answers one floor and holds back a little more of the drain for good.">
+            {due.name} <span className="cost">{fmt(due.nul)} nul · {fmt(due.dreams)} dreams</span>
+          </button>
+        )}
+        {game.citadel.rites > 0 && <p className="dim small-note">"{RITES[game.citadel.rites - 1].text}"</p>}
+      </>}
+      <p className="dim small-note">Nul grows out of nothing, faster the longer it has been awake. Feed it dreams in the Dream Engine to narrow its mouth. Wards never hold back more than {pct(WARD_CAP)}, and it never takes so much that you hold less than four hours of income.</p>
       <div className="cards scroll-list" data-scroll>
         {CITADEL_UPS.map(u => {
           const lvl = citadelUpLevel(game, u.id), cost = citadelUpCost(game, u);

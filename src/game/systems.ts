@@ -8,14 +8,15 @@ export type ZoneUpEffect = 'mult' | 'cheap' | 'mult2' | 'all';
 /**
  * Four upgrades per zone, each bought again and again. Every level needs more of that zone dug
  * (gate + gateStep per level) and costs `growth` times the last, and every level compounds.
+ * Each level also costs the zone's own material: `mat`, times `matGrowth` per level.
  */
-export interface ZoneUpDef { k: number; effect: ZoneUpEffect; gate: number; gateStep: number; costMul: number; growth: number; max: number }
+export interface ZoneUpDef { k: number; effect: ZoneUpEffect; gate: number; gateStep: number; costMul: number; growth: number; max: number; mat: number; matGrowth: number }
 
 export const ZONE_UP_SLOTS: ZoneUpDef[] = [
-  { k: 0, effect: 'mult', gate: 10, gateStep: 10, costMul: 1e3, growth: 4, max: Infinity },
-  { k: 1, effect: 'cheap', gate: 25, gateStep: 25, costMul: 1e5, growth: 60, max: Infinity },
-  { k: 2, effect: 'mult2', gate: 50, gateStep: 40, costMul: 1e7, growth: 10, max: Infinity },
-  { k: 3, effect: 'all', gate: 100, gateStep: 50, costMul: 1e10, growth: 20, max: Infinity },
+  { k: 0, effect: 'mult', gate: 10, gateStep: 10, costMul: 1e3, growth: 4, max: Infinity, mat: 40, matGrowth: 2.5 },
+  { k: 1, effect: 'cheap', gate: 25, gateStep: 25, costMul: 1e5, growth: 60, max: Infinity, mat: 150, matGrowth: 3 },
+  { k: 2, effect: 'mult2', gate: 50, gateStep: 40, costMul: 1e7, growth: 10, max: Infinity, mat: 400, matGrowth: 3 },
+  { k: 3, effect: 'all', gate: 100, gateStep: 50, costMul: 1e10, growth: 20, max: Infinity, mat: 1500, matGrowth: 3.5 },
 ];
 
 export const ZONE_UP_NAMES: string[][] = [
@@ -77,7 +78,7 @@ export const COMFORT_PERKS = [
   { at: 10, desc: 'Resonance fades half as fast.' },
   { at: 30, desc: 'Warm flakes linger 5 seconds longer, and the egg is never sad.' },
   { at: 60, desc: 'Rust from sirens x1.5.' },
-  { at: 120, desc: 'Away time counts double.' },
+  { at: 120, desc: 'While you are away, sirens no longer stop the shafts, and they dig 80% harder.' },
   { at: 300, desc: 'Eggs warm twice as fast.' },
   { at: 800, desc: 'Every warm flake leaves one more ember.' },
   { at: 2000, desc: 'Rare flakes turn up twice as often.' },
@@ -111,9 +112,21 @@ export const FREQS: FreqDef[] = [
   { id: 'dead', band: '0.0', name: 'Dead air', desc: 'Rust from sirens x2, and sirens last 15 seconds longer.', cost: 2000 },
 ];
 
+// ---- late sinks: once the rites and the dial are done, rust and echoes still have somewhere to go ----
+
+export type SinkId = 'tower' | 'splice';
+
+export interface SinkDef { id: SinkId; res: 'rust' | 'echoes'; name: string; desc: string; base: number; growth: number; per: number }
+
+/** Bought again and again; each level costs `growth` times the last and multiplies by `per`. */
+export const SINKS: SinkDef[] = [
+  { id: 'tower', res: 'rust', name: 'Raise the siren tower', desc: 'All ash x1.08 a level. The siren carries further.', base: 2500, growth: 2, per: 1.08 },
+  { id: 'splice', res: 'echoes', name: 'Splice the dead air', desc: 'Pigment and cycles x1.1 a level. Old echoes, cut into new tape.', base: 3000, growth: 2, per: 1.1 },
+];
+
 // ---- the nursery: wild eggs, the brood, breeding ----
 
-export type NurseryUpId = 'lamp' | 'straw' | 'trough' | 'nest' | 'wing';
+export type NurseryUpId = 'lamp' | 'straw' | 'trough' | 'nest' | 'wing' | 'hopper';
 
 export interface NurseryUpDef { id: NurseryUpId; name: string; desc: string; cost: number; growth: number; max: number }
 
@@ -123,6 +136,7 @@ export const NURSERY_UPS: NurseryUpDef[] = [
   { id: 'trough', name: 'Feeding trough', desc: 'Feeding fills 20 more, and hunger falls 15% slower, per level.', cost: 3e4, growth: 5, max: 5 },
   { id: 'nest', name: 'Bigger nest', desc: 'Room for one more egg and one more creature per level.', cost: 1e5, growth: 8, max: 5 },
   { id: 'wing', name: 'Brood wing', desc: 'Another room off the nursery: space for 8 more creatures per level, up to 255.', cost: 2e6, growth: 2.6, max: 31 },
+  { id: 'hopper', name: 'Feed hopper', desc: 'A hopper that feeds the brood by itself. Switch it on, and it feeds anyone getting hungry, at the usual price.', cost: 5e5, growth: 1, max: 1 },
 ];
 
 export const NEST_EGGS = 2; // egg slots before upgrades
@@ -139,6 +153,7 @@ export const EGG_STAGES = [
   { name: 'Nymph', desc: 'It has started to hum along with the receiver.' },
   { name: 'Thing', desc: 'It sleeps curled around the stove. Its shadow does not.' },
   { name: 'Larger Thing', desc: 'It is the size of the room now, somehow without being bigger.' },
+  { name: 'The Whole Thing', desc: 'It has stopped growing. It has started listening back.' },
 ];
 /** Growth needed to leave each creature stage. */
 export const EGG_GROWTH = [300, 1500, 6000, 20000];
@@ -158,12 +173,12 @@ export interface RarityDef { name: string; chance: number; mult: number; embers:
 /** Rolled rarest first; whatever is left over is common. */
 export const RARITIES: RarityDef[] = [
   { name: 'Warm', chance: 1, mult: 1, embers: 1, ttl: 0, color: '#ffb46b', line: '' },
-  { name: 'Pale', chance: 1 / 40, mult: 8, embers: 3, ttl: 3, color: '#a6e4ff',
+  { name: 'Pale', chance: 1 / 40, mult: 3, embers: 3, ttl: 3, color: '#a6e4ff',
     line: 'A PALE FLAKE. COLD TO LOOK AT, WARM IN THE HAND. IT REMEMBERS A WINTER THAT HAS NOT HAPPENED.' },
-  { name: 'Verdant', chance: 1 / 250, mult: 40, embers: 8, ttl: 5, color: '#5dff9a',
+  { name: 'Verdant', chance: 1 / 250, mult: 6, embers: 8, ttl: 5, color: '#5dff9a',
     line: 'A GREEN FLAKE. SOMETHING WAS GROWING IN IT. IT STILL IS.' },
-  { name: 'Hyperstitional', chance: 1 / 1500, mult: 250, embers: 25, ttl: 7, color: '#c46bff',
+  { name: 'Hyperstitional', chance: 1 / 1500, mult: 12, embers: 25, ttl: 7, color: '#c46bff',
     line: 'A FLAKE THAT WAS NOT THERE UNTIL YOU BELIEVED IN IT. NOW IT ALWAYS WAS.' },
-  { name: 'Black sun', chance: 1 / 10000, mult: 2000, embers: 100, ttl: 10, color: '#ffd23b',
+  { name: 'Black sun', chance: 1 / 10000, mult: 24, embers: 100, ttl: 10, color: '#ffd23b',
     line: 'A BLACK SUN. THE LIGHT BENDS AROUND IT. THE SNOW STOPS TO WATCH.' },
 ];

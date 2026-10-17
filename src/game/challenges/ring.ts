@@ -40,22 +40,34 @@ export interface RingState {
   sock: number[]; // catalyst in each socket, -1 for empty
   sock2: boolean; // second socket opened
   seed: number;
+  spiralsAt: number; // Spirals owned when the Ring opened (-1 until noted); only ones bought after count for free rings
 }
 
 const fresh = (): RingState => ({
   pol: Array(MAX_RINGS).fill(1), span: BASE_RINGS, extra: 0, best: 0, held: 0, dust: 0, found: 0, pours: 0,
   cats: Array(CATALYSTS.length).fill(0), ref: Array(CATALYSTS.length).fill(0), sock: [-1, -1], sock2: false,
-  seed: Math.floor(Math.random() * 1e9),
+  seed: Math.floor(Math.random() * 1e9), spiralsAt: -1,
 });
 
 const st = (s: GameState) => s.challenges.ring;
 
 // ---- the code ----
 
-/** Free rings from the Spirals themselves: one per 25 bought, at most 4. */
-export const freeRings = (s: GameState) => Math.min(4, Math.floor(s.zones[SPIRAL].bought / 25));
+export const FREE_PER = 6;
+/** Spirals bought since the Ring opened. */
+export const newSpirals = (s: GameState) => (st(s).spiralsAt < 0 ? 0 : Math.max(0, s.zones[SPIRAL].bought - st(s).spiralsAt));
+/** Free rings from the Spirals themselves: one per FREE_PER bought after the Ring opened, at most 4. */
+export const freeRings = (s: GameState) => Math.min(4, Math.floor(newSpirals(s) / FREE_PER));
+/** Note the Spirals owned when the Ring first runs; a save that had already played it keeps its free rings. */
+function noteSpirals(s: GameState) {
+  const r = st(s);
+  if (r.spiralsAt < 0) r.spiralsAt = r.best > 0 || r.found > 0 || r.extra > 0 ? 0 : s.zones[SPIRAL].bought;
+}
 export const rings = (s: GameState) => Math.min(MAX_RINGS, BASE_RINGS + freeRings(s) + st(s).extra);
-export const ringCost = (s: GameState) => Math.round(4000 * Math.pow(2.5, st(s).extra));
+/** Pigment a second without the Ring's own share, so its prices do not chase its payout. */
+export const rawPigment = (s: GameState) => pigmentRate(s) / ringMult(s, 'pigment');
+/** Prices follow the pigment rate: a few minutes of it, growing with each one bought. */
+export const ringCost = (s: GameState) => Math.round(Math.max(4000, rawPigment(s) * 750) * Math.pow(2, st(s).extra));
 /** Rings actually read: never more than the spiral has. */
 export const spanOf = (s: GameState) => Math.max(2, Math.min(st(s).span, rings(s)));
 
@@ -94,7 +106,8 @@ export function reading(s: GameState): Reading {
 export const holdMult = (s: GameState) => 1 + 0.2 * Math.log2(1 + st(s).held / 3600);
 export const codePower = (s: GameState) => reading(s).power * holdMult(s);
 export const pigmentBonus = (s: GameState) => 1 + codePower(s);
-export const ashBonus = (s: GameState) => 1 + 0.3 * codePower(s);
+export const ASH_SHARE = 0.2;
+export const ashBonus = (s: GameState) => 1 + ASH_SHARE * codePower(s);
 export const spiralBonus = (s: GameState) => 1 + 0.4 * codePower(s);
 
 function noteLock(s: GameState) {
@@ -105,6 +118,7 @@ function noteLock(s: GameState) {
 }
 
 export function flip(s: GameState, i: number): boolean {
+  noteSpirals(s);
   if (i < 0 || i >= rings(s)) return false;
   st(s).pol[i] = -st(s).pol[i];
   noteLock(s);
@@ -112,6 +126,7 @@ export function flip(s: GameState, i: number): boolean {
 }
 
 export function setSpan(s: GameState, n: number): boolean {
+  noteSpirals(s);
   if (n < 2 || n > rings(s) || n === spanOf(s)) return false;
   st(s).span = n;
   noteLock(s);
@@ -119,6 +134,7 @@ export function setSpan(s: GameState, n: number): boolean {
 }
 
 export function buyRing(s: GameState): boolean {
+  noteSpirals(s);
   const cost = ringCost(s);
   if (rings(s) >= MAX_RINGS || s.alchemy.pigment < cost) return false;
   const was = rings(s), r = st(s);
@@ -132,10 +148,11 @@ export function buyRing(s: GameState): boolean {
 
 export const tinctureLevels = (s: GameState) => Object.values(s.alchemy.found).reduce((n, v) => n + v, 0);
 /** Silt per second: deeper with every tincture level brewed, quicker while a code holds. */
-export const dustRate = (s: GameState) => (alchemyOpen(s) ? 0.0005 * Math.sqrt(1 + tinctureLevels(s)) * (1 + 0.25 * reading(s).power) : 0);
+export const dustRate = (s: GameState) => (alchemyOpen(s) ? 0.0003 * Math.sqrt(1 + tinctureLevels(s)) * (1 + 0.25 * reading(s).power) : 0);
 /** Size of the next drop. Grows slowly so catalysts keep coming. */
 export const dropCost = (found: number) => 5 + 3 * found;
-export const pourCost = (s: GameState) => Math.round(Math.max(2000, pigmentRate(s) * 300) * (1 + 0.05 * st(s).pours));
+/** A pour is a few minutes of pigment, dearer each time: banked pigment buys a head start, not every catalyst at once. */
+export const pourCost = (s: GameState) => Math.round(Math.max(2000, rawPigment(s) * 240) * Math.pow(1.2, st(s).pours));
 
 const hash = (n: number) => { let x = (n ^ 0x9e3779b9) >>> 0; x = Math.imul(x ^ (x >>> 16), 0x85ebca6b) >>> 0; x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35) >>> 0; return (x ^ (x >>> 16)) >>> 0; };
 /** Which catalyst the nth drop is: the first eight are all different, the rest fall where they fall. */
@@ -171,6 +188,7 @@ export const kindsFound = (s: GameState) => st(s).cats.filter(n => n > 0).length
 export const sockets = (s: GameState) => (st(s).sock2 ? 2 : 1);
 export const SOCK2_FOUND = 4;
 export const SOCK2_COST = 400000;
+export const sock2Cost = (s: GameState) => Math.round(Math.max(SOCK2_COST, rawPigment(s) * 1800));
 
 export function socket(s: GameState, slot: number, k: number): boolean {
   const r = st(s);
@@ -183,14 +201,15 @@ export function socket(s: GameState, slot: number, k: number): boolean {
 
 export function openSocket2(s: GameState): boolean {
   const r = st(s);
-  if (r.sock2 || r.found < SOCK2_FOUND || s.alchemy.pigment < SOCK2_COST) return false;
-  s.alchemy.pigment -= SOCK2_COST;
+  const cost = sock2Cost(s);
+  if (r.sock2 || r.found < SOCK2_FOUND || s.alchemy.pigment < cost) return false;
+  s.alchemy.pigment -= cost;
   r.sock2 = true;
   return true;
 }
 
 /** Refining melts one spare copy into the catalyst, with pigment. */
-export const refineCost = (s: GameState, k: number) => Math.round(20000 * Math.pow(2.2, st(s).ref[k]));
+export const refineCost = (s: GameState, k: number) => Math.round(Math.max(20000, rawPigment(s) * 600) * Math.pow(2.2, st(s).ref[k]));
 export const canRefine = (s: GameState, k: number) => st(s).cats[k] >= 2 && s.alchemy.pigment >= refineCost(s, k);
 export function refine(s: GameState, k: number): boolean {
   if (!canRefine(s, k)) return false;
@@ -209,6 +228,20 @@ export function catMult(s: GameState, k: number): number {
   return 1 + catStrength(s, k) * (1 + 0.2 * Math.log(tinctureMult(s, t)));
 }
 
+function ringMult(s: GameState, t: MultTarget) {
+  const r = st(s);
+  let m = 1;
+  if (t === 'pigment' || t === 'ash' || t === 'zone5') {
+    const p = codePower(s);
+    m *= 1 + p * (t === 'pigment' ? 1 : t === 'ash' ? ASH_SHARE : 0.4);
+  }
+  for (let i = 0; i < sockets(s); i++) {
+    const k = r.sock[i];
+    if (k >= 0 && CATALYSTS[k].target === t) m *= catMult(s, k);
+  }
+  return m;
+}
+
 export const ring: ChallengeModule<RingState> = {
   id: 'ring',
   zone: 5,
@@ -217,24 +250,13 @@ export const ring: ChallengeModule<RingState> = {
   fresh,
   step: (s, dt) => {
     const r = st(s);
+    noteSpirals(s);
     const rd = reading(s);
     if (rd.barker) r.held += dt * rd.code.length / 7;
     r.dust += dustRate(s) * dt;
     drops(s);
   },
-  mult: (s, t) => {
-    const r = st(s);
-    let m = 1;
-    if (t === 'pigment' || t === 'ash' || t === 'zone5') {
-      const p = codePower(s);
-      m *= 1 + p * (t === 'pigment' ? 1 : t === 'ash' ? 0.3 : 0.4);
-    }
-    for (let i = 0; i < sockets(s); i++) {
-      const k = r.sock[i];
-      if (k >= 0 && CATALYSTS[k].target === t) m *= catMult(s, k);
-    }
-    return m;
-  },
+  mult: (s, t) => ringMult(s, t),
   milestone: { text: 'Lock a 7-long Barker code and find 2 catalysts', done: s => st(s).best >= 7 && kindsFound(s) >= 2 },
   level: s => st(s).best + st(s).found + refines(s),
 };

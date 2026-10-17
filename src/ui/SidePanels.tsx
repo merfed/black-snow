@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react';
-import { comfort, comfortMult, fixtureCost, fixtureLevel, stationMaxOpen } from '../game/engine';
+import { buySink, comfort, comfortMult, fixtureCost, fixtureLevel, sinkCost, sinkLevel, sinkOpen, stationMaxOpen } from '../game/engine';
 import { fmt } from '../game/format';
 import { useGame } from '../game/store';
-import { COMFORT_PERKS, FIXTURES, KILN } from '../game/systems';
+import { COMFORT_PERKS, FIXTURES, KILN, SINKS } from '../game/systems';
 import { Card } from './Card';
 import { SYSTEM_COLORS } from './colors';
 import { Sprite } from './Sprite';
@@ -42,7 +42,7 @@ export function StationPanel() {
         ))}
       </div>
       <div className="comfort-line">
-        <span className="big-number small hue-text">{c}</span> comfort
+        <span className="big-number small hue-text">{fmt(Math.floor(c))}</span> comfort
         <small>All ash +{Math.round((comfortMult(game) - 1) * 100)}%{next ? ` · next at ${next.at}: ${next.desc}` : ' · every comfort perk reached'}</small>
       </div>
       <ul className="perks">
@@ -92,6 +92,29 @@ export function KilnPanel() {
           return (
             <Card key={k.id} title={k.name} desc={k.desc} cost={`${k.cost} embers`} state={owned ? 'owned' : 'available'}
               disabled={owned || game.embers < k.cost} onClick={() => buy(k.id)} />
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/** Somewhere for rust and echoes to go once the rites are done and the dial is full. */
+export function SinksPanel() {
+  const game = useGame(st => st.game);
+  const run = useGame(st => st.run);
+  const open = SINKS.filter(k => sinkOpen(game, k.id));
+  if (!open.length) return null;
+  return (
+    <section className="panel sinks-panel plate-panel knots reveal" data-panel="sinks" style={hue(SYSTEM_COLORS.rust)}>
+      <h2>After the rites <span className="h2-note">rust and echoes, still coming</span></h2>
+      <div className="cards">
+        {open.map(k => {
+          const cost = sinkCost(game, k.id);
+          const have = k.res === 'rust' ? game.rust : game.echoes;
+          return (
+            <Card key={k.id} title={k.name} desc={k.desc} level={sinkLevel(game, k.id)} cost={`${fmt(cost)} ${k.res}`}
+              state="available" disabled={have < cost} onClick={() => run(s => buySink(s, k.id))} />
           );
         })}
       </div>

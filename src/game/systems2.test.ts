@@ -6,10 +6,11 @@ import * as p from './patterns';
 import { newGame } from './state';
 
 describe('pattern buffer', () => {
-  it('opens at 25 buffers and pays only when tuned close', () => {
+  it('wakes with the first Vacuum Lock and pays only when tuned close', () => {
     const s = newGame(() => 0.3);
-    expect(p.setSlot(s, 0, { target: 'ash' })).toBe(false);
     s.zones[p.BUFFER].bought = 25;
+    expect(p.setSlot(s, 0, { target: 'ash' })).toBe(false);
+    s.zones[p.MODULATOR_ZONE].bought = 1;
     expect(p.setSlot(s, 0, { target: 'ash' })).toBe(true);
     const before = globalMult(s).toNumber();
     const sig = p.signature(s, 'ash');
@@ -20,6 +21,7 @@ describe('pattern buffer', () => {
   it('keeps targets unique and dials in range', () => {
     const s = newGame();
     s.zones[p.BUFFER].bought = 100;
+    s.zones[p.MODULATOR_ZONE].bought = 1;
     p.setSlot(s, 0, { target: 'rust' });
     expect(p.setSlot(s, 1, { target: 'rust' })).toBe(false);
     p.setSlot(s, 1, { target: 'echoes', freq: 99, phase: -1, harm: 0 });
@@ -32,6 +34,7 @@ describe('barker spiral alchemy', () => {
     const s = newGame();
     s.zones[a.SPIRAL].bought = a.SPIRAL_AT;
     s.zones[a.SPIRAL].amount = new Decimal(1);
+    s.zones[a.ALCHEMY_ZONE].bought = 1;
     s.alchemy.pigment = 1000;
     return s;
   };

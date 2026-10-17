@@ -248,7 +248,7 @@ function Cipher() {
       <div className="ch-row">
         <button disabled={c.hints < 1} onClick={() => run(askWalls)}>Ask the walls <span className="cost">{Math.floor(c.hints)}/{HINT_CAP}</span></button>
         <span className="ch-stat dim">
-          {c.hints < HINT_CAP ? `next hint ${fmtTime((1 - (c.hints % 1)) * HINT_SECS / give)}` : 'past three, they write themselves in'}
+          {c.hints < HINT_CAP ? `next hint ${fmtTime((1 - (c.hints % 1)) * HINT_SECS / give)}` : 'bank full: spare hints come slowly and write themselves in'}
           {n < L.words.length ? ` · next word ${fmtTime((1 - (c.heard % 1)) * WORD_SECS / give)}` : ''}
         </span>
       </div>

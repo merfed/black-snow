@@ -1,10 +1,10 @@
 // The Drowned Stair: the panel inside the zone 4 box, and the room behind it.
 import { useMemo, useRef, useState, type MouseEvent } from 'react';
 import {
-  ashDropCost, BOON_TEXT, breedRate, candleCost, canChoose, choose, descentSpeed, drawRate, dropAsh, dropEmbers, EMBER_DROP,
-  haul, HUES, ITEMS, landingTime, lowTide, net, netCost, pour, QUEUE_MAX, REFL_H, REFL_W, reflection, reflLeft, ropeCost,
-  roomText, send, spot, still, stillCost, tankMult, tide, tideTurn, WATERS, wishNeed, wishProgress, buyRope, bandOpen,
-  type Item, type Lantern, type PerkId, type StairState, type WishKind,
+  ashDropCost, BOON_TEXT, breedRate, candleCost, canChoose, canRope, choiceWeight, choose, descentSpeed, drawRate, dropAsh,
+  dropEmbers, EMBER_DROP, haul, HUES, ITEMS, landingTime, lanterns, lowTide, net, netCost, pour, QUEUE_MAX, REFL_H, REFL_W,
+  reflection, reflLeft, ropeCost, ropeWater, roomText, send, sightPow, spot, still, stillCost, TANK_MAX, tankMult, tide, tideTurn,
+  WATERS, WISH_KINDS, wishNeed, wishProgress, buyRope, bandOpen, type Item, type Lantern, type PerkId, type StairState,
 } from '../../game/challenges/stair';
 import { fmt } from '../../game/format';
 import { useGame } from '../../game/store';
@@ -104,7 +104,7 @@ function Well({ st }: { st: StairState }) {
   const live = useRef<WellView>(null!);
   const q = st.queue.length >= QUEUE_MAX;
   live.current = {
-    tide: tideFrom(st), rope: st.rope, lanterns: st.tank.slice(-14), candles: st.candles, sent: st.sent,
+    tide: tideFrom(st), rope: st.rope, lanterns: lanterns(st).slice(-14), candles: st.candles, sent: st.sent,
     walk: st.walk / landingTime(st.landing), waiting: q,
   };
   const scene = useMemo(() => wellScene(live), []);
@@ -153,9 +153,9 @@ function RoomChoice({ game, compact = false }: { game: GameState; compact?: bool
         <button onClick={() => run(s => choose(s, 'take'))} title={item.text(perkW(st, r.item) + w)}>Take it</button>
         <button className="secondary" onClick={() => run(s => choose(s, 'leave'))} title={`Walks ${Math.round(10 * w)}% faster`}>Leave it</button>
         <button className="secondary" disabled={!canChoose(game, 'candle')} onClick={() => run(s => choose(s, 'candle'))}
-          title={`Rampant Wells +${8 * w}%`}>Light a candle · {candleCost(r.n)} warm</button>
+          title={item.text(perkW(st, r.item) + choiceWeight(r, 'candle'))}>Candle and take · {candleCost(r.n)} warm</button>
       </div>
-      {!compact && <p className="dim small-note">Take: {item.text(w).replace(/x([\d.]+)/, (_m, x) => `+${Math.round((Number(x) - 1) * 100)}%`)}. Leave: walks faster. Candle: the wells pull harder.</p>}
+      {!compact && <p className="dim small-note">Take: {item.text(perkW(st, r.item) + w)}. Leave: walks faster. A candle lets you take it twice over, for warm water.</p>}
     </div>
   );
 }
@@ -167,7 +167,7 @@ export function StairPanel() {
   const run = useGame(st => st.run);
   const [open, setOpen] = useState(false);
   const st = game.challenges.stair;
-  const cost = ropeCost(game);
+  const cost = ropeCost(game), wc = ropeWater(st.rope);
   const next = WATERS.find(w => w.at > st.rope);
   return (
     <div className="stair-panel">
@@ -182,8 +182,8 @@ export function StairPanel() {
           <Waters game={game} />
           <TideLine game={game} />
           <div className="ch-row">
-            <button disabled={game.ash.lt(cost)} onClick={() => run(buyRope)}
-              title={next ? `${next.name} water at ${next.at} m` : 'Deeper draws more'}>Lengthen rope ({st.rope} m) · {fmt(cost)}</button>
+            <button disabled={!canRope(game)} onClick={() => run(buyRope)}
+              title={next ? `${next.name} water at ${next.at} m` : 'Deeper draws more'}>Lengthen rope ({st.rope} m) · {fmt(cost)} · {wc} warm</button>
             <button className="secondary" onClick={() => run(haul)}>Haul</button>
           </div>
           {next && <p className="dim small-note">{next.name[0].toUpperCase() + next.name.slice(1)} water at {next.at} m.</p>}
@@ -202,7 +202,7 @@ export function StairPanel() {
 
 const PERK_TEXT: Record<PerkId, (w: number) => string> = {
   ...(Object.fromEntries(Object.entries(ITEMS).map(([k, v]) => [k, v.text])) as Record<Item, (w: number) => string>),
-  candle: w => `Candles: Rampant Wells x${(1 + 0.08 * tapUi(w)).toFixed(2)}`,
+  candle: w => `Old candles: Rampant Wells x${(1 + 0.05 * tapUi(w)).toFixed(2)}`,
   steps: w => `Walks x${(1 + 0.1 * tapUi(w)).toFixed(2)} faster`,
 };
 const tapUi = (w: number) => (w <= 16 ? w : 16 * Math.sqrt(w / 16));
@@ -241,9 +241,13 @@ function Wishes({ game }: { game: GameState }) {
   return (
     <section className="stair-sec">
       <h3 className="sub-head">Wishes</h3>
-      <p className="dim small-note">The well remembers everything dropped in. It grants by what you gave most.</p>
-      <div className="stair-meter"><span style={{ width: `${wishProgress(game) * 100}%` }} /></div>
-      <p className="ch-stat">Given <b>{fmt(st.given)}</b> of <b>{fmt(wishNeed(st.wishes))}</b> for wish {st.wishes + 1}</p>
+      <p className="dim small-note">The well remembers everything dropped in. Each thing fills its own wish.</p>
+      {WISH_KINDS.map(k => (k !== 'embers' || st.since.embers > 0 || st.boons.embers > 0 || game.embers >= EMBER_DROP) && (
+        <div key={k} className="stair-wish">
+          <p className="ch-stat"><b>{k}</b> {fmt(Math.floor(st.since[k]))} / {fmt(wishNeed(st.boons[k], k))} <span className="dim">· {st.boons[k]} granted</span></p>
+          <div className="stair-meter"><span style={{ width: `${wishProgress(game, k) * 100}%` }} /></div>
+        </div>
+      ))}
       <div className="ch-row">
         <button disabled={game.ash.lt(ac)} onClick={() => run(dropAsh)}>Drop ash · {fmt(ac)}</button>
         <button disabled={game.embers < EMBER_DROP} onClick={() => run(dropEmbers)}>Drop {EMBER_DROP} embers</button>
@@ -254,8 +258,8 @@ function Wishes({ game }: { game: GameState }) {
         ))}
       </div>
       <div className="stair-perks">
-        {(['ash', 'embers', 'water'] as WishKind[]).filter(k => st.boons[k]).map(k => (
-          <span key={k} className="ch-stat"><b>{k}</b> {BOON_TEXT[k]} <span className="dim">({st.boons[k].toFixed(2)})</span></span>
+        {WISH_KINDS.filter(k => st.boons[k]).map(k => (
+          <span key={k} className="ch-stat"><b>{k}</b> {BOON_TEXT[k]} <span className="dim">({st.boons[k]})</span></span>
         ))}
       </div>
     </section>
@@ -284,17 +288,18 @@ function Tank({ game }: { game: GameState }) {
   const run = useGame(st => st.run);
   const st = game.challenges.stair;
   const live = useRef<Lantern[]>([]);
-  live.current = st.tank.slice(-40);
+  const all = lanterns(st);
+  live.current = all.slice(-40);
   const scene = useMemo(() => tankScene(live), []);
-  const c = netCost(game), br = breedRate(game);
-  const hues = HUES.filter((_, i) => st.tank.some(l => l.c === i));
+  const c = netCost(game), br = breedRate(game), full = st.tank.length >= TANK_MAX;
+  const hues = HUES.filter((_, i) => all.some(l => l.c === i));
   return (
     <section className="stair-sec">
       <h3 className="sub-head">The tank</h3>
       <Artwork scene={scene} ink={HUE} accent={RED} className="stair-tank" />
-      <p className="ch-stat"><b>{st.tank.length}</b> lanterns · glow <b>{st.glow}</b> · Rampant Wells <b>x{tankMult(st).toFixed(2)}</b></p>
-      {st.tank.length > 0 && <p className="dim small-note">Colours: {hues.join(', ')}. {br > 0 ? `One more about every ${dur(1 / br)}.` : 'One alone will not breed.'}</p>}
-      {bandOpen(game, 1)
+      <p className="ch-stat"><b>{st.tank.length}</b>/{TANK_MAX} lanterns · glow <b>{st.glow}</b> · Rampant Wells <b>x{tankMult(st).toFixed(2)}</b></p>
+      {st.tank.length > 0 && <p className="dim small-note">Colours: {hues.join(', ')}. {full ? 'The tank is full. They have stopped breeding.' : br > 0 ? `One more about every ${dur(1 / br)}.` : 'One alone will not breed.'}</p>}
+      {full ? null : bandOpen(game, 1)
         ? <button disabled={st.water[1] < c} onClick={() => run(net)}>Net a lantern · {c} black water</button>
         : <p className="dim small-note">They swim in the black water, {WATERS[1].at} m down.</p>}
     </section>
@@ -361,7 +366,7 @@ function Reflections({ game }: { game: GameState }) {
         <ReflSide id={st.reflId} side={0} found={st.found} onSpot={onSpot} />
         <ReflSide id={st.reflId} side={1} found={st.found} onSpot={onSpot} />
       </div>
-      <p className="ch-stat">Seen <b>{fmt(st.spots)}</b> · all ash <b>x{(1 + 0.06 * Math.pow(st.spots, 0.75)).toFixed(2)}</b> · Rampant Wells <b>x{(1 + 0.04 * Math.pow(st.spots, 0.75)).toFixed(2)}</b></p>
+      <p className="ch-stat">Seen <b>{fmt(st.spots)}</b> · all ash <b>x{(1 + 0.03 * sightPow(st)).toFixed(2)}</b> · Rampant Wells <b>x{(1 + 0.04 * sightPow(st)).toFixed(2)}</b></p>
       <div className="ch-row">
         <span className="dim small-note stair-inline">A new one forms in {dur(reflLeft(st))}.</span>
         {bandOpen(game, 3) && <button className="secondary" disabled={st.water[3] < sc} onClick={() => run(still)}>Still the water · {sc} singing</button>}

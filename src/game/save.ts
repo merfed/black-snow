@@ -1,6 +1,7 @@
 import Decimal from 'break_eternity.js';
 import { randomGenome } from './genome';
 import { newGame, SAVE_VERSION, type GameState } from './state';
+import { pack, unpack } from './pack';
 
 export const SAVE_KEY = 'black-snow-save';
 
@@ -11,7 +12,13 @@ export function serialize(s: GameState): string {
   return JSON.stringify(s, (_k, v) => (v instanceof Decimal ? v.toString() : v));
 }
 
+// Packed saves carry this mark; plain JSON (older saves, hand-edited exports) still loads.
+const PACKED = 'BSZ1:';
+const packSave = (s: GameState) => PACKED + pack(serialize(s));
+const unpackSave = (raw: string) => (raw.startsWith(PACKED) ? unpack(raw.slice(PACKED.length)) : raw);
+
 export function deserialize(raw: string): GameState {
+  raw = unpackSave(raw);
   const parsed = JSON.parse(raw, (k, v) => (DECIMAL_KEYS.has(k) && typeof v === 'string' ? new Decimal(v) : v));
   if (typeof parsed !== 'object' || parsed === null || typeof parsed.version !== 'number') {
     throw new Error('Not a Black Snow save');
@@ -61,19 +68,22 @@ function migrate(saved: Partial<GameState>): GameState {
 }
 
 export function exportSave(s: GameState): string {
-  return btoa(unescape(encodeURIComponent(serialize(s))));
+  return btoa(unescape(encodeURIComponent(packSave(s))));
 }
 
 export function importSave(text: string): GameState {
   return deserialize(decodeURIComponent(escape(atob(text.trim()))));
 }
 
+let warned = false;
+
 export function writeLocal(s: GameState) {
   try {
     s.lastSaved = Date.now();
-    localStorage.setItem(SAVE_KEY, serialize(s));
-  } catch {
-    // Private mode or full storage: the game keeps running, it just will not persist.
+    localStorage.setItem(SAVE_KEY, packSave(s));
+  } catch (err) {
+    // Private mode or full storage: the game keeps running, it just will not persist. Say so once in the console.
+    if (!warned) { warned = true; console.warn('Black Snow could not save:', err); }
   }
 }
 

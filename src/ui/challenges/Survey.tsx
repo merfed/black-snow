@@ -2,14 +2,14 @@
 // the full map in a room.
 import { memo, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import {
-  buyRack, CORE_EVERY, coreMult, density, headCost, KINDS_PER, loreText, MAP_H, MAP_W, moveHead, openCore, placeHead,
-  rackCost, rackSize, RUN, STRATA, stratum, surveyAsh, surveyRate, swapBands, tileDensity, zoneBonus,
+  AUTO_SHARE, buyRack, buyReader, CORE_EVERY, coreMult, density, headCost, KINDS_PER, loreText, MAP_H, MAP_W, moveHead, openCore,
+  placeHead, rackCost, rackSize, readerCost, readerRate, RUN, STRATA, stratum, surveyRate, swapBands, tileDensity, zoneBonus,
 } from '../../game/challenges/survey';
 import { fmt, fmtTime } from '../../game/format';
 import { useGame } from '../../game/store';
 import { ZONE_COLORS } from '../colors';
 import { hex, threshold } from '../dither';
-import { ChallengeRoom } from './ChallengeSlot';
+import { ChallengeRoom, SaveHint } from './ChallengeSlot';
 import './survey.css';
 
 type RGB = [number, number, number];
@@ -272,6 +272,15 @@ function CoreBench() {
           <button className="secondary" disabled={game.ash.lt(rackCost(game))} onClick={() => run(buyRack)}>
             Widen the rack ({fmt(rackCost(game))} ash)
           </button>
+          <SaveHint game={game} cost={rackCost(game)} />
+          <div className="ch-stat">{v.reader
+            ? <>Reader <b>lv {v.reader}</b> <span className="dim">· a core every {fmtTime(1 / readerRate(game))}</span></>
+            : <span className="dim">No reader. Cores wait for you.</span>}</div>
+          <button className="secondary" disabled={game.ash.lt(readerCost(game))} onClick={() => run(buyReader)}
+            title={`Reads racked cores on its own, slowly, keeping ${Math.round(AUTO_SHARE * 100)}% of what reading by hand would.`}>
+            {v.reader ? 'A faster reader' : 'Hire a reader'} ({fmt(readerCost(game))} ash)
+          </button>
+          <SaveHint game={game} cost={readerCost(game)} />
         </div>
       </div>
       <div className="survey-cap">"STRATA"</div>
@@ -327,6 +336,7 @@ function Field() {
             <button className={placing ? '' : 'secondary'} disabled={!afford} onClick={() => { setPlacing(!placing); setSel(-1); }}>
               {placing ? 'Pick a tile' : 'Buy a bore head'} ({fmt(cost)} ash)
             </button>
+            <SaveHint game={game} cost={cost} />
           </div>
           <div className="ch-row">
             <span className="ch-stat">Heads <b>{v.heads.length}</b></span>
@@ -342,7 +352,6 @@ function Field() {
           <div className="ch-row">
             <span className="ch-stat">Surveyed <b>{fmt(v.surveyed)}</b></span>
             <span className="ch-stat">Bores <b>x{zoneBonus(v).toFixed(2)}</b></span>
-            <span className="ch-stat">ash <b>x{surveyAsh(v).toFixed(2)}</b></span>
           </div>
         </section>
         <CoreBench />
@@ -377,7 +386,7 @@ export function SurveyPanel() {
         <figcaption className="survey-cap">"ONE LAMP. IT CATCHES WHAT FALLS"</figcaption>
       </figure>
       <div className="survey-side">
-        <div className="ch-stat">Rack <b>{v.rack}/{cap}</b>{v.core && <span className="dim"> · one open</span>}</div>
+        <div className="ch-stat">Rack <b>{v.rack}/{cap}</b>{v.core && <span className="dim"> · one open</span>}{v.reader > 0 && <span className="dim"> · reader lv {v.reader}</span>}</div>
         <div className="ch-stat">Cores read <b>{v.read}</b> <span className="dim">x{coreMult(v).toFixed(2)} ash</span></div>
         <div className="ch-stat">Heads <b>{v.heads.length}</b> <span className="dim">+{fmt(surveyRate(game))}/s</span></div>
         <div className="ch-stat">Shallow Bores <b>x{zoneBonus(v).toFixed(2)}</b></div>

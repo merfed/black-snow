@@ -2,7 +2,7 @@ import Decimal from 'break_eternity.js';
 import { describe, expect, it } from 'vitest';
 import { newGame, type GameState } from '../state';
 import {
-  answer, askWalls, assign, buyUp, foremen, glyphsSolved, hush, lay, layout, POOL, retire, scriptorium, seat, truth, upCost, wordsHeard,
+  answer, askWalls, HINT_CAP, HINT_SECS, SPILL_SLOW, assign, buyUp, foremen, glyphsSolved, hush, lay, layout, POOL, retire, scriptorium, seat, truth, upCost, wordsHeard,
 } from './scriptorium';
 
 function late(): GameState {
@@ -128,6 +128,25 @@ describe('scriptorium', () => {
     expect(c(s).stratum).toBe(1);
     expect(c(s).sentences).toBe(5);
     expect(c(s).past).toBeGreaterThan(10);
-    expect(scriptorium.mult(s, 'ash')).toBeGreaterThan(2);
+    expect(scriptorium.mult(s, 'ash')).toBeGreaterThan(1.5);
+  });
+
+  it('spare hints come slowly once the bank is full', () => {
+    const s = late();
+    c(s).hints = HINT_CAP;
+    c(s).heard = 0; // nothing heard: no glyph to write in, so the bank just fills
+    scriptorium.step(s, HINT_SECS, rng);
+    expect(c(s).hints).toBeCloseTo(HINT_CAP + 1 / SPILL_SLOW, 1);
+  });
+
+  it('a week of glyphs and a loud gallery stays inside the payout budget', () => {
+    const s = late();
+    c(s).past = 3000;
+    c(s).ups = { wide: 10 };
+    c(s).loud = 350;
+    c(s).prof.greedy = 300;
+    const m = scriptorium.mult(s, 'ash');
+    expect(m).toBeGreaterThan(10);
+    expect(m).toBeLessThan(30);
   });
 });

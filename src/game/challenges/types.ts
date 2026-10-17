@@ -28,3 +28,17 @@ export interface ChallengeModule<S> {
   /** How far along this challenge is, open-ended (0 = untouched). The Syzygy routes currents by it. */
   level: (s: GameState) => number;
 }
+
+/** How fast a challenge's price reference may climb, in orders of magnitude of income per hour. */
+export const PRICE_CLIMB = 0.2;
+/** The most the reference may trail live income, in orders of magnitude. */
+export const PRICE_LAG = 1.5;
+/**
+ * A slow-moving log10 income that a challenge prices its items off. It starts at live income when the
+ * challenge opens, follows a drop at once, and climbs at most PRICE_CLIMB an hour, so saving up for an item
+ * never chases income that doubles every half hour. `ref` <= 0 means unset.
+ */
+export function slowRef(ref: number, live: number, dt: number): number {
+  if (!(ref > 0) || !(live < Infinity)) return live > 0 && live < Infinity ? live : ref;
+  return Math.max(live - PRICE_LAG, Math.min(live, ref + (PRICE_CLIMB * dt) / 3600));
+}

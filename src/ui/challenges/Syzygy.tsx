@@ -429,6 +429,7 @@ function SyzygyRoom({ onClose }: { onClose: () => void }) {
             <button className="max-all syzygy-btn syzygy-gate" disabled={!ready || z.dreams < gc.dreams || game.ash.lt(gc.ash)} onClick={() => run(openGate)}>
               Open the gate · {fmt(gc.dreams)} dreams + {fmt(gc.ash)} ash
             </button>
+            {z.dreams < gc.dreams && <p className="small-note dim">The pilgrim brings the dreams. Lanterns hurry the pilgrim; a few are cheap.</p>}
           </>}
         </section>
       </div>

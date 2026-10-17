@@ -441,10 +441,6 @@ button:hover:not(:disabled) .cost { color: inherit; }
 .zone-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; }
 .zone-head .zone-icon { color: var(--soft); }
 .zone-panel .zone-name { display: block; }
-.zone-panel .zone-out { white-space: normal; margin-top: 12px; }
-.zone-panel .zone-buttons { flex-direction: row; flex-wrap: wrap; margin-top: 12px; }
-.zone-panel .zone-buttons button { min-width: 0; }
-.zone-panel .zone-buttons .dig { flex: 1; }
 .zone-ups { list-style: none; margin: 14px 0 0; padding: 12px 0 0; border-top: 1px solid var(--line); display: grid; gap: 6px; }
 .zone-up { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 8px 10px; border-color: var(--line); }
 .zone-up-name { font-family: var(--font-display); font-size: 17px; }
@@ -1118,23 +1114,12 @@ body:has(.warm-flake.rarity-4) .crt { background: radial-gradient(circle at cent
 .panel.plate-panel > h2::before { box-shadow: none; width: 6px; height: 6px; }
 .zone-art, .panel-art { margin: 0 0 16px; }
 .zone-art .artwork-frame { border-color: color-mix(in srgb, var(--hue) 45%, transparent); }
-.zone-panel .zone-lore { text-align: center; margin: 0 0 12px; }
-.zone-panel .zone-head { padding-bottom: 12px; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--hue) 45%, transparent) 0 2px, transparent 2px 5px) bottom / 100% 1px no-repeat; margin-bottom: 12px; }
 .zone-panel .zone-amount { color: var(--hue); }
 
 /* Dithered pips: empty ones are a 1px checker of the ink, full ones solid. */
 .zone-panel .pips span:not(.pips-label) { height: 6px; background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 45%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; }
 .zone-panel .pips span.on { background: var(--hue); box-shadow: 0 0 6px color-mix(in srgb, var(--hue) 50%, transparent); }
 
-.zone-panel button.dig { border-color: var(--hue); color: var(--hue); }
-.zone-panel button.dig:hover:not(:disabled) { background: var(--hue); color: #05060b; box-shadow: 0 0 16px color-mix(in srgb, var(--hue) 35%, transparent); }
-.zone-panel button.secondary, .zone-panel button.max-all { border-style: dashed; border-color: color-mix(in srgb, var(--hue) 45%, transparent); }
-.zone-panel button.secondary:hover:not(:disabled), .zone-panel button.max-all:hover:not(:disabled) {
-  color: var(--hue); background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 18%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px;
-}
-.zone-panel .zone-ups { border-top: 0; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--hue) 45%, transparent) 0 2px, transparent 2px 5px) top / 100% 1px no-repeat; }
-.zone-panel .card { background: color-mix(in srgb, var(--hue) 4%, rgba(0, 0, 0, 0.4)); }
-.zone-panel .card-head { background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 16%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; }
 .panel.zone-teaser { opacity: 0.75; border-style: dashed; }
 .decor .artwork { pointer-events: none; }
 
@@ -1221,3 +1206,191 @@ body:has(.warm-flake.rarity-4) .crt { background: radial-gradient(circle at cent
 .warm-flake.omen-bright { border-color: rgba(165, 147, 255, 0.7); background: radial-gradient(circle, rgba(165, 147, 255, 0.35), rgba(165, 147, 255, 0) 70%); box-shadow: 0 0 26px rgba(165, 147, 255, 0.6); animation: drift 3.2s ease-in-out infinite alternate; }
 .dream-row { font-family: var(--font-body); }
 .dream-bed { font-family: var(--font-body); }
+
+/* ---- early-game round (v0.12): feed hopper, waking machines ---- */
+.hopper-row { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 10px; }
+.hopper-row .max-all { margin: 0; }
+.max-all.hopper.on { background: color-mix(in srgb, var(--hue) 22%, transparent); border-style: solid; }
+.wake-note b { color: var(--hue, var(--text)); }
+
+/* ---------- zone panes: header, stats, dig buttons, upgrades, max all ---------- */
+
+/* Name, icon and counts sit above the plate; the three readouts under them are one strip of framed cells. */
+.zone-panel .zone-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; margin: 0 0 10px; }
+.zone-panel .zone-name { display: block; font-family: var(--font-display); font-size: 28px; line-height: 1.05; }
+.zone-each { font-size: 14px; color: var(--soft); margin-top: 4px; }
+.zone-panel .zone-count { grid-area: auto; text-align: right; }
+.zone-panel .zone-amount { font-size: 30px; line-height: 1; color: var(--hue); text-shadow: 0 0 12px color-mix(in srgb, var(--hue) 35%, transparent); }
+.zone-panel .zone-count small { font-size: 12px; letter-spacing: 0.06em; color: var(--soft); margin-top: 5px; }
+.zone-panel .zone-count small b { font-weight: 500; color: var(--hue); }
+
+.zone-stats { display: grid; grid-template-columns: 1.15fr 1fr 1.15fr; gap: 6px; margin: 0 0 14px; }
+.zstat {
+  display: grid; align-content: start; gap: 2px; min-width: 0; padding: 7px 9px 8px; background: color-mix(in srgb, var(--hue) 5%, #05060b);
+  border: 1px solid color-mix(in srgb, var(--hue) 50%, transparent);
+  box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px color-mix(in srgb, var(--hue) 18%, transparent);
+}
+.zstat-k { font-family: 'MEK Mono', var(--font-ui); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: color-mix(in srgb, var(--hue) 80%, var(--soft)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zstat-v { font-family: var(--font-ui); font-weight: 500; font-size: 20px; line-height: 1.15; color: var(--text); white-space: nowrap; }
+.zstat-u { font-family: var(--font-ui); font-size: 12px; color: var(--soft); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zstat-out .zstat-k::before { content: '▲ '; color: var(--accent); }
+.zstat-boost .zstat-k::before { content: '× '; color: var(--accent); }
+.zstat-mat .zstat-k::before { content: '◆ '; color: var(--accent); }
+.zstat-boost .zstat-v { color: var(--hue); }
+.zstat-pips { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; margin-top: 4px; }
+.zstat-pips i { height: 5px; background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 40%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; }
+.zstat-pips i.on { background: var(--hue); box-shadow: 0 0 5px color-mix(in srgb, var(--hue) 55%, transparent); }
+.zstat-mat .zstat-v { color: color-mix(in srgb, var(--hue) 45%, #fff); }
+.zstat-note { font-family: var(--font-ui); font-size: 11px; color: color-mix(in srgb, var(--hue) 60%, var(--dim)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.zone-panel .zone-art { margin: 0 0 12px; }
+/* The description, then a dashed rule between what the zone is and what it does. */
+.zone-panel .zone-lore {
+  text-align: center; font-size: 14px; color: var(--soft); margin: 0 0 14px; padding: 0 6px 14px;
+  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--hue) 55%, transparent) 0 4px, transparent 4px 8px) bottom / 100% 1px no-repeat;
+}
+
+/* Dig buttons: a double pixel frame in the zone's ink, the verb bright and the price a darker ink under it. */
+.zone-panel .zone-buttons { display: grid; grid-template-columns: 1.3fr 1fr; gap: 8px; margin: 0 0 16px; }
+.zone-panel button.dig {
+  display: grid; justify-items: center; gap: 2px; padding: 9px 10px 8px; min-width: 0; text-align: center;
+  color: var(--hue); background: color-mix(in srgb, var(--hue) 7%, #05060b);
+  border: 1px solid var(--hue); box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px color-mix(in srgb, var(--hue) 35%, transparent);
+}
+.zone-panel button.dig-more { border-style: dashed; box-shadow: none; background: transparent; }
+.btn-label { font-family: var(--font-ui); font-weight: 500; font-size: 16px; letter-spacing: 0.04em; white-space: nowrap; }
+.btn-cost { font-family: var(--font-ui); font-size: 13px; color: color-mix(in srgb, var(--hue) 50%, #3a3a40); white-space: nowrap; }
+.zone-panel button.dig:hover:not(:disabled) {
+  color: #fff; box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px var(--hue), 0 0 14px color-mix(in srgb, var(--hue) 30%, transparent);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 30%, #05060b) 0 25%, #05060b 0 50%) 0 0 / 2px 2px;
+}
+.zone-panel button.dig:hover:not(:disabled) .btn-cost { color: color-mix(in srgb, var(--hue) 70%, #888); }
+
+/* Disabled, everywhere in a zone: grey hatching, a dashed grey frame, readable dim text, the not-allowed cursor. */
+.zone-panel button:disabled {
+  opacity: 1; cursor: not-allowed; color: #6a6964; border-color: #3a3a40; border-style: dashed; box-shadow: none; filter: none;
+  background: repeating-linear-gradient(135deg, rgba(232, 230, 223, 0.07) 0 2px, transparent 2px 7px), #07080b;
+  animation: none;
+}
+.zone-panel button:disabled .btn-cost, .zone-panel button:disabled .cost { color: color-mix(in srgb, var(--accent) 55%, #555); }
+:root[data-siren='on'] .zone-panel button:disabled { color: #8a5a4a; border-color: #5a2a1c; }
+
+/* Upgrades: the zone's first function, two to a row, each with its prices and a live bar. */
+.zone-panel .zone-ups { margin: 0 0 6px; padding: 0; border: 0; display: block; background: none; }
+.zone-ups-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0 0 8px; }
+.zone-ups-head span { font-family: 'MEK Mono', var(--font-ui); font-size: 14px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--hue); }
+.zone-ups-head small { font-family: var(--font-ui); font-size: 12px; color: var(--soft); }
+.zup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.zone-panel button.zup {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'top top' 'tag cost' 'bar state';
+  align-items: center; gap: 6px 8px; padding: 10px 10px 9px; min-width: 0; text-align: left; color: var(--text);
+  background: color-mix(in srgb, var(--hue) 6%, #05060b);
+  border: 1px solid color-mix(in srgb, var(--hue) 60%, transparent);
+  box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px color-mix(in srgb, var(--hue) 20%, transparent);
+}
+.zup-top { grid-area: top; display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.zup-name { flex: 1; min-width: 0; font-family: var(--font-ui); font-weight: 500; font-size: 14px; line-height: 1.2; letter-spacing: 0.03em; text-transform: uppercase; }
+.zup-lvl { flex: none; font-family: var(--font-ui); font-size: 12px; padding: 1px 6px; color: var(--hue); border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent); background: color-mix(in srgb, var(--hue) 14%, transparent); }
+.zup-tag { grid-area: tag; font-family: var(--font-ui); font-size: 15px; font-weight: 500; color: var(--hue); }
+.zup-cost { grid-area: cost; display: grid; justify-items: end; font-family: var(--font-ui); font-size: 12px; line-height: 1.35; color: var(--soft); white-space: nowrap; }
+.zup-cost span + span { color: color-mix(in srgb, var(--hue) 45%, #d8d6cf); }
+.zup-cost .short, .zup-cost span + span.short { color: color-mix(in srgb, var(--accent) 80%, #fff); }
+.zup-bar {
+  grid-area: bar; position: relative; height: 8px; overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 22%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+}
+.zup-bar i {
+  display: block; height: 100%; transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  background: repeating-linear-gradient(-45deg, var(--hue) 0 4px, color-mix(in srgb, var(--hue) 55%, #05060b) 4px 8px) 0 0 / 11.3px 100%;
+  animation: zup-crawl 1.2s linear infinite;
+}
+@keyframes zup-crawl { to { background-position: 11.3px 0; } }
+.zup-state { grid-area: state; font-family: 'MEK Mono', var(--font-ui); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--soft); white-space: nowrap; }
+.zone-panel button.zup-ready { border-color: var(--hue); }
+.zup-ready .zup-bar i { background: var(--hue); animation: zup-ready 1.6s ease-in-out infinite; }
+.zup-ready .zup-state { color: var(--hue); }
+@keyframes zup-ready { 50% { box-shadow: 0 0 10px var(--hue); filter: brightness(1.35); } }
+.zone-panel button.zup:hover:not(:disabled) {
+  color: #fff; box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px var(--hue), 0 0 14px color-mix(in srgb, var(--hue) 30%, transparent);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 20%, #05060b) 0 25%, #05060b 0 50%) 0 0 / 2px 2px;
+}
+/* Still readable while it can't be bought: hatched and grey, but the bar keeps the zone's ink so progress shows. */
+.zone-panel button.zup:disabled {
+  cursor: not-allowed; border: 1px dashed #3d3d44; box-shadow: none;
+  background: repeating-linear-gradient(135deg, rgba(232, 230, 223, 0.06) 0 2px, transparent 2px 7px), #07080b;
+}
+.zone-panel button.zup:disabled .zup-name { color: #8d8b85; }
+.zone-panel button.zup:disabled .zup-tag, .zone-panel button.zup:disabled .zup-lvl { color: color-mix(in srgb, var(--hue) 45%, #666); border-color: #3a3a40; background: none; }
+.zone-panel button.zup:disabled .zup-bar i { background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--hue) 55%, #333) 0 4px, color-mix(in srgb, var(--hue) 25%, #05060b) 4px 8px) 0 0 / 11.3px 100%; }
+.zone-panel button.zup-locked:disabled .zup-cost { opacity: 0.6; }
+.zup-maxed .zup-bar i { background: var(--hue); animation: none; }
+.zup-tip { width: 280px; border-color: var(--hue); }
+.zup-tip-name { font-family: var(--font-display); font-size: 19px; color: var(--hue); line-height: 1.15; }
+.zup-tip p { margin: 6px 0; font-size: 14px; line-height: 1.45; color: var(--text); }
+.zup-tip-meta { font-family: 'MEK Mono', var(--font-ui); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--soft); }
+
+/* A machine's own action inside a zone (open a room, read a core, press a seal): a terminal prompt, never a max all. */
+:where(.zone-panel) .max-all {
+  animation: none; text-align: left; position: relative; padding: 9px 14px 9px 30px; letter-spacing: 0.14em;
+  color: var(--hue); background: color-mix(in srgb, var(--hue) 8%, #05060b); border: 1px solid color-mix(in srgb, var(--hue) 70%, transparent);
+}
+:where(.zone-panel) .max-all::before { content: '▸'; position: absolute; left: 12px; color: var(--accent); }
+:where(.zone-panel) .max-all:hover:not(:disabled) { color: #fff; background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 22%, #05060b) 0 25%, #05060b 0 50%) 0 0 / 2px 2px; box-shadow: none; }
+
+/*
+ * Max all: the only filled button in a zone, at the very bottom. The zone's ink printed through its own pattern
+ * (dust, pipes, tape, ripples, hazard, rings, bits, voices, hatch), with the label on a black plate.
+ */
+.zone-panel button.zone-max {
+  position: relative; display: grid; place-items: center; width: 100%; min-height: 54px; margin: 20px 0 0; padding: 8px;
+  border: 2px solid var(--hue); color: var(--hue); text-align: center;
+  background: var(--max-pat, none), var(--hue);
+  box-shadow: 0 0 0 3px #05060b, 0 0 0 4px color-mix(in srgb, var(--hue) 50%, transparent);
+  animation: zone-max-drift 6s linear infinite;
+}
+.zone-max span {
+  display: inline-block; padding: 6px 16px; background: #05060b; border: 1px solid var(--hue);
+  font-family: 'MEK Mono', var(--font-ui); font-size: 15px; letter-spacing: 0.26em; text-transform: uppercase; white-space: nowrap;
+}
+.zone-panel button.zone-max:hover:not(:disabled) { color: #05060b; background: var(--max-pat, none), var(--hue); box-shadow: 0 0 0 3px #05060b, 0 0 0 4px var(--hue), 0 0 22px color-mix(in srgb, var(--hue) 45%, transparent); }
+.zone-panel button.zone-max:hover:not(:disabled) span { background: var(--hue); border-color: #05060b; }
+.zone-panel button.zone-max:disabled { border-style: dashed; border-width: 2px; background: var(--max-pat, none), #1a1a1f; background-blend-mode: normal; }
+.zone-panel button.zone-max:disabled span { color: #77756f; border-color: #3a3a40; letter-spacing: 0.14em; font-size: 13px; }
+@keyframes zone-max-drift { to { background-position: 48px 0, 0 0; } }
+.zone-max-1 { --max-pat: radial-gradient(#05060b 1.2px, transparent 1.6px) 0 0 / 6px 6px; }
+.zone-max-2 { --max-pat: repeating-linear-gradient(0deg, #05060b 0 2px, transparent 2px 8px); }
+.zone-max-3 { --max-pat: repeating-linear-gradient(90deg, #05060b 0 1px, transparent 1px 3px, #05060b 3px 6px, transparent 6px 10px); }
+.zone-max-4 { --max-pat: radial-gradient(circle at 50% 100%, transparent 3px, #05060b 3px 5px, transparent 5px) 0 0 / 12px 7px; }
+.zone-max-5 { --max-pat: repeating-linear-gradient(45deg, #05060b 0 6px, transparent 6px 12px); }
+.zone-max-6 { --max-pat: repeating-radial-gradient(circle at 50% 50%, #05060b 0 2px, transparent 2px 6px); }
+.zone-max-7 { --max-pat: repeating-conic-gradient(#05060b 0 25%, transparent 0 50%) 0 0 / 6px 6px; }
+.zone-max-8 { --max-pat: repeating-linear-gradient(-60deg, #05060b 0 1px, transparent 1px 5px); }
+.zone-max-9 { --max-pat: repeating-linear-gradient(45deg, #05060b 0 1px, transparent 1px 7px), repeating-linear-gradient(-45deg, #05060b 0 1px, transparent 1px 7px); }
+.zone-max-9 { animation: none; }
+
+/* Challenge images in a zone: no knots, no double frames. Full width, one quiet ring, like the modulator. */
+.challenge .knots::after { display: none; }
+.challenge .survey-fig { justify-items: stretch; }
+.challenge .artwork-frame, .challenge .survey-frame, .challenge .archive-frame, .challenge .scriptorium-window, .challenge .syzygy-thumb {
+  display: block; border: 0; outline: 0; padding: 0; width: auto; max-width: none; background: #05060b; line-height: 0;
+  box-shadow: 0 0 0 4px #05030a, 0 0 0 5px color-mix(in srgb, var(--hue) 40%, transparent);
+  margin: 6px 5px 10px;
+}
+.challenge .survey-frame canvas, .challenge .syzygy-thumb canvas, .challenge .artwork-frame canvas { width: 100%; height: auto; }
+.challenge .ring-frame, .challenge .seal-frame { border: 0; padding: 0; box-shadow: 0 0 0 4px #05030a, 0 0 0 5px color-mix(in srgb, var(--hue) 40%, transparent); margin: 5px; }
+.challenge .scriptorium-window:hover:not(:disabled), .challenge .syzygy-thumb:hover { box-shadow: 0 0 0 4px #05030a, 0 0 0 5px var(--hue); }
+
+@media (prefers-reduced-motion: reduce) {
+  .zup-bar i, .zup-ready .zup-bar i, .zone-panel button.zone-max { animation: none; }
+}
+@media (max-width: 560px) {
+  .zone-stats { grid-template-columns: 1fr 1fr; }
+  .zstat-mat { grid-column: 1 / -1; }
+  .zup-grid { grid-template-columns: 1fr; }
+}
+/* Zone materials in the resources corner: a diamond in the zone's ink, the amount and its trickle on one line. */
+.res-mats .res-mat-dot { width: 7px; height: 7px; transform: rotate(45deg); box-shadow: none; }
+.res-mats dd { display: flex; align-items: baseline; gap: 6px; }
+.res-mats dd small { display: inline; }
+.zone-panel .max-all.syzygy-open { padding-left: 30px; text-align: left; }

@@ -10,7 +10,7 @@ import { fmt, fmtTime } from '../../game/format';
 import { useGame } from '../../game/store';
 import { ZONE_COLORS } from '../colors';
 import { hex, threshold } from '../dither';
-import { ChallengeRoom } from './ChallengeSlot';
+import { ChallengeRoom, SaveHint } from './ChallengeSlot';
 import './undertow.css';
 
 const ZONE = 1;
@@ -280,6 +280,7 @@ function Bins() {
               <button className="undertow-btn alt" disabled={game.ash.lt(cost)} onClick={() => run(s => upgradeBin(s, b))}>
                 {l ? 'Deepen' : 'Teach it to sort'} · {fmt(cost)} ash
               </button>
+              <SaveHint game={game} cost={cost} />
             </div>
           );
         })}

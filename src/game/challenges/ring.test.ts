@@ -1,8 +1,10 @@
 import Decimal from 'break_eternity.js';
 import { describe, expect, it } from 'vitest';
+import { ALCHEMY_ZONE } from '../alchemy';
 import { newGame } from '../state';
 import {
-  buyRing, CATALYSTS, dropKind, flip, isBarker, peakSidelobe, pour, reading, refine, ring, rings, setSpan, socket,
+  buyRing, CATALYSTS, dropKind, FREE_PER, flip, freeRings, isBarker, peakSidelobe, pour, pourCost, rawPigment, reading, refine, ring,
+  ringCost, rings, setSpan, socket,
 } from './ring';
 
 function late() {
@@ -11,6 +13,7 @@ function late() {
   s.zones[8].bought = 1;
   s.zones[5].bought = 50;
   s.zones[5].amount = new Decimal(1e20);
+  s.zones[ALCHEMY_ZONE].bought = Math.max(1, s.zones[ALCHEMY_ZONE].bought);
   s.chUnlocked = ['survey', 'undertow', 'archive', 'stair', 'seal', 'ring'];
   s.ash = new Decimal(1e300);
   s.alchemy.pigment = 1e12;
@@ -86,7 +89,10 @@ describe('barker ring', () => {
   it('catalysts drop, socket, refine, and pay', () => {
     const s = late();
     expect(ring.mult(s, 'rust')).toBe(1);
-    for (let i = 0; i < 400 && s.challenges.ring.found < 9; i++) pour(s);
+    rs(s).dust = 152;
+    expect(pour(s)).toBe(true); // the 153rd silt: nine drops
+    expect(pour(s)).toBe(true);
+    expect(rs(s).pours).toBe(2);
     const r = rs(s);
     expect(r.found).toBe(9);
     expect(new Set(Array.from({ length: 8 }, (_, n) => dropKind(r.seed, n))).size).toBe(8);
@@ -101,6 +107,38 @@ describe('barker ring', () => {
     expect(r.cats[k]).toBe(1);
     expect(ring.mult(s, t)).toBeGreaterThan(before);
     expect(refine(s, k)).toBe(false); // no spare copy left
+  });
+
+  it('free rings count only Spirals bought after the Ring opened; an old save that played keeps them', () => {
+    const s = late();
+    s.zones[5].bought = 122;
+    ring.step(s, 1, Math.random);
+    expect(freeRings(s)).toBe(0);
+    expect(rings(s)).toBe(3);
+    s.zones[5].bought += FREE_PER * 2;
+    expect(freeRings(s)).toBe(2);
+    s.zones[5].bought += FREE_PER * 10;
+    expect(freeRings(s)).toBe(4);
+    const old = late();
+    old.zones[5].bought = 122;
+    old.challenges.ring.best = 7;
+    ring.step(old, 1, Math.random);
+    expect(freeRings(old)).toBe(4);
+  });
+
+  it('prices follow the pigment rate, so a banked hour does not buy the whole ring', () => {
+    const s = late();
+    s.alchemy.found = { tallow: 200, tide: 200, bell: 200 };
+    const raw = rawPigment(s);
+    expect(raw).toBeGreaterThan(0);
+    expect(ringCost(s)).toBeGreaterThanOrEqual(raw * 600);
+    s.alchemy.pigment = raw * 3600;
+    while (buyRing(s));
+    expect(rings(s)).toBeLessThan(7);
+    const p0 = pourCost(s);
+    s.alchemy.pigment = 1e30;
+    pour(s);
+    expect(pourCost(s)).toBeGreaterThan(p0);
   });
 
   it('milestone is reachable', () => {

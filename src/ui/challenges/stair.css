@@ -27,3 +27,4 @@
 .stair-reflside { cursor: crosshair; }
 .stair-reflside .artwork { margin: 0; }
 .stair-inline { flex: 1; }
+.stair-wish { display: grid; gap: 2px; margin: 4px 0; }

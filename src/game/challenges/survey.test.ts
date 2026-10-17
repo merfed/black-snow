@@ -2,7 +2,7 @@ import Decimal from 'break_eternity.js';
 import { describe, expect, it } from 'vitest';
 import { newGame, type GameState } from '../state';
 import {
-  CORE_EVERY, buyRack, density, headCost, makeCore, moveHead, openCore, placeHead, rackSize, RUN, survey, swapBands,
+  AUTO_SHARE, buyReader, coreMult, CORE_EVERY, buyRack, density, READ_EVERY, readerCost, tallyTotal, zoneBonus, headCost, makeCore, moveHead, openCore, placeHead, rackSize, RUN, survey, swapBands,
 } from './survey';
 
 const late = (): GameState => {
@@ -113,6 +113,39 @@ describe('the survey', () => {
     expect(s.challenges.survey.rack).toBe(rackSize(s));
     expect(buyRack(s)).toBe(true);
     expect(rackSize(s)).toBe(8);
+  });
+
+  it('the reader reads racked cores on its own, slowly and at half value', () => {
+    const s = late();
+    const v = s.challenges.survey;
+    survey.step(s, 1, Math.random);
+    expect(v.read).toBe(0);
+    const cost = readerCost(s);
+    expect(buyReader(s)).toBe(true);
+    expect(readerCost(s).gt(cost)).toBe(true);
+    v.rack = 3;
+    survey.step(s, READ_EVERY + 1, () => 0.3);
+    expect(v.read).toBe(1);
+    expect(v.core).toBe(null); // never touches the core on the bench
+    // a whole core read by the reader tallies half what reading by hand would
+    expect(tallyTotal(v)).toBeGreaterThan(0);
+    expect(tallyTotal(v)).toBeLessThanOrEqual(9 * 9 * AUTO_SHARE / 3);
+    // an empty rack: the reader waits, and does not bank more than one core of progress
+    v.rack = 0; v.coreProg = 0;
+    const read = v.read;
+    for (let k = 0; k < 10; k++) survey.step(s, 10, Math.random);
+    expect(v.read).toBe(read);
+    expect(v.readProg).toBeLessThanOrEqual(1);
+  });
+
+  it('pays inside the shared budget: x3-6 around the milestone, x10-25 after a week', () => {
+    const v = late().challenges.survey;
+    v.tally = { ash: 107 }; v.surveyed = 3e4; // about the milestone
+    const atMs = coreMult(v) * zoneBonus(v);
+    expect(atMs).toBeGreaterThan(3); expect(atMs).toBeLessThan(6);
+    v.tally = { ash: 5000 }; v.surveyed = 1e7; // about a week
+    const week = coreMult(v) * zoneBonus(v);
+    expect(week).toBeGreaterThan(10); expect(week).toBeLessThan(25);
   });
 
   it('the milestone is reachable', () => {

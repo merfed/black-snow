@@ -44,22 +44,24 @@ export const PER_STRATUM = 5; // sentences per hand
 export const WORD_SECS = 200; // a word heard every 200 s
 export const HINT_SECS = 720; // a hint every 12 min
 export const HINT_CAP = 3;
+/** Past the bank, hints still come but four times slower, and those write themselves in: idle help, not a solver. */
+export const SPILL_SLOW = 4;
 export const VOICE_SECS = 1080; // a voice every 18 min
 export const QUESTION_SECS = 1500; // a question every 25 min
 export const QUEUE_CAP = 3;
 export const ROSTER_BASE = 6;
 export const LOUD_CAP = 100;
 export const LOUD_TAU = 1200; // loudness closes 63% of the gap to its cap every 20 min
-const GLYPH_K = 0.3;
-const FOREMAN_K = 0.06;
+const GLYPH_K = 0.5;
+const FOREMAN_K = 0.04;
 const WAX_K = 0.0001; // silence per second per level per point of loudness
 
 export const UPGRADES: { id: string; name: string; desc: string; base: number; growth: number }[] = [
   { id: 'wide', name: 'Widen the gallery', desc: 'The murmur can grow 25% louder.', base: 60, growth: 2 },
-  { id: 'ear', name: 'Ear to the stone', desc: 'Words, hints and voices come 25% sooner.', base: 80, growth: 1.9 },
+  { id: 'ear', name: 'Ear to the stone', desc: 'Words, hints and voices come sooner (less with each).', base: 80, growth: 1.9 },
   { id: 'wax', name: 'Wax in the horn', desc: 'Silence gathers by itself while it is loud.', base: 100, growth: 2 },
   { id: 'roster', name: 'Another chair', desc: 'Room for one more voice.', base: 50, growth: 1.7 },
-  { id: 'lamp', name: 'Lamp oil', desc: 'Foremen are 10% stronger.', base: 120, growth: 2 },
+  { id: 'lamp', name: 'Lamp oil', desc: 'Foremen grow stronger (less with each).', base: 120, growth: 2 },
 ];
 export const upLevel = (s: GameState, id: string) => st(s).ups[id] ?? 0;
 export const upCost = (s: GameState, id: string) => {
@@ -237,11 +239,16 @@ export const foremen = (s: GameState) => st(s).seats.filter(id => id >= 0).lengt
 export const rosterCap = (s: GameState) => ROSTER_BASE + upLevel(s, 'roster');
 export const loudCap = (s: GameState) => LOUD_CAP * (1 + 0.25 * upLevel(s, 'wide'));
 /** The patient side of the profile makes everything the walls give arrive sooner. */
-export const giveRate = (s: GameState) => (1 + 0.25 * upLevel(s, 'ear')) * (1 + 0.05 * Math.sqrt(st(s).prof.patient));
-export const glyphMult = (s: GameState) => 1 + GLYPH_K * Math.sqrt(st(s).past + st(s).correct);
-export const loudMult = (s: GameState) => 1 + st(s).loud / LOUD_CAP;
+export const giveRate = (s: GameState) => (1 + 0.4 * Math.sqrt(upLevel(s, 'ear'))) * (1 + 0.05 * Math.sqrt(st(s).prof.patient));
+/** Glyphs pay by a logarithm: the first dozen matter, the thousandth barely does. */
+export const glyphPay = (n: number) => 1 + GLYPH_K * Math.log(1 + n / 6);
+export const glyphMult = (s: GameState) => glyphPay(st(s).past + st(s).correct);
+/** Loudness pays by a square root of how full the gallery is, so widening it tapers. */
+export const loudPay = (loud: number) => 1 + Math.sqrt(Math.max(0, loud) / LOUD_CAP);
+export const loudMult = (s: GameState) => loudPay(st(s).loud);
+export const GREEDY_K = 0.04;
 export const traitMult = (s: GameState, t: Trait, k: number) => 1 + k * Math.sqrt(st(s).prof[t]);
-export const foremanStrength = (s: GameState) => (1 + 0.1 * upLevel(s, 'lamp')) * (1 + 0.12 * Math.sqrt(st(s).tally));
+export const foremanStrength = (s: GameState) => (1 + 0.15 * Math.sqrt(upLevel(s, 'lamp'))) * (1 + 0.1 * Math.cbrt(st(s).tally));
 export function foremanMult(s: GameState, zone: number): number {
   const c = st(s), id = c.seats[zone];
   if (id === undefined || id < 0) return 1;
@@ -359,7 +366,7 @@ export function makeVoice(seed: number, n: number): Voice {
   const name = `${FIRST[Math.floor(r() * FIRST.length)]} ${LAST[Math.floor(r() * LAST.length)]}`;
   const era = r() < 0.6 ? `dug in ${1871 + Math.floor(r() * 109)}` : `dug in ${ERAS[Math.floor(r() * ERAS.length)]}`;
   const spec = Math.floor(r() * 9);
-  const q = Math.round((0.8 + 0.4 * r()) * (1 + 0.1 * Math.sqrt(n)) * 100) / 100;
+  const q = Math.round((0.8 + 0.4 * r()) * (1 + 0.1 * Math.log(1 + n)) * 100) / 100;
   return { id: n, name, era, spec, q };
 }
 
@@ -423,7 +430,9 @@ function step(s: GameState, dt: number) {
   const give = giveRate(s), L = lay(s);
   const before = Math.floor(c.heard);
   c.heard = Math.min(L.words.length, c.heard + (dt * give) / WORD_SECS);
-  c.hints += (dt * give) / HINT_SECS;
+  // Up to the bank hints come at full speed; past it a quarter as fast (a split step lands within a sliver).
+  const room0 = Math.max(0, HINT_CAP - c.hints), gain = (dt * give) / HINT_SECS;
+  c.hints += gain <= room0 ? gain : room0 + (gain - room0) / SPILL_SLOW;
 
   c.qProg += dt / QUESTION_SECS;
   while (c.qProg >= 1 && c.queue.length < QUEUE_CAP) { c.queue.push(questionAt(c.seed, c.asked++)); c.qProg -= 1; }
@@ -445,7 +454,7 @@ function step(s: GameState, dt: number) {
 function mult(s: GameState, t: MultTarget): number {
   const c = st(s);
   switch (t) {
-    case 'ash': return (1 + GLYPH_K * Math.sqrt(c.past + c.correct)) * (1 + c.loud / LOUD_CAP) * (1 + 0.06 * Math.sqrt(c.prof.greedy));
+    case 'ash': return glyphPay(c.past + c.correct) * loudPay(c.loud) * (1 + GREEDY_K * Math.sqrt(c.prof.greedy));
     case 'comfort': case 'rust': return 1 + 0.1 * Math.sqrt(c.prof.patient);
     case 'echoes': return 1 + 0.1 * Math.sqrt(c.prof.curious);
     case 'listen': return 1 + 0.15 * Math.sqrt(c.prof.curious);

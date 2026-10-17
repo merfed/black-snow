@@ -2,9 +2,9 @@
 // the airlock and the frost garden in a room.
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent, type RefObject } from 'react';
 import {
-  airlockSpeed, buyCold, buyEar, buyPump, buySeedUp, burstFor, coldCost, comboDone, comboLength, crystalRate, cycleLen, DIAL,
+  airlockSpeed, buyCold, buyEar, buyHand, buyPump, buySeedUp, burstFor, canRest, coldCost, handCost, handTime, restCost, comboDone, comboLength, crystalRate, cycleLen, DIAL,
   digitOf, earCost, earReach, feel, frostIntake, gardenLit, gardenSymmetry, genTime, GH, GW, harvest, HARVEST_MIN, litCount,
-  pressSeal, pumpCost, repressSeal, REPRESS_COST, restDial, RIME_PER_FROST, SEAL_N, SEAL_ZONE, sealMult, sealPower, sealsPending,
+  powerMult, pressSeal, pumpCost, repressSeal, REPRESS_COST, restDial, RIME_PER_FROST, SEAL_N, SEAL_ZONE, sealMult, sealPower, sealsPending,
   sealSyms, sealTarget, seedMax, seedsUsed, seedUpCost, setStance, STANCES, symMult, SYMS, tendCell, thaw, tierAshMult, tierCost,
   tierZoneMult, turnWheel, voidRate, wantDir, type SealState,
 } from '../../game/challenges/seal';
@@ -76,8 +76,8 @@ const DS = 96; // dial canvas cells
  * where the number is read. When the dial rests on the number the rim flares; the meter below twitches
  * harder the closer it gets.
  */
-function Wheel({ rot, twitch, catching, onTurn, onRest }: {
-  rot: number; twitch: number; catching: boolean; onTurn: (rot: number) => void; onRest: () => void;
+function Wheel({ rot, twitch, catching, onTurn }: {
+  rot: number; twitch: number; catching: boolean; onTurn: (rot: number) => void;
 }) {
   const dial = useRef<HTMLCanvasElement>(null);
   const meter = useRef<HTMLCanvasElement>(null);
@@ -142,13 +142,13 @@ function Wheel({ rot, twitch, catching, onTurn, onRest }: {
     g.rot += (da / TAU) * DIAL;
     onTurn(g.rot);
   };
-  const up = () => { if (drag.current) { drag.current = null; onRest(); } };
+  const up = () => { drag.current = null; };
 
   return (
     <div className="seal-wheel">
       <div className="seal-frame knots">
         <canvas ref={dial} width={DS} height={DS} className="seal-dial" data-nodrag onPointerDown={down} onPointerMove={move}
-          onPointerUp={up} onPointerCancel={up} aria-label="The hatch wheel. Drag to turn." />
+          onPointerUp={up} onPointerCancel={up} aria-label="The hatch wheel. Drag to turn, then let it rest." />
       </div>
       <div className="seal-frame seal-meter-frame"><canvas ref={meter} width={96} height={10} className="seal-meter" /></div>
     </div>
@@ -184,10 +184,7 @@ const TARGET_NAME = (t: MultTarget) => (t === 'ash' ? 'all ash' : `${ZONES[Numbe
 const pct = (m: number) => `+${Math.round((m - 1) * 100)}%`;
 const blank = () => '0'.repeat(SEAL_N * SEAL_N);
 /** What one seal would give on its own. */
-const soloMult = (bits: string) => {
-  const p = sealPower(bits), t = sealTarget(digitOf(bits));
-  return p ? 1 + (t === 'ash' ? 0.6 : 0.5) * Math.pow(p, 0.8) : 1;
-};
+const soloMult = (bits: string) => powerMult(sealTarget(digitOf(bits)), sealPower(bits));
 
 function SealsSection({ game, run }: { game: GameState; run: (fn: (s: GameState) => unknown) => void }) {
   const c = game.challenges.seal;
@@ -301,7 +298,10 @@ function AirlockSection({ game, run }: { game: GameState; run: (fn: (s: GameStat
           <span>Prime a pump <small>lv {c.pumps} · speed x{airlockSpeed(c).toFixed(2)}</small></span><span className="cost">{fmt(pumpCost(c))} rime</span>
         </button>
         <button disabled={c.voidAsh < earCost(c)} onClick={() => run(buyEar)}>
-          <span>Stethoscope <small>lv {c.ear} · the twitch reaches {earReach(game).toFixed(1)} marks</small></span><span className="cost">{fmt(earCost(c))} void</span>
+          <span>Stethoscope <small>lv {c.ear} · the twitch reaches {earReach(game).toFixed(1)} marks · a miss costs {fmt(restCost(game))}</small></span><span className="cost">{fmt(earCost(c))} void</span>
+        </button>
+        <button disabled={c.voidAsh < handCost(c)} onClick={() => run(buyHand)}>
+          <span>A patient hand <small>lv {c.hand} · {c.hand ? `finds a number every ${Math.round(handTime(c.hand) / 60)}m` : 'turns the wheel by feel while you are away'}{c.hand ? ` → ${Math.round(handTime(c.hand + 1) / 60)}m` : ''}</small></span><span className="cost">{fmt(handCost(c))} void</span>
         </button>
       </div>
       <p className="dim small-note">"It breathes in. It breathes out. What went in is not what comes out."</p>
@@ -409,18 +409,25 @@ export function SealPanel() {
   const done = comboDone(game);
   const len = comboLength(c.tier);
   const twitch = feel(game, top);
-  const catching = twitch >= 1;
+  const miss = restCost(game);
   const cost = tierCost(c.tier);
   const pending = sealsPending(game);
 
   // rot climbs as the wheel turns clockwise ("right"); like a real safe, the number at the tooth falls
   const turn = (r: number) => { setDir(r > rot ? 1 : r < rot ? -1 : dir); setRot(r); };
-  const rest = (n = top, d = dir) => run(s => { if (restDial(s, n, d)) setFlash(f => f + 1); });
-  const nudge = (k: number) => { const r = rot + k; setRot(r); setDir(k); rest(mod(-Math.round(r), DIAL), k); };
+  const rest = () => run(s => { if (restDial(s, top, dir)) setFlash(f => f + 1); else setMissed(m => m + 1); });
+  const [missed, setMissed] = useState(0);
+  const nudge = (k: number) => { setRot(rot + k); setDir(k); };
   const key = (e: KeyboardEvent) => {
     if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); nudge(1); }
     if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); nudge(-1); }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!done && canRest(game)) rest(); }
   };
+  useEffect(() => {
+    if (!missed) return;
+    const id = setTimeout(() => setMissed(0), 900);
+    return () => clearTimeout(id);
+  }, [missed]);
   useEffect(() => {
     if (!flash) return;
     const id = setTimeout(() => setFlash(0), 700);
@@ -431,7 +438,7 @@ export function SealPanel() {
     <div className="seal-panel" style={{ '--seal-red': '#ff2a2a' } as CSSProperties}>
       <div className="seal-top">
         <div tabIndex={0} onKeyDown={key} className="seal-wheel-wrap" aria-label="Hatch dial. Arrow keys turn it.">
-          <Wheel rot={rot} twitch={twitch} catching={catching} onTurn={r => turn(r)} onRest={() => rest()} />
+          <Wheel rot={rot} twitch={twitch} catching={!!flash} onTurn={r => turn(r)} />
           <div className="seal-nudge">
             <button className="secondary" onClick={() => nudge(-1)} aria-label="Turn left">↺</button>
             <b className={`seal-num ${flash ? 'caught' : ''}`}>{String(top).padStart(2, '0')}</b>
@@ -451,14 +458,19 @@ export function SealPanel() {
             <span className="ch-stat">Void ash <b>{fmt(c.voidAsh)}</b> <span className="dim">+{fmt(voidRate(c))}/s</span></span>
             <span className="ch-stat">Rime <b>{fmt(c.rime)}</b> · frost {fmt(c.frost)}</span>
           </div>
-          <p className="seal-caption">{flash ? '"CLICK."' : done ? '"IT WILL TURN NOW."' : catching ? '"SOMETHING GIVES."' : twitch > 0.3 ? '"WARMER."' : '"FEEL FOR IT."'}</p>
+          <p className="seal-caption">{flash ? '"CLICK."' : done ? '"IT WILL TURN NOW."' : missed ? '"NOTHING."' : twitch > 0.3 ? '"WARMER."' : '"FEEL FOR IT."'}</p>
         </div>
       </div>
       {done
         ? <button className="max-all seal-turn" disabled={c.voidAsh < cost} onClick={() => run(turnWheel)}>
           Turn the wheel <span className="cost">{fmt(cost)} void ash · pays {fmt(burstFor(game))} ash</span>
         </button>
-        : <p className="dim small-note">Drag the wheel. Let it rest where the needle shivers hardest, turning the way the arrow says.</p>}
+        : <>
+          <button className="max-all seal-rest" disabled={!canRest(game)} onClick={rest}>
+            Let it rest <span className="cost">a miss costs {fmt(miss)} void ash</span>
+          </button>
+          <p className="dim small-note">Turn the way the arrow says. Rest where the needle shivers hardest; it kicks once more on the number itself.{c.hand ? ` The hand finds the next one in ${Math.ceil((handTime(c.hand) - c.handT) / 60)}m.` : ''}</p>
+        </>}
       <div className="ch-row">
         <button className={pending ? 'max-all seal-open' : 'secondary seal-open'} onClick={() => setRoom(true)}>
           {pending ? `Press a seal (${pending})` : 'Seals, airlock, walls'}

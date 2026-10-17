@@ -5,7 +5,7 @@ import { fmt } from '../../game/format';
 import { useGame } from '../../game/store';
 import { FREQS } from '../../game/systems';
 import {
-  activeSlots, addLine, bankCost, bankSignal, basePay, buyBank, buyClock, buyStack, clockCost, CONDS, depthOf, GOAL_LINES,
+  activeSlots, addLine, bankCost, bankSignal, basePay, buyBank, buyClock, buyStack, clockCost, clockNeed, CONDS, depthOf, GOAL_LINES,
   lineBits, lineText, loadCard, MAX_BANKS, MAX_CARDS, MAX_LINES, moveLine, mothTax, operator, OPS, punchCard, punchCost,
   readerSlots, removeLine, setBank, setLine, setRunning, SOURCES, stackCost, swat, beatRate, type Cond, type Join, type Line, type Op,
 } from '../../game/challenges/operator';
@@ -306,10 +306,13 @@ function OperatorRoom({ onClose }: { onClose: () => void }) {
 
         <section className="operator-col">
           <h3 className="sub-head">Machine</h3>
-          <button disabled={cyc < clockCost(st)} onClick={() => run(buyClock)}>
+          <button disabled={cyc < clockCost(st) || st.lines < clockNeed(st)} onClick={() => run(buyClock)}>
             Faster clock <span className="cost">{fmt(clockCost(st))} cyc</span>
           </button>
-          <p className="small-note dim">Beat {beatRate(st).toFixed(2)}/s → {(beatRate(st) * 1.2).toFixed(2)}/s.</p>
+          <p className="small-note dim">
+            Beat {beatRate(st).toFixed(2)}/s → {(beatRate(st) * 1.2).toFixed(2)}/s.
+            {st.lines < clockNeed(st) && <> The clock only learns from work: it wants {fmt(clockNeed(st))} lines run first.</>}
+          </p>
           <button disabled={cyc < sc.cycles || st.parts < sc.parts} onClick={() => run(buyStack)}>
             Deeper stack <span className="cost">{fmt(sc.cycles)} cyc · {sc.parts} part{sc.parts > 1 ? 's' : ''}</span>
           </button>

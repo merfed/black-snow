@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, type PointerEvent, type ReactNode } from 'react';
 import { camera, useView } from './view';
+import { Guard } from './Guard';
 
 /** A column of panels pinned at a spot on the map. x is in world pixels; the ash panel sits near 0. */
 export interface Column { id: string; x: number; w: number; y?: number; content: ReactNode; decor?: boolean }
@@ -209,7 +210,7 @@ export function Board({ columns, layoutKey }: { columns: Column[]; layoutKey: st
     <div className="board" ref={vp} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
       <div className="world" ref={world}>
         {columns.map(c => (
-          <div key={c.id} className={`column ${c.decor ? 'decor' : ''}`} style={{ left: c.x, top: c.y ?? 0, width: c.w }}>{c.content}</div>
+          <div key={c.id} className={`column ${c.decor ? 'decor' : ''}`} style={{ left: c.x, top: c.y ?? 0, width: c.w }}><Guard name={c.id}>{c.content}</Guard></div>
         ))}
       </div>
     </div>

@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { SPIRAL } from '../../game/alchemy';
 import {
-  ashBonus, BARKER_LENGTHS, buyRing, canRefine, catMult, CATALYSTS, dropCost, dustRate, flip, holdMult, kindsFound, MAX_RINGS,
-  openSocket2, pigmentBonus, pour, pourCost, reading, refine, refineCost, ringCost, rings, setSpan, SOCK2_COST, SOCK2_FOUND,
-  socket, sockets, spanOf, spiralBonus,
+  ashBonus, BARKER_LENGTHS, buyRing, canRefine, catMult, CATALYSTS, dropCost, dustRate, flip, FREE_PER, freeRings, holdMult,
+  kindsFound, MAX_RINGS, newSpirals, openSocket2, pigmentBonus, pour, pourCost, reading, refine, refineCost, ringCost, rings, setSpan,
+  sock2Cost, SOCK2_FOUND, socket, sockets, spanOf, spiralBonus,
 } from '../../game/challenges/ring';
 import { fmt } from '../../game/format';
 import { useGame } from '../../game/store';
@@ -147,7 +147,8 @@ export function RingPanel() {
           </div>
         </div>
       </div>
-      <p className="dim small-note">Click a ring to flip it. Codes exist at {BARKER_LENGTHS.join(', ')}. Best held: {r.best || 'none'}.</p>
+      <p className="dim small-note">Click a ring to flip it. Codes exist at {BARKER_LENGTHS.join(', ')}. Best held: {r.best || 'none'}.
+        {freeRings(game) < 4 && n < MAX_RINGS ? ` A free ring every ${FREE_PER} Spirals bought from now (${newSpirals(game) % FREE_PER}/${FREE_PER}).` : ''}</p>
       <div className="ch-row">
         {n < MAX_RINGS && (
           <button disabled={game.alchemy.pigment < ringCost(game)} onClick={() => run(buyRing)}>
@@ -193,8 +194,8 @@ function CatalystRoom({ onClose }: { onClose: () => void }) {
             {Array.from({ length: 2 }, (_, i) => {
               const k = r.sock[i];
               if (i >= sockets(game)) return (
-                <button key={i} className="ring-socket sealed" disabled={r.found < SOCK2_FOUND || pig < SOCK2_COST} onClick={() => run(openSocket2)}>
-                  <span>Open a second socket <small>{r.found < SOCK2_FOUND ? `after ${SOCK2_FOUND} drops` : ''}</small></span><span className="cost">{fmt(SOCK2_COST)} pigment</span>
+                <button key={i} className="ring-socket sealed" disabled={r.found < SOCK2_FOUND || pig < sock2Cost(game)} onClick={() => run(openSocket2)}>
+                  <span>Open a second socket <small>{r.found < SOCK2_FOUND ? `after ${SOCK2_FOUND} drops` : ''}</small></span><span className="cost">{fmt(sock2Cost(game))} pigment</span>
                 </button>
               );
               return (

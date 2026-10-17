@@ -1,7 +1,11 @@
 // The challenge box inside each zone panel: a sealed teaser until it opens, then the challenge's own panel.
-import { type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { challengesBegin, chByZone, chUnlocked, chWaitingOn, CHALLENGES } from '../../game/challenges';
+import type Decimal from 'break_eternity.js';
+import { challengesBegin, chByZone, chNeeds, chUnlocked, CHALLENGES } from '../../game/challenges';
+import { passiveRate } from '../../game/engine';
+import { fmtTime } from '../../game/format';
+import type { GameState } from '../../game/state';
 import { useGame } from '../../game/store';
 import { ZONE_COLORS } from '../colors';
 import { SurveyPanel } from './Survey';
@@ -17,24 +21,64 @@ import './challenges.css';
 
 const PANELS = [SurveyPanel, UndertowPanel, ArchivePanel, StairPanel, SealPanel, RingPanel, OperatorPanel, ScriptoriumPanel, SyzygyPanel];
 
+const SEEN_KEY = 'black-snow-ch-seen';
+/**
+ * Challenges this browser has already shown open, so each one is revealed once (even if it opened while away).
+ * The first time it looks, whatever is open already counts as seen, so an older save doesn't light up at once.
+ */
+function firstSight(id: string, open: boolean, unlocked: string[]): boolean {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY);
+    if (raw === null) { localStorage.setItem(SEEN_KEY, JSON.stringify(unlocked)); return false; }
+    const seen: string[] = JSON.parse(raw);
+    if (!open || seen.includes(id)) return false;
+    localStorage.setItem(SEEN_KEY, JSON.stringify([...seen, id]));
+    return true;
+  } catch { return false; }
+}
+
+/** Shown on an item a player can't afford yet: about how long the shafts take to bring it in. */
+export function SaveHint({ game, cost }: { game: GameState; cost: Decimal }) {
+  if (game.ash.gte(cost)) return null;
+  const rate = passiveRate(game);
+  if (!rate.gt(0)) return null;
+  const sec = cost.sub(game.ash).div(rate).toNumber();
+  return <span className="ch-save" title="Hold back other spending this long to afford it">save ~{fmtTime(Math.max(1, sec))}</span>;
+}
+
 export function ChallengeSlot({ zone }: { zone: number }) {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
   const c = chByZone(zone);
+  const open = !!c && challengesBegin(game) && chUnlocked(game, c.id);
+  const [reveal, setReveal] = useState(false);
+  useEffect(() => {
+    if (!c || !firstSight(c.id, open, useGame.getState().game.chUnlocked)) return;
+    setReveal(true);
+    const t = setTimeout(() => setReveal(false), 6000);
+    return () => clearTimeout(t);
+  }, [open, c]);
   if (!c || !challengesBegin(game)) return null;
-  const open = chUnlocked(game, c.id);
   const prev = CHALLENGES.findIndex(x => x.id === c.id) - 1;
   // Only show the sealed box for the next one in line, so later zones stay quiet.
   if (!open && prev >= 0 && !chUnlocked(game, CHALLENGES[prev].id)) return null;
   const Panel = PANELS[zone];
   const done = c.milestone.done(game);
   return (
-    <div className={`challenge ${open ? '' : 'sealed'}`} data-nodrag style={{ '--hue': ZONE_COLORS[zone] } as CSSProperties}>
+    <div className={`challenge ${open ? '' : 'sealed'} ${reveal ? 'ch-reveal' : ''}`} data-nodrag style={{ '--hue': ZONE_COLORS[zone] } as CSSProperties}>
+      {reveal && <div className="ch-reveal-banner" aria-live="polite">IT OPENS.</div>}
       <div className="challenge-head">
         <span className="sub-head">{c.name}</span>
         {open && <span className={`challenge-goal ${done ? 'done' : ''}`} title="Reaching this opens the next challenge">{done ? '✓ ' : '◇ '}{c.milestone.text}</span>}
       </div>
-      {open ? <Panel /> : <p className="dim small-note">Sealed. {c.tagline} Opens after {chWaitingOn(game, c.id)}</p>}
+      {open ? <Panel /> : (
+        <div className="ch-sealed">
+          <p className="dim small-note">Sealed. {c.tagline}</p>
+          <ul className="ch-needs" aria-label="Opens when">
+            {chNeeds(game, c.id).map(n => <li key={n.text} className={n.done ? 'done' : ''}>{n.done ? '✓' : '◇'} {n.text}</li>)}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

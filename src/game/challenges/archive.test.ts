@@ -1,9 +1,9 @@
 import Decimal from 'break_eternity.js';
 import { describe, expect, it } from 'vitest';
 import { newGame, type GameState } from '../state';
-import { setSlot, signature } from '../patterns';
+import { MODULATOR_ZONE, setSlot, signature } from '../patterns';
 import {
-  albumSets, archive, buyShelf, buyStock, driftSig, eraseTape, FRESH_TIME, recordSlot, shelfFull, shelfSize, SHELF_MAX, STATION_DAY, tapeMult,
+  albumSets, archive, BLANK_CAP, BLANK_EVERY, BLANK_START, recordBlock, buyShelf, buyStock, driftSig, eraseTape, FRESH_TIME, recordSlot, shelfFull, shelfSize, SHELF_BASE, SHELF_MAX, STATION_DAY, tapeMult,
 } from './archive';
 
 function late(): GameState {
@@ -11,8 +11,10 @@ function late(): GameState {
   s.zonesOpened = 9;
   s.zones[8].bought = 1;
   s.zones[2].bought = 250;
+  s.zones[MODULATOR_ZONE].bought = 1;
   s.chUnlocked = ['survey', 'undertow', 'archive'];
   s.ash = new Decimal(1e300);
+  s.challenges.archive.blanks = 99;
   return s;
 }
 
@@ -42,6 +44,28 @@ describe('archive', () => {
     expect(a.channels).toContain('listen');
     expect(archive.mult(s, 'listen')).toBeGreaterThan(3);
     expect(recordSlot(s, 0)).toBe(false); // nothing on the slot now
+    // the dials spun back to rest: the same lock has to be found again
+    expect(s.patterns.slots[0]).toEqual({ target: null, freq: 1, phase: 0, harm: 1 });
+  });
+
+  it('uses up a blank reel per tape, and reels come back slowly', () => {
+    const s = late();
+    const a = s.challenges.archive;
+    a.blanks = 1;
+    lock(s, 0, 'listen');
+    expect(recordSlot(s, 0)).toBe(true);
+    expect(a.blanks).toBe(0);
+    lock(s, 0, 'ash');
+    expect(recordSlot(s, 0)).toBe(false);
+    expect(recordBlock(s, 0)).toBe('No blank reel');
+    archive.step(s, BLANK_EVERY - 1, Math.random);
+    expect(a.blanks).toBe(0);
+    archive.step(s, 2, Math.random);
+    expect(a.blanks).toBe(1);
+    expect(recordSlot(s, 0)).toBe(true);
+    archive.step(s, BLANK_EVERY * 100, Math.random);
+    expect(a.blanks).toBe(BLANK_CAP);
+    expect(archive.fresh().blanks).toBe(BLANK_START);
   });
 
   it('a near match records plain and pays less; the shelf fills up', () => {
@@ -54,10 +78,9 @@ describe('archive', () => {
     lock(s, 0, 'ash');
     recordSlot(s, 0);
     expect(tapeMult(s, 'ash')).toBeGreaterThan(plain);
-    lock(s, 0, 'rust');
-    recordSlot(s, 0);
+    for (const t of ['rust', 'listen', 'echoes'] as const) { lock(s, 0, t); recordSlot(s, 0); }
     lock(s, 0, 'embers');
-    expect(recordSlot(s, 0)).toBe(false); // shelf of 3 is full
+    expect(recordSlot(s, 0)).toBe(false); // the shelf is full
     expect(eraseTape(s, s.challenges.archive.shelf[2].id)).toBe(true);
     expect(recordSlot(s, 0)).toBe(true);
   });
@@ -67,7 +90,7 @@ describe('archive', () => {
     s.ash = new Decimal(1e20);
     const before = s.ash;
     expect(buyShelf(s)).toBe(true);
-    expect(shelfSize(s)).toBe(4);
+    expect(shelfSize(s)).toBe(SHELF_BASE + 1);
     expect(s.ash.lt(before)).toBe(true);
     lock(s, 0, 'echoes');
     recordSlot(s, 0);
@@ -124,7 +147,7 @@ describe('archive', () => {
     while (buyShelf(s)) { /* buy to the top */ }
     expect(shelfSize(s)).toBe(SHELF_MAX);
     expect(shelfFull(s)).toBe(true);
-    expect(s.challenges.archive.space).toBe(SHELF_MAX - 3);
+    expect(s.challenges.archive.space).toBe(SHELF_MAX - SHELF_BASE);
     const ash = s.ash;
     expect(buyShelf(s)).toBe(false);
     expect(s.ash.eq(ash)).toBe(true);
@@ -144,6 +167,6 @@ describe('archive', () => {
     archive.step(s, 0.05, Math.random);
     expect(a.shelf).toHaveLength(SHELF_MAX);
     expect(a.shelf[0].id).toBe(0);
-    expect(a.space).toBe(SHELF_MAX - 3);
+    expect(a.space).toBe(SHELF_MAX - SHELF_BASE);
   });
 });

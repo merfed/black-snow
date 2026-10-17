@@ -11,3 +11,23 @@
 .ch-stat b { color: var(--hue); font-weight: normal; }
 .challenge-room { scrollbar-width: none; }
 .challenge-room::-webkit-scrollbar { display: none; }
+
+/* the sealed box: what it still waits for, one line each */
+.ch-sealed { display: grid; gap: 6px; }
+.ch-needs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-family: var(--font-ui); font-size: 15px; color: var(--soft); }
+.ch-needs li.done { color: var(--hue); }
+.ch-save { font-family: var(--font-ui); font-size: 13px; color: var(--soft); }
+
+/* a challenge opening: the box lights from inside, once */
+.challenge.ch-reveal { animation: ch-reveal 2.4s ease-out 1, ch-reveal-glow 6s ease-out 1; }
+.ch-reveal-banner {
+  font-family: var(--font-ui); font-size: 20px; letter-spacing: 0.4em; color: var(--hue); text-align: center;
+  animation: ch-reveal-text 6s ease-out 1 forwards;
+}
+@keyframes ch-reveal { 0% { opacity: 0; transform: scale(0.98); filter: brightness(2.2); } 30% { opacity: 1; } 100% { transform: none; filter: none; } }
+@keyframes ch-reveal-glow { 0% { box-shadow: 0 0 0 1px var(--hue), 0 0 32px color-mix(in srgb, var(--hue) 70%, transparent); } 100% { box-shadow: none; } }
+@keyframes ch-reveal-text { 0% { opacity: 0; letter-spacing: 1.2em; } 20% { opacity: 1; letter-spacing: 0.4em; } 80% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .challenge.ch-reveal, .ch-reveal-banner { animation: none; }
+  .challenge.ch-reveal { box-shadow: 0 0 0 1px var(--hue); }
+}

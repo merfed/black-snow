@@ -2,9 +2,10 @@ import Decimal from 'break_eternity.js';
 import { describe, expect, it } from 'vitest';
 import { newGame, type GameState } from '../state';
 import {
-  approach, bestBore, BORE_BUDGET, depth, efficiency, figureHere, fresh, hiss, patch, setBore, setRule, sortObj, TRAY,
+  approach, bestBore, binCost, BORE_BUDGET, depth, efficiency, figureHere, fresh, hiss, patch, setBore, setRule, sortObj, TRAY,
   undertow, upgradeBin, walkTime,
 } from './undertow';
+import { stepChallenges } from '.';
 
 function late(): GameState {
   const s = newGame();
@@ -127,6 +128,30 @@ describe('undertow', () => {
     u.patched = 4;
     expect(undertow.mult(s, 'zone1')).toBeGreaterThan(base);
     expect(undertow.milestone.done(s)).toBe(true);
-    expect(undertow.level(s)).toBe(7);
+    expect(undertow.level(s)).toBe(8); // 3 approaches + 4 patches + 1 dozen kept
+  });
+
+  it('reaches the Syzygy gate level of 6 soon after the milestone, even with no patches', () => {
+    const s = late();
+    const u = s.challenges.undertow;
+    u.keptTotal = 24; u.approaches = 4; u.patched = 0;
+    expect(undertow.level(s)).toBe(6);
+  });
+
+  it('prices bins off a slow income that falls behind a fast climb', () => {
+    const s = late();
+    s.zones[0].amount = new Decimal(1e40);
+    stepChallenges(s, 1, Math.random);
+    const c0 = binCost(s, 'keep');
+    s.zones[0].amount = s.zones[0].amount.mul(10); // income jumps an order
+    for (let i = 0; i < 10; i++) stepChallenges(s, 360, Math.random); // an hour
+    const c1 = binCost(s, 'keep');
+    // a fifth of an order an hour, not a whole one
+    expect(c1.div(c0).toNumber()).toBeGreaterThan(1.4);
+    expect(c1.div(c0).toNumber()).toBeLessThan(1.7);
+    // but never more than an order and a half behind live income
+    s.zones[0].amount = s.zones[0].amount.mul(1e6);
+    stepChallenges(s, 1, Math.random);
+    expect(binCost(s, "keep").div(c0).toNumber()).toBeGreaterThan(1e5);
   });
 });

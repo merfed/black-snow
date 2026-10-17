@@ -98,6 +98,8 @@ describe('operator', () => {
     const st = s.challenges.operator;
     expect(buyStack(s)).toBe(false); // needs a part
     st.parts = 10;
+    expect(buyClock(s)).toBe(false); // the clock waits on lines run, not on cycles
+    st.lines = 2000;
     const c = s.wiring.cycles;
     expect(buyStack(s)).toBe(true);
     expect(st.stack).toBe(2);
@@ -110,7 +112,7 @@ describe('operator', () => {
     expect(addLine(s, 3)).toBe(true);
     expect(setLine(s, 3, 1, { op: 'CALL', arg: 2 })).toBe(true);
     expect(loadCard(s, 0, 3)).toBe(true);
-    expect(operator.level(s)).toBe(4);
+    expect(operator.level(s)).toBe(4 + 2); // + √(2000 / 500)
   });
 
   it('the program actually does chores', () => {
@@ -139,7 +141,7 @@ describe('operator', () => {
     const s = late();
     quiet(s);
     expect(operator.milestone.done(s)).toBe(false);
-    for (let i = 0; i < 200; i++) operator.step(s, 60, () => 0.5);
+    for (let i = 0; i < 600; i++) operator.step(s, 60, () => 0.5);
     expect(s.challenges.operator.lines).toBeGreaterThanOrEqual(GOAL_LINES);
     expect(operator.milestone.done(s)).toBe(true);
   });
