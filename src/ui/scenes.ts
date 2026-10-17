@@ -498,57 +498,84 @@ const compiler: Scene = {
 
 // ---------------------------------------------------------------- zone 8: Murmur
 
-/** A beaked figure in a hat holding a candle. Whispered marks drift out of the beak. */
+/**
+ * A mine gallery whose walls are written over, floor to ceiling. The writing brightens in waves as it
+ * talks, and a gramophone horn on a table in the corner takes it down, marks drifting into the bell.
+ */
 const murmur: Scene = {
   w: W, h: H,
   draw(g, a, t) {
-    field(g, (x, y) => 0.02 + 0.42 * Math.max(0, 1 - Math.hypot(x - 112, y - 22) / 60) ** 2 + 0.03 * (hash(x, y, 9) - 0.5));
-    for (let row = 0; row < 5; row++) for (let k = 0; k < 14; k++) {
-      const u = k * 7 + t * 4 + row * 13;
-      const gx = 60 - (u % 70);
-      if (gx < 2 || hash(k, row, Math.floor(u / 70)) < 0.25) continue;
-      rect(g, gx, 32 + row * 5 + Math.round(Math.sin(t + k) * 0.6), 1 + Math.floor(hash(k, row, 2) * 3), 1, 0.75 * (gx / 60));
-    }
-    const robe = new Path2D('M98 38C88 46 82 56 80 68C76 80 66 90 58 96L158 96C152 82 142 66 126 50C120 44 110 38 98 38Z');
-    const rg = g.createLinearGradient(60, 0, 150, 0);
-    rg.addColorStop(0, gray(0.78));
-    rg.addColorStop(1, gray(0.1));
-    g.fillStyle = rg;
-    g.fill(robe);
-    g.save();
-    g.clip(robe);
-    g.globalCompositeOperation = 'multiply';
-    for (let k = 0; k < 8; k++) {
-      g.strokeStyle = gray(0.5);
-      g.lineWidth = 2;
+    const f = flicker(t, 1);
+    const wall = (u: number, v: number, x: number, y: number, side: number) => {
+      const light = 0.12 * f * Math.max(0, 1 - Math.hypot(x - 90, y - 14) / 60) ** 2;
+      if (v < 0.02 || v > 0.98) return 0.38 * (1 - 0.6 * u);
+      const row = Math.floor(v * 10), fv = v * 10 - row;
+      const k = Math.pow(u, 0.75) * 110, cell = Math.floor(k), fk = k - cell;
+      const word = hash(Math.floor(k / 5), row, side + 9) > 0.25;
+      const stroke = hash(cell, row * 7 + Math.floor(fv * 4), side) > 0.45 && fk < 0.7;
+      if (fv > 0.25 && fv < 0.7 && word && stroke && u < 0.9) {
+        const wave = Math.pow(Math.max(0, Math.sin(u * 9 - t * 1.6 + row * 0.8 + side * 2)), 3);
+        return (0.15 + 0.78 * wave) * (1 - 0.5 * u) + light;
+      }
+      return 0.02 + light;
+    };
+    field(g, (x, y) => {
+      if (x < 78) {
+        const yt = (32 * x) / 78, yb = 96 - (36 * x) / 78;
+        if (y >= yt && y <= yb) return wall(x / 78, (y - yt) / (yb - yt), x, y, 0);
+      } else if (x > 102) {
+        const u = (180 - x) / 78, yt = 32 * u, yb = 96 - 36 * u;
+        if (y >= yt && y <= yb) return wall(u, (y - yt) / (yb - yt), x, y, 1);
+      } else if (y >= 32 && y <= 60) return 0.01;
+      if (y < 44) {
+        const d = 44 - y, beam = ((40 / d) % 1 + 1) % 1;
+        return (beam < 0.1 ? 0.1 : 0) + 0.1 * f * Math.max(0, 1 - Math.hypot(x - 90, y - 14) / 40);
+      }
+      const d = y - 44, s = (x - 90) / d, plank = ((s * 3) % 1 + 1) % 1;
+      return (plank < 0.1 ? 0 : 0.06 + 0.04 * hash(Math.floor(s * 3), 0, 41)) * Math.min(1, d / 30 + 0.3) + 0.25 * Math.max(0, 1 - Math.hypot((x - 90) * 0.5, y - 80) / 22);
+    });
+    // the doorway at the far end, and a faint light past it
+    line(g, 77.5, 32, 77.5, 60, 0.3);
+    line(g, 102.5, 32, 102.5, 60, 0.3);
+    line(g, 78, 31.5, 102, 31.5, 0.3);
+    if (Math.sin(t * 0.3) > 0.4) rect(g, 89, 50, 2, 10, 0.18);
+
+    // the bulb on its wire
+    line(g, 90, 0, 90, 11, 0.3);
+    rect(g, 89, 10, 2, 2, 0.4);
+    disc(a, 90, 13.5, 1.8, 1);
+    glow(a, 90, 13.5, 6, 0.4 * f);
+
+    // the table and the gramophone
+    rect(g, 126, 74, 40, 3, 0.34);
+    rect(g, 126, 74, 40, 1, 0.55);
+    line(g, 129, 77, 127, 96, 0.25, 1.5);
+    line(g, 163, 77, 165, 96, 0.25, 1.5);
+    rect(g, 132, 62, 26, 12, 0.24);
+    rect(g, 132, 62, 26, 1, 0.5);
+    for (let k = 0; k < 6; k++) rect(g, 136 + ((k * 2 + Math.floor(t * 6)) % 12), 58, 1, 4, 0.75);
+    rect(g, 135, 58, 13, 1, 0.5);
+    rect(a, 154, 66, 2, 2, Math.floor(t * 1.2) % 2 ? 1 : 0.25);
+    const P = (p: number) => {
+      const q = 1 - p;
+      return [q * q * 142 + 2 * q * p * 148 + p * p * 116, q * q * 58 + 2 * q * p * 34 + p * p * 40];
+    };
+    for (let k = 0; k <= 16; k++) {
+      const p = k / 16, [hx, hy] = P(p), r = 1.4 + Math.pow(p, 2.3) * 14;
+      g.fillStyle = gray(k === 16 ? 0.02 : 0.42 + 0.5 * p);
+      g.strokeStyle = gray(k === 16 ? 0.95 : 0.1);
+      g.lineWidth = 1;
       g.beginPath();
-      g.moveTo(94 + k * 7, 42);
-      g.quadraticCurveTo(84 + k * 9, 70, 70 + k * 12, 97);
+      g.ellipse(hx, hy, r * 0.42, r, -0.15, 0, TAU);
+      g.fill();
       g.stroke();
     }
-    g.restore();
-    disc(g, 106, 31, 9, 0.12);
-    g.fillStyle = gray(0.02);
-    g.beginPath();
-    g.ellipse(108, 21, 22, 4, 0.08, 0, TAU);
-    g.fill();
-    shape(g, 0.02, [98, 20, 100, 4, 116, 4, 118, 20]);
-    line(g, 99.5, 16.5, 117, 16.5, 0.38);
-    const beak = new Path2D('M101 26C89 28 75 34 62 44C76 42 90 40 103 37Z');
-    const bg = g.createLinearGradient(0, 28, 0, 42);
-    bg.addColorStop(0, gray(0.85));
-    bg.addColorStop(1, gray(0.25));
-    g.fillStyle = bg;
-    g.fill(beak);
-    disc(g, 102, 29, 3, 0.04);
-    disc(a, 102, 29, 1.8, 1);
-    // hands and the candle
-    disc(g, 84, 66, 3, 0.62);
-    rect(g, 83, 56, 2, 9, 0.92);
-    const fl = Math.sin(t * 11) * 0.5 + Math.sin(t * 7.3) * 0.5;
-    shape(a, 1, [84 + fl * 0.4, 49 + fl, 82.6, 54, 84, 55.5, 85.4, 54]);
-    glow(a, 84, 53, 6, 0.35);
-    glow(g, 84, 55, 24, 0.22 * flicker(t));
+    // what the walls say, drifting into the bell
+    for (let k = 0; k < 12; k++) {
+      const p = (t * 0.12 + k / 12) % 1;
+      const x = 30 + p * 84, y = 52 - Math.sin(p * Math.PI) * 18 - p * 6 + Math.sin(k) * 3;
+      rect(g, x, y, 1 + (k % 3 === 0 ? 1 : 0), 1, 0.9 * Math.sin(p * Math.PI));
+    }
   },
 };
 
