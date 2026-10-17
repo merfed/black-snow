@@ -26,7 +26,7 @@ import { WarmFlake } from './ui/WarmFlake';
 import { WeatherFx } from './ui/WeatherFx';
 import { useView, type PanelId } from './ui/view';
 
-const ZONE_X = [250, 750, 1250];
+const ZONE_X = [250, 830, 1410];
 
 /*
  * The floor plan. The receiver (ash) is the middle of the room, with the dial and the rites under
@@ -68,16 +68,16 @@ export function App() {
     // Set dressing: the relay mast the station hangs from, and, once you are deep enough, someone else.
     { id: 'tower', x: -1560, y: 40, w: 180, decor: true, content: <Sprite rows={TOWER} px={10} className="decor-tower" /> },
     // Lull itself, past the last shaft: a dead town that gets more lit the deeper you go.
-    { id: 'town', x: 1780, y: 60, w: 520, decor: true, content: <Scenery depth={game.zonesOpened} /> },
+    { id: 'town', x: 2000, y: 60, w: 520, decor: true, content: <Scenery depth={game.zonesOpened} /> },
     // Two plates hung on the floor: the mast's keeper under the tower, and Lull from the road under the town.
     { id: 'keeper', x: -1620, y: 470, w: 300, decor: true, content: <Artwork scene={SCENES.keeper} ink="#7fd6c2" accent="#ff3030" caption='"The mast hears you back."' /> },
-    { id: 'lull', x: 1840, y: 560, w: 440, decor: true, content: <Artwork scene={SCENES.lull} ink="#b9a8ff" accent="#ffcf6b" caption='"Lull was a town once. The lights still come on."' /> },
+    { id: 'lull', x: 2060, y: 560, w: 440, decor: true, content: <Artwork scene={SCENES.lull} ink="#b9a8ff" accent="#ffcf6b" caption='"Lull was a town once. The lights still come on."' /> },
     { id: 'far', x: -1160, w: 420, content: <>{show('station') && <StationPanel />}{show('egg') && <NurseryPanel />}</> },
     { id: 'left', x: -700, w: 450, content: <>{show('instruments') && <InstrumentsPanel />}{show('kiln') && <KilnPanel />}</> },
     { id: 'center', x: -210, w: 420, content: <><AshPanel /><TvPanel /><ShopPanel />{show('dial') && <DialPanel />}{show('rites') && <RitesPanel />}</> },
-    ...zoneCols.map((c, k) => ({ id: `zones${k}`, x: ZONE_X[k], w: 460, content: c.length ? c : null })),
+    ...zoneCols.map((c, k) => ({ id: `zones${k}`, x: ZONE_X[k], w: 540, content: c.length ? c : null })),
     // Past Lull, once the gate is open: the Citadel, and the engine that keeps it from drinking everything.
-    { id: 'citadel', x: 2380, w: 460, content: show('citadel') ? <><CitadelPanel /><DreamEnginePanel /></> : null },
+    { id: 'citadel', x: 2600, w: 460, content: show('citadel') ? <><CitadelPanel /><DreamEnginePanel /></> : null },
   ];
 
   const dock: DockItem[] = [
