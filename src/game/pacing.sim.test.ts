@@ -1,5 +1,5 @@
 import { it } from 'vitest';
-import { UPGRADES } from './data';
+import { RITES, UPGRADES } from './data';
 import * as e from './engine';
 import { newGame } from './state';
 import { FIXTURES, FREQS, KILN, NURSERY_UPS } from './systems';
@@ -13,7 +13,15 @@ const ONLY = import.meta.env.VITE_BOT as string | undefined;
 // Balance tool, not a test: `npm run sim` prints when each play style reaches each milestone.
 const run = import.meta.env.MODE === 'sim' ? it : it.skip;
 
-for (const [label, cps, doctrine] of [['clicker', 6, 'ear'], ['idler', 1, 'spade'], ['watcher', 3, 'eye']] as const) {
+// afk plays for its first hour, then only checks in every half hour: the "leave it running" player the pacing targets.
+const BOTS = [
+  { label: 'clicker', cps: 6, doctrine: 'ear', active: Infinity, every: 0 },
+  { label: 'idler', cps: 1, doctrine: 'spade', active: Infinity, every: 0 },
+  { label: 'watcher', cps: 3, doctrine: 'eye', active: Infinity, every: 0 },
+  { label: 'afk', cps: 2, doctrine: 'spade', active: 1, every: 1800 },
+] as const;
+
+for (const { label, cps: activeCps, doctrine, active, every } of BOTS) {
   (ONLY && ONLY !== label ? it.skip : run)(`pacing ${label}`, () => {
     const s = newGame(() => 0.5);
     const marks: string[] = [];
@@ -21,10 +29,17 @@ for (const [label, cps, doctrine] of [['clicker', 6, 'ear'], ['idler', 1, 'spade
     const mark = (k: string) => { if (!seen.has(k)) { seen.add(k); marks.push(`${k}@${(s.playTime / 3600).toFixed(2)}h`); } };
     let clickAcc = 0;
     for (let t = 0; t < HOURS * 3600; t += DT) {
+      const here = t < active * 3600;
+      const cps = here ? activeCps : 0;
       clickAcc += cps * DT;
       while (clickAcc >= 1) { e.listen(s); clickAcc--; }
-      if (s.warmFlake.active && s.warmFlake.ttl < 8) e.catchWarmFlake(s, () => 0.5);
-      if (Math.round(t / DT) % ACT !== 0) { e.tick(s, DT, () => 0.5); continue; }
+      if (here && s.warmFlake.active && s.warmFlake.ttl < 8) e.catchWarmFlake(s, () => 0.5);
+      const acts = here ? Math.round(t / DT) % ACT === 0 : Math.round(t) % every === 0;
+      if (!acts) { e.tick(s, DT, () => 0.5); continue; }
+      // On a check-in, keep spending until a pass buys nothing.
+      for (let pass = 0; pass < (here ? 1 : 40); pass++) {
+      const before = s.ash.toString();
+      for (const r of RITES) if (e.buyRite(s, r.id)) mark(r.id);
       for (const u of UPGRADES) {
         if (u.fork === 'doctrine' && u.id !== doctrine) continue;
         if (u.fork === 'feed' && u.id !== 'name_feed') continue;
@@ -55,9 +70,11 @@ for (const [label, cps, doctrine] of [['clicker', 6, 'ear'], ['idler', 1, 'spade
         const cheap = al.RECIPES.filter(r => s.alchemy.found[r.id]).sort((a, b) => al.brewCost(s, a) - al.brewCost(s, b))[0];
         if (cheap) al.brew(s, cheap.id);
       }
+      if (s.ash.toString() === before) break;
+      }
       e.tick(s, DT, () => 0.5);
       if (!s.ash.isFinite()) { mark('INFINITY'); break; }
     }
-    console.log(label, marks.filter(m => /^(zone|h\d|ash|pattern|INF)/.test(m)).join('  '), '| final ash/s', e.ashPerSecond(s).toNumber().toExponential(2), 'comfort', e.comfort(s), 'species', s.nursery.seen.length, 'zoneUps', JSON.stringify(s.zoneUps));
+    console.log(label, marks.filter(m => /^(zone\d@|floor|INF)/.test(m)).join('  '), '| final ash/s', e.ashPerSecond(s).toNumber().toExponential(2), 'comfort', e.comfort(s), 'species', s.nursery.seen.length, 'zoneUps', JSON.stringify(s.zoneUps));
   }, 3_600_000);
 }

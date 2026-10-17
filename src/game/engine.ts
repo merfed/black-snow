@@ -489,14 +489,14 @@ export function devSet(s: GameState, res: DevResource, value: Decimal) {
  */
 export function zoneMult(s: GameState, i: number): Decimal {
   let m = Decimal.pow(ZONES[i].bonus, Math.floor(s.zones[i].bought / 10));
-  if (owns(s, 'spade') && i <= 1) m = m.mul(1.5);
+  if (owns(s, 'spade') && i <= 1) m = m.mul(2);
   if (owns(s, 'name_feed')) m = m.mul(1.5);
   if (i === 0) {
     if (owns(s, 'copper')) m = m.mul(2);
     if (has(s, 'name')) m = m.mul(2);
-    if (owns(s, 'spade3')) m = m.mul(1 + Math.min(2, 0.01 * s.shaftsDug));
+    if (owns(s, 'spade3')) m = m.mul(1 + Math.min(1, 0.01 * s.shaftsDug));
   }
-  if (i === 1 && owns(s, 'spade2')) m = m.mul(2);
+  if (i === 1 && owns(s, 'spade2')) m = m.mul(1.5);
   // Deep zones compound up the cascade, so their upgrades and buffs stay small.
   m = m.mul(Math.pow(zoneUpMult(i, 0), zoneUpLevel(s, i, 0)));
   m = m.mul(Math.pow(zoneUpMult(i, 2), zoneUpLevel(s, i, 2)));
@@ -510,7 +510,7 @@ export function zoneMult(s: GameState, i: number): Decimal {
 }
 
 export function zoneGrowth(s: GameState, i: number): number {
-  let g = ZONES[i].growth - (owns(s, 'spade') && i === 0 ? 0.02 : 0);
+  let g = ZONES[i].growth;
   // 3% a level for the first 8, then 1% a level: it never stops, it just matters less than digging deeper.
   const l = zoneUpLevel(s, i, 1);
   g = 1 + (g - 1) * Math.pow(0.97, Math.min(l, 8)) * Math.pow(0.99, Math.max(0, l - 8));

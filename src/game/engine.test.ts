@@ -19,7 +19,7 @@ describe('early path', () => {
     expect(e.buyUpgrade(s, 'thaw')).toBe(true);
     expect(e.listenPower(s).toNumber()).toBe(2);
     expect(status(s, 'floor')).toBe('available');
-    for (let i = 0; i < 75; i++) e.listen(s);
+    for (let i = 0; i < 750; i++) e.listen(s);
     expect(e.buyUpgrade(s, 'floor')).toBe(true);
     expect(e.zoneVisible(s, 0)).toBe(true);
   });
@@ -65,7 +65,7 @@ describe('early path', () => {
     for (let i = 0; i < 5; i++) e.buyShaft(s, 0);
     for (const id of ['copper', 'coil', 'spade'] as const) e.buyUpgrade(s, id);
     s.zones[4].bought = 10;
-    s.ash = new Decimal(1e30);
+    s.ash = new Decimal(1e40);
     expect(e.buyUpgrade(s, 'every_doctrine')).toBe(true);
     expect(e.buyUpgrade(s, 'ear')).toBe(true);
     expect(e.buyUpgrade(s, 'eye')).toBe(true);
