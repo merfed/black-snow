@@ -56,17 +56,30 @@ function stepLog(s: GameState, dt: number) {
 // ---- ownership ----
 
 export const has = (s: GameState, r: RiteId) => !!s.rites[r];
-export const owns = (s: GameState, u: UpgradeId) => !!s.upgrades[u];
+const UPGRADE_BY_ID = new Map(UPGRADES.map(u => [u.id, u]));
+/** Bought, and still connected: an upgrade whose path was switched away from goes dormant until you switch back. */
+export function owns(s: GameState, u: UpgradeId): boolean {
+  return !!s.upgrades[u] && !cutOff(s, u);
+}
+/** True when a fork choice somewhere up this upgrade's path has been switched away from. */
+function cutOff(s: GameState, u: UpgradeId): boolean {
+  const def = UPGRADE_BY_ID.get(u)!;
+  const gone = (r: UpgradeId) => (!!UPGRADE_BY_ID.get(r)!.fork && !s.upgrades[r]) || cutOff(s, r);
+  return def.requires.some(gone) || (!!def.requiresAny && def.requiresAny.every(gone));
+}
 
-export type UpgradeStatus = 'owned' | 'available' | 'locked' | 'closed' | 'hidden';
+export type UpgradeStatus = 'owned' | 'available' | 'locked' | 'swap' | 'dormant' | 'hidden';
 
 /**
  * owned: bought. available: can be bought now (if affordable). locked: next on the path, shown with
- * what it still needs. closed: a sibling in its fork was chosen. hidden: further down the path.
+ * what it still needs. swap: a sibling in its fork was chosen; it can be switched to, for a price that
+ * climbs each time (or added alongside, once the fork's "every" upgrade is owned). dormant: bought, but
+ * its path was switched away from. hidden: further down the path.
  */
 export function upgradeStatus(s: GameState, u: UpgradeDef): UpgradeStatus {
   if (owns(s, u.id)) return 'owned';
-  if (forkClosed(s, u)) return 'closed';
+  if (s.upgrades[u.id]) return 'dormant';
+  if (forkClosed(s, u)) return 'swap';
   if (u.id === 'thaw' && s.ashThisRun.lt(3)) return 'hidden';
   if (reqsMet(s, u)) return u.gate && s.zones[u.gate.zone].bought < u.gate.bought ? 'locked' : 'available';
   // One step away: every requirement is owned or itself buyable now. Shown so the path ahead is visible.
@@ -79,17 +92,35 @@ export function upgradeStatus(s: GameState, u: UpgradeDef): UpgradeStatus {
 }
 
 function forkClosed(s: GameState, u: UpgradeDef) {
-  return !!u.fork && !owns(s, u.id) && UPGRADES.some(o => o.fork === u.fork && owns(s, o.id));
+  return !!u.fork && !owns(s, u.id) && reqsMet(s, u) && UPGRADES.some(o => o.fork === u.fork && owns(s, o.id));
 }
 
 function reqsMet(s: GameState, u: UpgradeDef) {
   return u.requires.every(r => owns(s, r)) && (!u.requiresAny || u.requiresAny.some(r => owns(s, r)));
 }
 
+/** Every option in a fork can be held at once after this upgrade. */
+export const FORK_ALL: Record<NonNullable<UpgradeDef['fork']>, UpgradeId> = { doctrine: 'every_doctrine', feed: 'every_feed' };
+export const forkMerged = (s: GameState, u: UpgradeDef) => !!u.fork && owns(s, FORK_ALL[u.fork]);
+
+/** What an upgrade costs now. Switching a fork costs more each time; it tracks income so it always means something. */
+export function upgradeCost(s: GameState, u: UpgradeDef): Decimal {
+  if (upgradeStatus(s, u) !== 'swap') return new Decimal(u.cost);
+  const base = Decimal.max(u.cost * 5, passiveRate(s).mul(120));
+  return forkMerged(s, u) ? base.mul(5).floor() : base.mul(Decimal.pow(4, s.forkSwaps[u.fork!] ?? 0)).floor();
+}
+
 export function buyUpgrade(s: GameState, id: UpgradeId): boolean {
   const def = UPGRADES.find(u => u.id === id)!;
-  if (upgradeStatus(s, def) !== 'available' || s.ash.lt(def.cost)) return false;
-  s.ash = s.ash.sub(def.cost);
+  const st = upgradeStatus(s, def);
+  const cost = upgradeCost(s, def);
+  if ((st !== 'available' && st !== 'swap') || s.ash.lt(cost)) return false;
+  s.ash = s.ash.sub(cost);
+  if (st === 'swap' && !forkMerged(s, def)) {
+    // Switch: the old choice (and anything built on it) goes dormant until you switch back.
+    for (const o of UPGRADES) if (o.fork === def.fork && o.id !== id) delete s.upgrades[o.id];
+    s.forkSwaps[def.fork!] = (s.forkSwaps[def.fork!] ?? 0) + 1;
+  }
   s.upgrades[id] = true;
   if (def.line) log(s, def.line, 'milestone', true);
   if (id === 'antenna') {

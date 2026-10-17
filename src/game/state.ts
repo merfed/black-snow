@@ -109,6 +109,9 @@ export interface GameState {
   wiring: Wiring;
   patterns: Patterns;
   alchemy: Alchemy;
+  forkSwaps: Record<string, number>; // times each fork was switched
+  tapes: string[]; // VHS tapes owned, for the television
+  tv: string | null; // the tape playing, or null for static
   stats: Stats;
   achievements: Record<string, number>; // id -> play time when earned
   achCheckIn: number;
@@ -157,6 +160,9 @@ export function newGame(rng: () => number = Math.random): GameState {
     wiring: newWiring(),
     patterns: newPatterns(rng),
     alchemy: newAlchemy(),
+    forkSwaps: {},
+    tapes: [],
+    tv: null,
     stats: { listens: 0, flakes: [0, 0, 0, 0, 0], missed: 0, hatched: 0, bred: 0, rustTotal: 0, bestAps: '0' },
     achievements: {},
     achCheckIn: 1,

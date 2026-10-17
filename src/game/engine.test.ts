@@ -44,9 +44,32 @@ describe('early path', () => {
     for (const id of ['copper', 'coil'] as const) e.buyUpgrade(s, id);
     expect(status(s, 'ear')).toBe('available');
     expect(e.buyUpgrade(s, 'spade')).toBe(true);
-    expect(status(s, 'ear')).toBe('closed');
-    expect(e.buyUpgrade(s, 'ear')).toBe(false);
+    expect(status(s, 'ear')).toBe('swap');
     expect(status(s, 'spade2')).toBe('available');
+    e.buyUpgrade(s, 'spade2');
+    // Switching costs more than the first pick, and the old path goes dormant until you switch back.
+    expect(e.upgradeCost(s, UPGRADES.find(u => u.id === 'ear')!).gt(2000)).toBe(true);
+    expect(e.buyUpgrade(s, 'ear')).toBe(true);
+    expect(e.owns(s, 'spade')).toBe(false);
+    expect(status(s, 'spade2')).toBe('dormant');
+    const again = e.upgradeCost(s, UPGRADES.find(u => u.id === 'spade')!);
+    expect(e.buyUpgrade(s, 'spade')).toBe(true);
+    expect(e.owns(s, 'spade2')).toBe(true);
+    expect(e.upgradeCost(s, UPGRADES.find(u => u.id === 'eye')!).gt(again)).toBe(true);
+  });
+
+  it('the every upgrade lets a fork be held whole', () => {
+    const s = newGame(fixed);
+    rich(s);
+    for (const id of ['thaw', 'floor'] as const) e.buyUpgrade(s, id);
+    for (let i = 0; i < 5; i++) e.buyShaft(s, 0);
+    for (const id of ['copper', 'coil', 'spade'] as const) e.buyUpgrade(s, id);
+    s.zones[4].bought = 10;
+    s.ash = new Decimal(1e30);
+    expect(e.buyUpgrade(s, 'every_doctrine')).toBe(true);
+    expect(e.buyUpgrade(s, 'ear')).toBe(true);
+    expect(e.buyUpgrade(s, 'eye')).toBe(true);
+    expect(['ear', 'spade', 'eye'].every(id => e.owns(s, id as 'ear'))).toBe(true);
   });
 });
 

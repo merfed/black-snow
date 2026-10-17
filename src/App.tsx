@@ -13,6 +13,7 @@ import { nextZone, ZonePanel, ZoneTeaser } from './ui/ShaftsPanel';
 import { NurseryPanel } from './ui/Nursery';
 import { Scenery } from './ui/Scenery';
 import { DialPanel } from './ui/Dial';
+import { ShopPanel, TvPanel } from './ui/TV';
 import { KilnPanel, StationPanel } from './ui/SidePanels';
 import { Snowfall } from './ui/Snowfall';
 import { Sprite } from './ui/Sprite';
@@ -22,7 +23,7 @@ import { WarmFlake } from './ui/WarmFlake';
 import { WeatherFx } from './ui/WeatherFx';
 import { useView, type PanelId } from './ui/view';
 
-const ZONE_X = [250, 680, 1110];
+const ZONE_X = [250, 690, 1130];
 
 /*
  * The floor plan. The receiver (ash) is the middle of the room, with the dial and the rites under
@@ -63,10 +64,10 @@ export function App() {
     // Set dressing: the relay mast the station hangs from, and, once you are deep enough, someone else.
     { id: 'tower', x: -1560, y: 40, w: 180, decor: true, content: <Sprite rows={TOWER} px={10} className="decor-tower" /> },
     // Lull itself, past the last shaft: a dead town that gets more lit the deeper you go.
-    { id: 'town', x: 1560, y: 60, w: 520, decor: true, content: <Scenery depth={game.zonesOpened} /> },
+    { id: 'town', x: 1580, y: 60, w: 520, decor: true, content: <Scenery depth={game.zonesOpened} /> },
     { id: 'far', x: -1160, w: 420, content: <>{show('station') && <StationPanel />}{show('egg') && <NurseryPanel />}</> },
     { id: 'left', x: -700, w: 450, content: <>{show('instruments') && <InstrumentsPanel />}{show('kiln') && <KilnPanel />}</> },
-    { id: 'center', x: -210, w: 420, content: <><AshPanel />{show('dial') && <DialPanel />}{show('rites') && <RitesPanel />}</> },
+    { id: 'center', x: -210, w: 420, content: <><AshPanel /><TvPanel /><ShopPanel />{show('dial') && <DialPanel />}{show('rites') && <RitesPanel />}</> },
     ...zoneCols.map((c, k) => ({ id: `zones${k}`, x: ZONE_X[k], w: 400, content: c.length ? c : null })),
   ];
 

@@ -124,7 +124,7 @@ export type UpgradeId =
   | 'ear' | 'spade' | 'eye'
   | 'antenna' | 'hatch'
   | 'ear2' | 'ear3' | 'spade2' | 'spade3' | 'eye2' | 'eye3'
-  | 'salt_feed' | 'name_feed' | 'lights' | 'backroom';
+  | 'salt_feed' | 'name_feed' | 'lights' | 'backroom' | 'every_doctrine' | 'every_feed';
 
 export interface UpgradeDef {
   id: UpgradeId;
@@ -133,7 +133,7 @@ export interface UpgradeDef {
   desc: string;
   requires: UpgradeId[];
   requiresAny?: UpgradeId[];
-  /** Upgrades sharing a fork are a choice: buying one closes the others for this run. */
+  /** Upgrades sharing a fork are a choice. The others can be switched to for a rising price, or all held once the fork's "every" upgrade is bought. */
   fork?: 'doctrine' | 'feed';
   /** Extra condition beyond `requires`, shown to the player while locked. */
   gate?: { zone: number; bought: number };
@@ -141,8 +141,8 @@ export interface UpgradeDef {
 }
 
 export const FORKS = {
-  doctrine: { title: 'Choose a doctrine', note: 'The station only listens one way at a time. The other two close.' },
-  feed: { title: 'What do the shafts eat?', note: 'Pick one. The other is forgotten.' },
+  doctrine: { title: 'Choose a doctrine', note: 'The station listens one way at a time. You can switch later, for more each time.' },
+  feed: { title: 'What do the shafts eat?', note: 'Pick one. You can change your mind later, for more each time.' },
 } as const;
 
 export const UPGRADES: UpgradeDef[] = [
@@ -195,6 +195,12 @@ export const UPGRADES: UpgradeDef[] = [
   { id: 'name_feed', name: 'Feed them your name', cost: 2.5e5, requires: ['hatch'], fork: 'feed',
     desc: 'All shafts x1.5. The station starts to forget what to call you.',
     line: 'YOU WHISPER YOUR NAME INTO SHAFT 1. YOU DO NOT REMEMBER WHAT IT WAS.' },
+  { id: 'every_feed', name: 'A feast', cost: 1e10, requires: [], requiresAny: ['salt_feed', 'name_feed'], gate: { zone: 2, bought: 25 },
+    desc: 'Feed the shafts both. Add the other feed alongside the one you chose.',
+    line: 'SALT AND YOUR NAME, BOTH. THE SHAFTS HAVE NEVER BEEN SO QUIET.' },
+  { id: 'every_doctrine', name: 'Many doctrines', cost: 1e18, requires: [], requiresAny: ['ear', 'spade', 'eye'], gate: { zone: 4, bought: 10 },
+    desc: 'The station learns to listen every way at once. Add the other doctrines alongside yours.',
+    line: 'THE EAR, THE SPADE AND THE EYE. YOU STOP BEING ONE PERSON ABOUT IT.' },
   { id: 'lights', name: 'Leave the lights on', cost: 5e6, requires: [], requiresAny: ['salt_feed', 'name_feed'],
     desc: 'All ash x1.5. Something outside can see the station now.' },
 ];
