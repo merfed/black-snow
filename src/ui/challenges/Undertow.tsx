@@ -157,14 +157,14 @@ export function UndertowPanel() {
           <div><span className={`undertow-name r${obj.rarity}`}>{obj.name}</span> <span className="dim">({RARITY_NAMES[obj.rarity]})</span></div>
           <p className="dim small-note">{obj.note}</p>
           <div className="ch-row">
-            <button onClick={() => run(s => sortObj(s, newest, 'keep'))}>Keep</button>
-            <button className="secondary" onClick={() => run(s => sortObj(s, newest, 'burn'))}>Burn +{emberYield(game, obj.id)} embers</button>
-            <button className="secondary" onClick={() => run(s => sortObj(s, newest, 'down'))}>Send down</button>
+            <button className="undertow-btn" onClick={() => run(s => sortObj(s, newest, 'keep'))}>Keep</button>
+            <button className="undertow-btn alt" onClick={() => run(s => sortObj(s, newest, 'burn'))}>Burn +{emberYield(game, obj.id)} embers</button>
+            <button className="undertow-btn alt" onClick={() => run(s => sortObj(s, newest, 'down'))}>Send down</button>
           </div>
         </div>
       ) : <p className="dim small-note">The tray is empty. Something is on its way up.</p>}
       <div className="ch-row undertow-figure">
-        {here ? <button className="undertow-walk" onClick={() => run(approach)}>Walk toward them ({fmtTime(walkTime(u.approaches))})</button>
+        {here ? <button className="undertow-btn undertow-walk" onClick={() => run(approach)}>Walk toward them ({fmtTime(walkTime(u.approaches))})</button>
           : walking ? <span className="ch-stat">Walking. <b>{fmtTime(u.walk)}</b> left.</span>
             : u.approaches >= APPROACHES ? <span className="dim small-note">Nobody further down. Only them.</span>
               : <span className="dim small-note">The pipe is empty{u.approaches ? ` for ${fmtTime(Math.max(0, sightWait(game) - u.sight))}` : ''}.</span>}
@@ -196,6 +196,48 @@ function UndertowRoom({ onClose }: { onClose: () => void }) {
   );
 }
 
+// Bin icons, 12x12: '#' hue ink, '+' dithered hue, 'r' red ink.
+const ICONS: Record<Bin, string[]> = {
+  keep: [
+    '....####....', '....#..#....', '...######...', '..#......#..', '.#........#.', '.#.++++++.#.',
+    '.#.+.+.+.+#.', '.#.++++++.#.', '.#.+.+.+.+#.', '.#........#.', '..########..', '............',
+  ],
+  burn: [
+    '......#.....', '.....##.....', '.....#.#....', '....#..#..#.', '...#...#.##.', '..#..r..#.#.',
+    '..#.rrr...#.', '.#.rrrrr..#.', '.#.rr+rr..#.', '.#..r+r..#..', '..#.....#...', '...#####....',
+  ],
+  down: [
+    '...######...', '...#.++.#...', '...#.++.#...', '...#.++.#...', '...#.++.#...', '...#.++.#...',
+    '.###.++.###.', '.#..++++..#.', '..#..++..#..', '...#....#...', '....#..#....', '.....##.....',
+  ],
+};
+
+function PixelIcon({ bin }: { bin: Bin }) {
+  const rows = ICONS[bin];
+  return (
+    <svg className="undertow-icon" viewBox="0 0 12 12" width={36} height={36} shapeRendering="crispEdges" aria-hidden>
+      {rows.flatMap((row, y) => [...row].map((c, x) => {
+        if (c === '.' || (c === '+' && (x + y) % 2)) return null;
+        return <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill={c === 'r' ? RED : HUE} />;
+      }))}
+    </svg>
+  );
+}
+
+/** A framed well with the bin's icon; a dithered level rises as things go in (tapering, never quite full). */
+function BinWell({ bin, n }: { bin: Bin; n: number }) {
+  const fill = n / (n + 60);
+  return (
+    <div className={`undertow-well ${bin}`} style={{ '--fill': `${(fill * 100).toFixed(1)}%` } as CSSProperties}
+      title={`${n} gone in`}>
+      <span className="undertow-well-level" />
+      <PixelIcon bin={bin} />
+      <span className="undertow-well-n">{n} in</span>
+      <i className="k tl" /><i className="k tr" /><i className="k bl" /><i className="k br" />
+    </div>
+  );
+}
+
 function Bins() {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
@@ -204,6 +246,7 @@ function Bins() {
   const sets = setsKept(game);
   const odds = rarityOdds(u.luck);
   const ruled = u.tray.some(id => u.rules[id] && binLevel(game, u.rules[id]) >= 1);
+  const binCount: Record<Bin, number> = { keep: u.keptTotal, burn: u.burned, down: u.sentDown };
   return (
     <section className="undertow-sec">
       <h3 className="sub-head">The tray · {u.tray.length}/{trayCap(game)}</h3>
@@ -215,25 +258,26 @@ function Bins() {
             <div key={i} className="undertow-trow">
               <span className={`undertow-name r${o.rarity}`}>{o.name}</span>
               <span className="undertow-tbtn">
-                <button onClick={() => run(s => sortObj(s, i, 'keep'))}>Keep</button>
-                <button className="secondary" onClick={() => run(s => sortObj(s, i, 'burn'))}>+{emberYield(game, id)}</button>
-                <button className="secondary" onClick={() => run(s => sortObj(s, i, 'down'))}>Down</button>
+                <button className="undertow-btn" onClick={() => run(s => sortObj(s, i, 'keep'))}>Keep</button>
+                <button className="undertow-btn alt" onClick={() => run(s => sortObj(s, i, 'burn'))}>+{emberYield(game, id)}</button>
+                <button className="undertow-btn alt" onClick={() => run(s => sortObj(s, i, 'down'))}>Down</button>
               </span>
             </div>
           );
         })}
       </div>
-      {ruled && <button className="secondary" onClick={() => run(sortByRules)}>Sort the tray by the rules</button>}
+      {ruled && <button className="undertow-btn alt" onClick={() => run(sortByRules)}>Sort the tray by the rules</button>}
 
       <h3 className="sub-head">Bins</h3>
       <div className="undertow-bins">
         {BINS.map(b => {
           const l = binLevel(game, b), cost = binCost(game, b);
           return (
-            <div key={b} className="undertow-bin">
-              <div className="ch-stat"><b>{BIN_NAMES[b]}</b> · level {l}</div>
+            <div key={b} className={`undertow-bin ${l ? 'on' : ''}`}>
+              <BinWell bin={b} n={binCount[b]} />
+              <div className="undertow-bin-head"><b>{BIN_NAMES[b]}</b><span>lv {l}</span></div>
               <p className="dim small-note">{l ? `Sorts by itself. ${BIN_DESC[b](l)}` : 'Sorts only by hand.'}</p>
-              <button className="secondary" disabled={game.ash.lt(cost)} onClick={() => run(s => upgradeBin(s, b))}>
+              <button className="undertow-btn alt" disabled={game.ash.lt(cost)} onClick={() => run(s => upgradeBin(s, b))}>
                 {l ? 'Deepen' : 'Teach it to sort'} · {fmt(cost)} ash
               </button>
             </div>
@@ -251,10 +295,12 @@ function Bins() {
               <div key={o.id} className="undertow-rule">
                 <span className={`undertow-name r${o.rarity}`}>{o.name}</span>
                 <span className="ch-stat">{u.kept[o.id] ?? 0}</span>
-                <select value={u.rules[o.id] ?? ''} onChange={e => run(s => setRule(s, o.id, (e.target.value || null) as Bin | null))}>
-                  <option value="">by hand</option>
-                  {BINS.map(b => <option key={b} value={b} disabled={binLevel(game, b) < 1}>{BIN_NAMES[b]}</option>)}
-                </select>
+                <span className="undertow-select">
+                  <select value={u.rules[o.id] ?? ''} data-nodrag onChange={e => run(s => setRule(s, o.id, (e.target.value || null) as Bin | null))}>
+                    <option value="">by hand</option>
+                    {BINS.map(b => <option key={b} value={b} disabled={binLevel(game, b) < 1}>{BIN_NAMES[b]}</option>)}
+                  </select>
+                </span>
               </div>
             ))}
           </div>
@@ -352,8 +398,14 @@ function Gauge() {
         {u.bore.map((b, i) => (
           <label key={i} className="undertow-bore">
             <span className="ch-stat">Run {i + 1} · {L[i]} m · bore <b>{b}</b></span>
-            <input type="range" min={1} max={BORE_BUDGET - 2} value={b} data-nodrag
-              onChange={e => run(s => setBore(s, i, Number(e.target.value)))} />
+            <span className="undertow-slider">
+              <input type="range" min={1} max={BORE_BUDGET - 2} value={b} data-nodrag className="undertow-range"
+                style={{ '--pct': `${((b - 1) / (BORE_BUDGET - 3)) * 100}%` } as CSSProperties}
+                onChange={e => run(s => setBore(s, i, Number(e.target.value)))} />
+              <span className="undertow-ticks" aria-hidden>
+                {Array.from({ length: BORE_BUDGET - 2 }, (_, k) => <i key={k} className={(k + 1) % 5 === 0 || k === 0 ? 'big' : ''} />)}
+              </span>
+            </span>
           </label>
         ))}
       </div>

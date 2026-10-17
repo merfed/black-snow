@@ -7,20 +7,14 @@
 .survey-frame { padding: 3px; border: 1px solid color-mix(in srgb, var(--hue) 70%, transparent); outline: 1px solid color-mix(in srgb, var(--hue) 35%, transparent); outline-offset: 2px; line-height: 0; width: fit-content; }
 .survey-fig .survey-frame { width: 100%; box-sizing: border-box; }
 .survey-map { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; image-rendering: pixelated; cursor: default; }
-.survey-map.big { width: min(100%, calc(64vh * 1.5)); height: auto; aspect-ratio: 3 / 2; margin: 0 auto; cursor: crosshair; }
-.survey-field .survey-frame { width: min(860px, calc(64vh * 1.5), 100%); box-sizing: border-box; margin: 0 auto; }
-.survey-field .survey-map.big { width: 100%; }
 .survey-side .ch-stat { white-space: nowrap; }
 .survey-cap { font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--soft); }
 .survey-note { font-size: 14px; line-height: 1.45; color: var(--soft); margin: 0; }
-.survey-room-grid { display: grid; grid-template-columns: 330px 1fr; gap: 24px; align-items: start; }
-.challenge-room.survey-room { width: min(1320px, 96vw); scrollbar-width: none; }
 .challenge-room.survey-room::-webkit-scrollbar, .survey-lore::-webkit-scrollbar { display: none; }
 .survey-lore { scrollbar-width: none; }
-@media (max-width: 860px) { .survey-room-grid { grid-template-columns: 1fr; } }
 .survey-bench, .survey-field { display: grid; gap: 10px; align-content: start; }
 .survey-core-wrap { display: flex; gap: 14px; align-items: flex-start; }
-.survey-core { display: block; width: 130px; height: 234px; image-rendering: pixelated; cursor: pointer; flex: none; border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent); }
+.survey-core { display: block; height: clamp(162px, calc(100vh - 640px), 234px); width: auto; aspect-ratio: 40 / 72; image-rendering: pixelated; cursor: pointer; flex: none; border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent); }
 .survey-core-empty { background: color-mix(in srgb, var(--hue) 5%, var(--bg)); cursor: default; }
 .survey-core-side { display: grid; gap: 8px; align-content: start; }
 .survey-core-side button { justify-self: start; }
@@ -30,3 +24,20 @@
 .survey-tally span { margin-left: auto; color: var(--hue); }
 .survey-lore { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 200px; overflow-y: auto; }
 .survey-lore li { font-size: 14px; line-height: 1.4; padding-left: 10px; border-left: 2px solid; color: var(--text); }
+
+/* the room: the map takes the dominant column, as tall as the screen allows; controls and the core beside it */
+.challenge-room.survey-room { width: min(1400px, 97vw); scrollbar-width: none; }
+.survey-room-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 22px; align-items: start; }
+.survey-field .survey-frame { width: min(100%, calc((100vh - 183px) * 1.5)); box-sizing: border-box; margin: 0 auto; transition: border-color 0.2s, outline-color 0.2s; }
+.survey-field .survey-frame.survey-picking { border-color: var(--hue); outline-color: color-mix(in srgb, var(--hue) 70%, transparent); }
+.survey-map.big { width: 100%; height: auto; aspect-ratio: 3 / 2; cursor: crosshair; }
+/* the aside never grows past the screen: the lore list gives way and scrolls */
+.survey-aside { display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 152px); min-height: 0; }
+.survey-aside > *, .survey-aside .survey-bench > * { flex-shrink: 0; }
+.survey-aside > .survey-bench { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.survey-aside .survey-bench > .survey-lore { flex: 0 1 auto; min-height: 40px; }
+.survey-aside .survey-lore { max-height: none; }
+.survey-controls { display: grid; gap: 6px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent); outline: 1px solid color-mix(in srgb, var(--hue) 20%, transparent); outline-offset: 2px; }
+.survey-controls .ch-row { gap: 6px 14px; }
+.survey-tile-note { min-height: 2.9em; }
+@media (max-width: 960px) { .survey-room-grid { grid-template-columns: 1fr; } .survey-aside { max-height: none; } .survey-aside .survey-lore { max-height: 200px; } .survey-field .survey-frame { width: 100%; } }

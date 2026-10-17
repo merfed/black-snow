@@ -115,6 +115,21 @@ export function cut(s: GameState, k: string): boolean {
   return true;
 }
 
+/** The nodes a wire from n can reach: the other ends of every route through it. */
+export const neighbours = (n: number) => [...new Set(EDGES.filter(e => e.a === n || e.b === n).map(e => e.a === n ? e.b : e.a))];
+
+/**
+ * Touching two nodes on the plate: takes a wire back if the pair is already wired, else lays one.
+ * Braiding a second wire on the same route stays with the list's +.
+ */
+export function toggle(s: GameState, a: number, b: number): boolean {
+  const z = s.challenges.syzygy;
+  const pair = EDGES.filter(e => (e.a === a && e.b === b) || (e.a === b && e.b === a));
+  const wired = pair.filter(e => z.links[edgeKey(e)]).pop();
+  if (wired) return cut(s, edgeKey(wired));
+  return route(s, a, b);
+}
+
 export function buyWire(s: GameState): boolean {
   const z = s.challenges.syzygy;
   const c = wireCost(z);

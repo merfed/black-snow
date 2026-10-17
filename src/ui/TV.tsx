@@ -3,6 +3,10 @@ import { fmt } from '../game/format';
 import { useGame } from '../game/store';
 import { buyTape, ownsTape, playTape, tapeOnShelf, TAPES, tvOpen } from '../game/tapes';
 import { hex, threshold } from './dither';
+import { Artwork } from './Artwork';
+import { SCENES } from './scenes';
+
+const VIDEO_INK = '#6fd3ff';
 
 type Fn = (x: number, y: number, t: number, w: number, h: number) => number;
 interface Reel { ramp: string[]; fn: Fn }
@@ -202,8 +206,9 @@ export function ShopPanel() {
   const shelf = TAPES.filter(t => tapeOnShelf(game, t) && !ownsTape(game, t.id));
   const left = TAPES.filter(t => !t.secret && !ownsTape(game, t.id)).length;
   return (
-    <section className="panel shop-panel framed reveal" data-panel="shop">
+    <section className="panel shop-panel plate-panel knots reveal" data-panel="shop" style={{ '--hue': VIDEO_INK } as CSSProperties}>
       <h2>Lull Video <span className="h2-note">open all night, every night</span></h2>
+      <Artwork scene={SCENES.video} ink={VIDEO_INK} accent="#ff3b6b" caption='"Be kind. Rewind. Do not look at who is renting."' className="panel-art" />
       <ul className="shop-shelf">
         {shelf.map(t => {
           const got = ownsTape(game, t.id);

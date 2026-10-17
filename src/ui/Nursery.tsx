@@ -17,6 +17,8 @@ import { useGame } from '../game/store';
 import { BREED_STAGE, EGG_GROWTH, EGG_STAGES, NURSERY_UPS } from '../game/systems';
 import { Card } from './Card';
 import { SYSTEM_COLORS } from './colors';
+import { Artwork } from './Artwork';
+import { SCENES } from './scenes';
 import { Bar } from './SidePanels';
 import { Sprite } from './Sprite';
 
@@ -190,8 +192,9 @@ export function NurseryPanel() {
   const feedAllCost = feedCost(game).mul(shown.filter(c => c.hunger < 100).length);
 
   return (
-    <section className="panel nursery-panel framed reveal" data-panel="egg" style={{ '--hue': SYSTEM_COLORS.nursery } as CSSProperties}>
+    <section className="panel nursery-panel plate-panel knots reveal" data-panel="egg" style={{ '--hue': SYSTEM_COLORS.nursery } as CSSProperties}>
       <h2>Nursery <span className="h2-note">things found in the ash</span></h2>
+      <Artwork scene={SCENES.nursery} ink={SYSTEM_COLORS.nursery} accent="#ff3030" caption='"Keep them warm. Do not count the eyes."' className="panel-art" />
       <div className="nursery-stats">
         <span><b>{n.eggs.length}</b>/{eggSlots(game)} eggs</span>
         <span><b>{n.brood.length}</b>/{room} brood</span>

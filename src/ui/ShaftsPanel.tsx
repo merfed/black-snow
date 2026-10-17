@@ -20,6 +20,7 @@ import { ZONE_ICONS } from './sprites';
 import { Artwork } from './Artwork';
 import { ZONE_SCENES } from './scenes';
 import { ChallengeSlot } from './challenges/ChallengeSlot';
+import { ZoneGuide } from './ZoneGuide';
 
 /** What each zone's plate says under it, and the second ink it is printed with. */
 const ZONE_ART = [
@@ -56,7 +57,7 @@ function ShaftHelp() {
   };
   return (
     <>
-      <button className="help-toggle" onClick={toggle} aria-expanded={show}>{show ? 'hide help' : 'how shafts work'}</button>
+      <button className="help-toggle" onClick={toggle} aria-expanded={show}>{show ? 'hide tips' : 'tips'}</button>
       {show && (
         <div className="shaft-help">
           <p>Shafts dig on their own, every second.</p>
@@ -97,10 +98,10 @@ export function ZonePanel({ i }: { i: number }) {
       style={{ '--hue': hue } as CSSProperties}>
       <h2>
         <span className="zone-num">{def.id}</span> Zone {def.id}
-        {i === 0 ? <ShaftHelp /> : (
-          <button className="help-toggle" onClick={() => setHow(h => !h)} aria-expanded={how}>{how ? 'hide' : 'how it works'}</button>
-        )}
+        {i === 0 && <ShaftHelp />}
+        <button className="help-toggle" onClick={() => setHow(true)} aria-haspopup="dialog">how it works</button>
       </h2>
+      {how && <ZoneGuide zone={i} onClose={() => setHow(false)} />}
 
       <Artwork scene={ZONE_SCENES[i]} ink={hue} accent={ZONE_ART[i].accent} caption={ZONE_ART[i].caption} className="zone-art" />
 
@@ -119,7 +120,7 @@ export function ZonePanel({ i }: { i: number }) {
       </div>
 
       <p className="zone-lore">{def.lore}</p>
-      {(how || (i > 0 && z.bought === 0)) && i > 0 && (
+      {i > 0 && z.bought === 0 && (
         <div className="zone-how">
           <b>How it works.</b> Each {def.name} digs {fmt(each)} new {above}s every second, on its own, forever.
           More {above}s means more of everything above them, all the way up to ash. That is why deep zones are slow

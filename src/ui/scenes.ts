@@ -1038,4 +1038,130 @@ const dreamEngine: Scene = {
   },
 };
 
-export const SCENES = { keeper, lull, backroom, instruments, kiln, citadel, dreamEngine };
+// ---------------------------------------------------------------- side rooms, round two
+
+/** The nursery: a nest of wire and ash under a hanging bulb, one egg lit from inside, eyes in the dark around it. */
+const nursery: Scene = {
+  w: W, h: H,
+  draw(g, a, t) {
+    const f = flicker(t, 6);
+    field(g, (x, y) => 0.06 + 0.05 * (y / H) + 0.03 * (fbm(x / 20, y / 14, 90) - 0.5));
+    // the bulb and its cone of light
+    line(g, 90, 0, 90, 18, 0.35);
+    disc(g, 90, 21, 3, 0.95 * f);
+    g.globalCompositeOperation = 'lighter';
+    shape(g, 0.12 * f, [86, 22, 94, 22, 132, 80, 48, 80]);
+    g.globalCompositeOperation = 'source-over';
+    // the floor
+    rect(g, 0, 80, W, 16, 0.14);
+    for (let x = 0; x < W; x += 9) line(g, x, 80, x - 5, 96, 0.08);
+    // the nest: a tangle of wire and ash
+    g.fillStyle = gray(0.3);
+    g.beginPath(); g.ellipse(90, 78, 30, 7, 0, 0, TAU); g.fill();
+    for (let i = 0; i < 26; i++) {
+      const a0 = hash(i, 1, 91) * TAU, r = 18 + hash(i, 2, 91) * 12;
+      line(g, 90 + Math.cos(a0) * r, 76 + Math.sin(a0) * 5, 90 + Math.cos(a0 + 1.2) * (r - 6), 74 + Math.sin(a0 + 1.2) * 5, 0.45 + 0.3 * hash(i, 3, 91), 0.8);
+    }
+    // the egg, warm from inside, a crack that breathes
+    g.fillStyle = gray(0.75);
+    g.beginPath(); g.ellipse(90, 64, 9, 12, 0, 0, TAU); g.fill();
+    const pulse = 0.5 + 0.5 * Math.sin(t * 1.4);
+    glow(g, 90, 64, 18, 0.18 + 0.12 * pulse);
+    for (let k = 0; k < 5; k++) rect(a, 88 + (k % 2), 58 + k * 2, 1, 2, pulse > 0.3 ? 1 : 0);
+    // two smaller eggs, colder
+    for (const [ex, ey] of [[70, 74], [110, 75]]) { g.fillStyle = gray(0.45); g.beginPath(); g.ellipse(ex, ey, 5, 6.5, 0, 0, TAU); g.fill(); }
+    // eyes in the dark, pairs, blinking out of step
+    for (let i = 0; i < 7; i++) {
+      const ex = i < 4 ? 10 + hash(i, 4, 92) * 34 : 136 + hash(i, 4, 92) * 34, ey = 24 + hash(i, 5, 92) * 46;
+      if (Math.sin(t * (0.4 + hash(i, 6, 92)) + i * 3) > -0.6) { rect(g, ex, ey, 1, 1, 0.9); rect(g, ex + 3, ey, 1, 1, 0.9); if (i === 2) { rect(a, ex, ey, 1, 1, 1); rect(a, ex + 3, ey, 1, 1, 1); } }
+    }
+    flakes(g, t, 30, 0.35, 93, 4);
+  },
+};
+
+/** The rites: a circle of candles on boards, a sigil scratched between them, rust running from the nails. */
+const rites: Scene = {
+  w: W, h: H,
+  draw(g, a, t) {
+    field(g, (x, y) => 0.08 + 0.06 * (y / H) + 0.03 * (hash(x >> 2, y, 94) - 0.5));
+    // boards in perspective
+    for (let k = 0; k < 9; k++) {
+      const x0 = 90 + (k - 4) * 26;
+      line(g, 90 + (k - 4) * 8, 34, x0, 96, 0.16, 1);
+    }
+    for (let y = 40; y < 96; y += 10 + (y - 40) * 0.2) line(g, 0, y, W, y, 0.12);
+    // the ring scratched into the floor, and the sigil inside: a nine-pointed thing seen at a slant
+    g.strokeStyle = gray(0.5); g.lineWidth = 1;
+    g.beginPath(); g.ellipse(90, 66, 58, 20, 0, 0, TAU); g.stroke();
+    g.beginPath(); g.ellipse(90, 66, 50, 17, 0, 0, TAU); g.stroke();
+    const pts: [number, number][] = [];
+    for (let k = 0; k < 9; k++) { const an = -Math.PI / 2 + k * TAU / 9; pts.push([90 + Math.cos(an) * 44, 66 + Math.sin(an) * 15]); }
+    g.beginPath();
+    for (let k = 0; k <= 9; k++) { const p = pts[(k * 4) % 9]; if (k) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); }
+    g.strokeStyle = gray(0.38); g.stroke();
+    // rust bleeding along the scratches
+    for (let k = 0; k < 9; k++) if ((k + Math.floor(t * 0.3)) % 3 === 0) { const p = pts[k]; rect(a, p[0], p[1], 2, 1, 1); rect(a, p[0] + 1, p[1] + 1, 1, 2, 1); }
+    // candles round the ring
+    for (let k = 0; k < 9; k++) {
+      const an = -Math.PI / 2 + k * TAU / 9 + 0.17;
+      const cx = 90 + Math.cos(an) * 58, cy = 66 + Math.sin(an) * 20;
+      const h = 6 + 3 * hash(k, 1, 95);
+      rect(g, cx - 1, cy - h, 3, h, 0.7);
+      const f = flicker(t, k);
+      disc(g, cx + 0.5, cy - h - 2, 1.4, 0.95 * f);
+      glow(g, cx + 0.5, cy - h - 2, 9, 0.16 * f);
+    }
+    // in the middle, a bowl of rust water with something in it
+    g.fillStyle = gray(0.25); g.beginPath(); g.ellipse(90, 66, 9, 3.5, 0, 0, TAU); g.fill();
+    g.fillStyle = gray(0.05); g.beginPath(); g.ellipse(90, 65.5, 7, 2.5, 0, 0, TAU); g.fill();
+    rect(a, 88, 65, 4, 1, Math.sin(t * 0.7) > 0 ? 1 : 0.4);
+    // someone's shadow falling across the top of the ring
+    g.fillStyle = gray(0.03);
+    g.beginPath(); g.moveTo(70, 0); g.lineTo(110, 0); g.lineTo(100, 48); g.quadraticCurveTo(90, 54, 80, 48); g.closePath(); g.fill();
+  },
+};
+
+/** Lull Video: a shopfront on the dead high street at night, its sign half lit, racks of tapes inside, a figure browsing. */
+const video: Scene = {
+  w: W, h: H,
+  draw(g, a, t) {
+    field(g, (x, y) => (y > 82 ? 0.2 + 0.06 * hash(x, y, 96) : 0.08 + 0.05 * (fbm(x / 30 + t * 0.03, y / 12, 97) - 0.5)));
+    // neighbouring shops, shuttered
+    rect(g, 0, 22, 34, 60, 0.18); for (let y = 30; y < 80; y += 3) line(g, 2, y, 32, y, 0.24);
+    rect(g, 146, 22, 34, 60, 0.18); for (let y = 30; y < 80; y += 3) line(g, 148, y, 178, y, 0.24);
+    // the shop
+    rect(g, 36, 16, 108, 66, 0.22);
+    // the sign: LULL VIDEO, a letter dead, a letter stuttering
+    rect(g, 42, 20, 96, 12, 0.08);
+    const sign = 'LULLVIDEO';
+    const f = flicker(t, 7);
+    for (let i = 0; i < sign.length; i++) {
+      const dead = i === 2, stutter = i === 6 && Math.sin(t * 11) > 0.3;
+      const x = 48 + i * 10 + (i > 3 ? 4 : 0);
+      const v = dead ? 0.15 : stutter ? 0.3 : 0.95 * f;
+      rect(g, x, 23, 6, 1, v); rect(g, x, 29, 6, 1, v); rect(g, x, 23, 1, 7, v); rect(g, x + 5, 23, 1, (i % 3) * 2 + 3, v);
+      if (!dead && !stutter && i % 4 === 1) rect(a, x, 23, 6, 1, 1);
+    }
+    glow(g, 90, 26, 40, 0.12 * f);
+    // the window: racks of tapes, spines in rows
+    rect(g, 42, 38, 64, 40, 0.5);
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 15; c++) {
+      const x = 45 + c * 4, y = 41 + r * 9;
+      rect(g, x, y, 3, 7, 0.25 + 0.5 * hash(c, r, 98));
+      if (hash(c, r, 99) < 0.06) rect(a, x, y, 3, 7, 1);
+    }
+    // a figure browsing between the racks, very still
+    g.fillStyle = gray(0.04);
+    g.beginPath(); g.moveTo(84, 78); g.lineTo(86, 56); g.quadraticCurveTo(89, 50, 92, 56); g.lineTo(94, 78); g.closePath(); g.fill();
+    disc(g, 89, 52, 3, 0.04);
+    // the door, open, light on the pavement
+    rect(g, 112, 38, 24, 44, 0.75 * f);
+    g.globalCompositeOperation = 'lighter';
+    shape(g, 0.14 * f, [112, 82, 136, 82, 150, 96, 100, 96]);
+    g.globalCompositeOperation = 'source-over';
+    rect(g, 114, 46, 5, 10, 0.3);
+    flakes(g, t, 70, 0.6, 100, 6);
+  },
+};
+
+export const SCENES = { keeper, lull, backroom, instruments, kiln, citadel, dreamEngine, nursery, rites, video };

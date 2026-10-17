@@ -313,6 +313,7 @@ button:hover:not(:disabled) .cost { color: inherit; }
 /* ---------- shafts ---------- */
 
 .help-toggle { margin-left: auto; padding: 4px 10px; font-size: 12px; letter-spacing: 0.1em; text-transform: none; border-color: var(--line); color: var(--soft); }
+.help-toggle ~ .help-toggle { margin-left: 6px; }
 .shaft-help { border: 1px dashed var(--line); padding: 10px 12px; margin-bottom: 14px; font-family: var(--font-body); font-size: 14px; line-height: 1.4; color: var(--soft); text-transform: none; letter-spacing: 0; font-weight: 400; width: 100%; flex-basis: 100%; }
 .shaft-help p { margin: 0 0 8px; }
 .shaft-help p:last-child { margin: 8px 0 0; }
@@ -1185,11 +1186,26 @@ body:has(.warm-flake.rarity-4) .crt { background: radial-gradient(circle at cent
 .dream-fuel { font-family: var(--font-ui); font-size: 15px; }
 .dream-fuel small { color: var(--soft); font-size: 13px; }
 .dream-beds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.dream-bed { display: grid; gap: 4px; min-height: 64px; padding: 8px; text-align: left; align-content: start; font-size: 14px; border: 1px solid color-mix(in srgb, var(--hue) 40%, transparent); background: transparent; }
-.dream-bed small { color: var(--soft); font-size: 12px; }
-.dream-bed.on { border-color: var(--hue); box-shadow: inset 0 0 18px color-mix(in srgb, var(--hue) 30%, transparent); }
-.dream-bed.picking { outline: 2px solid var(--hue); outline-offset: 2px; }
-.dream-bed.locked { border-style: dashed; }
+.dream-bed {
+  position: relative; display: grid; justify-items: center; gap: 2px; min-height: 118px; padding: 10px 6px 8px; text-align: center; font-size: 14px;
+  color: color-mix(in srgb, var(--hue) 70%, var(--soft)); background: #07060d;
+  border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent);
+  box-shadow: inset 0 0 0 3px #07060d, inset 0 0 0 4px color-mix(in srgb, var(--hue) 25%, transparent);
+  --accent-ink: #e8c21c;
+}
+.dream-bed b { color: var(--text); font-weight: 500; font-size: 14px; }
+.dream-bed span { font-family: var(--font-ui); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+.dream-bed small { color: var(--soft); font-size: 12px; font-family: var(--font-ui); }
+.dream-bed .cot { width: 96px; height: 48px; image-rendering: pixelated; }
+.dream-bed:hover:not(:disabled) { border-color: var(--hue); color: var(--hue); }
+.dream-bed.on { color: var(--hue); background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 16%, #07060d) 0 25%, #07060d 0 50%) 0 0 / 4px 4px; border-color: var(--hue); }
+.dream-bed.picking { outline: 1px dashed var(--hue); outline-offset: 3px; animation: flicker 1.2s steps(2) infinite; }
+.dream-bed.locked { border-style: dashed; box-shadow: none; opacity: 0.85; }
+.dream-bed.locked .cot { opacity: 0.35; }
+.cot-wisp { animation: wisp 2.4s steps(6) infinite; }
+.cot-wisp.w2 { animation-delay: -0.8s; }
+.cot-wisp.w3 { animation-delay: -1.6s; }
+@keyframes wisp { 0% { transform: translate(0, 4px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translate(2px, -3px); opacity: 0; } }
 .dream-list { display: grid; gap: 6px; }
 .dream-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 8px 10px; text-align: left; font-size: 14px; border: 1px solid var(--line); background: transparent; }
 .dream-row.in-bed { border-color: var(--hue); }

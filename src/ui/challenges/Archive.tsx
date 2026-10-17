@@ -2,7 +2,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   albumMult, albumSets, buyShelf, buyStock, canRecord, CHANNEL_MULT, dayLeft, driftMatch, eraseTape, FRESH_MULT, frameRate,
-  RECORD_MIN, recordSlot, shelfCost, shelfSize, SITTERS, sitterOf, stockCost, tapeMult, tapeShare, tapeValue, WRONGS, wrongOf,
+  RECORD_MIN, recordSlot, shelfCost, shelfFull, shelfSize, SHELF_MAX, SITTERS, sitterOf, stockCost, tapeMult, tapeShare, tapeValue, WRONGS, wrongOf,
   type Tape,
 } from '../../game/challenges/archive';
 import { fmt } from '../../game/format';
@@ -287,7 +287,8 @@ export function ArchivePanel() {
       )}
       <div className="ch-row">
         <button className="max-all" onClick={() => setRoom(true)}>Open the archive</button>
-        <button className="secondary" disabled={game.ash.lt(cost)} onClick={() => run(buyShelf)}>More shelf · {fmt(cost)} ash</button>
+        {shelfFull(game) ? <span className="ch-stat archive-full">Shelf full: <b>{SHELF_MAX}</b></span>
+          : <button className="secondary" disabled={game.ash.lt(cost)} onClick={() => run(buyShelf)}>More shelf · {fmt(cost)} ash</button>}
       </div>
       {room && <ArchiveRoom onClose={() => setRoom(false)} />}
     </div>

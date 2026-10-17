@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { newGame, type GameState } from '../state';
 import { setSlot, signature } from '../patterns';
 import {
-  albumSets, archive, buyShelf, buyStock, driftSig, eraseTape, FRESH_TIME, recordSlot, shelfSize, STATION_DAY, tapeMult,
+  albumSets, archive, buyShelf, buyStock, driftSig, eraseTape, FRESH_TIME, recordSlot, shelfFull, shelfSize, SHELF_MAX, STATION_DAY, tapeMult,
 } from './archive';
 
 function late(): GameState {
@@ -117,5 +117,33 @@ describe('archive', () => {
     expect(archive.milestone.done(s)).toBe(true);
     expect(archive.mult(s, 'zone2')).toBeGreaterThan(1);
     expect(archive.level(s)).toBeGreaterThanOrEqual(5 + 1 + 5);
+  });
+
+  it('caps the shelf at 32 tapes', () => {
+    const s = late();
+    while (buyShelf(s)) { /* buy to the top */ }
+    expect(shelfSize(s)).toBe(SHELF_MAX);
+    expect(shelfFull(s)).toBe(true);
+    expect(s.challenges.archive.space).toBe(SHELF_MAX - 3);
+    const ash = s.ash;
+    expect(buyShelf(s)).toBe(false);
+    expect(s.ash.eq(ash)).toBe(true);
+    const ts = ['ash', 'listen', 'echoes', 'rust', 'cycles', 'pigment', 'embers'] as const;
+    for (let i = 0; i < SHELF_MAX; i++) { lock(s, 0, ts[i % 7]); expect(recordSlot(s, 0)).toBe(true); }
+    lock(s, 0, 'ash');
+    expect(recordSlot(s, 0)).toBe(false);
+    expect(s.challenges.archive.shelf).toHaveLength(SHELF_MAX);
+  });
+
+  it('trims an old save that went past 32', () => {
+    const s = late();
+    const a = s.challenges.archive;
+    a.space = 60;
+    a.shelf = Array.from({ length: 40 }, (_, i) => ({ id: i, target: 'ash' as const, q: 1 - i / 100, gold: false }));
+    expect(shelfSize(s)).toBe(SHELF_MAX);
+    archive.step(s, 0.05, Math.random);
+    expect(a.shelf).toHaveLength(SHELF_MAX);
+    expect(a.shelf[0].id).toBe(0);
+    expect(a.space).toBe(SHELF_MAX - 3);
   });
 });

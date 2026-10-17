@@ -61,3 +61,4 @@
 .archive-tv figcaption { font-size: 14px; }
 .archive-tv figcaption b { color: var(--hue); font-weight: normal; }
 .archive-final { font-family: 'MEK Mono', monospace; font-size: 14px; text-align: center; color: var(--accent); margin: 4px 0 0; }
+.archive-full { font-family: 'MEK Mono', monospace; text-transform: uppercase; letter-spacing: 0.1em; color: var(--hue); padding: 6px 10px; border: 1px dashed color-mix(in srgb, var(--hue) 50%, transparent); }

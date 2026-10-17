@@ -1,0 +1,96 @@
+/* ---------- the zone guide: a printed manual in the zone's ink ---------- */
+
+.zone-guide.panel.plate-panel {
+  width: min(1240px, 96vw); height: min(900px, 92vh); display: grid; grid-template-rows: auto 1fr; gap: 14px;
+  background: color-mix(in srgb, var(--hue) 4%, var(--bg)); padding: 20px 22px 18px;
+}
+.zg-head {
+  display: flex; align-items: center; gap: 14px; padding-bottom: 12px;
+  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--hue) 45%, transparent) 0 2px, transparent 2px 5px) bottom / 100% 1px no-repeat;
+}
+.zg-head .zone-num { color: var(--hue); text-shadow: 0 0 10px color-mix(in srgb, var(--hue) 45%, transparent); font-size: 30px; }
+.zg-head h2 { margin: 0; font-family: 'MEK Mono', var(--font-ui); font-size: 16px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text); display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.zg-head h2 .h2-note { font-size: 17px; letter-spacing: 0.01em; text-transform: none; }
+.zg-head .close { margin-left: auto; padding: 4px 12px; border-color: color-mix(in srgb, var(--hue) 55%, transparent); color: var(--hue); }
+.zg-head .close:hover { background: var(--hue); color: #05060b; }
+
+.zg-body { display: grid; grid-template-columns: 250px 1fr; gap: 20px; min-height: 0; }
+
+/* No visible scroll bars; both panes still scroll with the wheel and by touch. */
+.zg-index, .zg-pages { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; -ms-overflow-style: none; }
+.zg-index::-webkit-scrollbar, .zg-pages::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+.zg-index {
+  display: flex; flex-direction: column; gap: 14px; padding: 4px 14px 4px 0;
+  background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--hue) 35%, transparent) 0 2px, transparent 2px 5px) right / 1px 100% no-repeat;
+}
+.zg-group { display: grid; gap: 2px; }
+.zg-group-name { font-family: 'MEK Mono', var(--font-ui); font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--hue); opacity: 0.85; margin-bottom: 4px; }
+.zg-link {
+  text-align: left; border: 0; border-left: 2px solid transparent; background: none; padding: 5px 8px; font-family: var(--font-body);
+  font-size: 15px; letter-spacing: 0; text-transform: none; color: var(--soft); line-height: 1.3;
+}
+.zg-link:hover:not(:disabled) { color: var(--text); box-shadow: none; background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 16%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; }
+.zg-link.on { color: var(--text); border-left-color: var(--hue); background: color-mix(in srgb, var(--hue) 10%, transparent); }
+
+.zg-pages { padding: 0 18px 40px 2px; }
+.zg-section { padding: 6px 0 26px; margin-bottom: 18px; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--hue) 30%, transparent) 0 2px, transparent 2px 6px) bottom / 100% 1px no-repeat; }
+.zg-kicker { display: block; font-family: 'MEK Mono', var(--font-ui); font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--hue); opacity: 0.75; }
+.zg-title { margin: 4px 0 12px; font-family: var(--font-display); font-weight: 400; font-size: 30px; line-height: 1.1; color: var(--text); }
+.zg-more { font-family: 'MEK Mono', var(--font-ui); font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); text-align: center; margin: 10px 0 0; }
+
+/* body blocks emitted by src/game/guide.tsx */
+.zone-guide .g-p { font-family: var(--font-body); font-size: 16px; line-height: 1.6; color: var(--text); margin: 0 0 12px; max-width: 78ch; }
+.zone-guide .g-p i { color: var(--soft); }
+.zone-guide .g-b { color: var(--hue); font-weight: 700; }
+.zone-guide .g-voice {
+  font-family: 'MEK Mono', var(--font-ui); font-size: 16px; letter-spacing: 0.12em; text-transform: uppercase; line-height: 1.6;
+  color: var(--hue); opacity: 0.85; margin: 0 0 14px; max-width: 70ch;
+}
+.zone-guide .g-h { font-family: var(--font-ui); font-weight: 500; font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--hue); margin: 22px 0 8px; opacity: 0.9; }
+.zone-guide .g-formula {
+  font-family: var(--font-ui); font-size: 15px; line-height: 1.55; color: var(--text); margin: 6px 0 12px; padding: 8px 12px;
+  border-left: 2px solid var(--hue); max-width: 78ch;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 9%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+}
+.zone-guide .g-list .g-formula { margin: 6px 0 2px; }
+.zone-guide .g-code { font-family: var(--font-ui); font-size: 15px; color: var(--hue); }
+.zone-guide .g-list { font-family: var(--font-body); font-size: 16px; line-height: 1.55; color: var(--text); margin: 0 0 12px; padding-left: 22px; max-width: 78ch; }
+.zone-guide .g-list li { margin-bottom: 6px; }
+.zone-guide .g-list li::marker { color: var(--hue); }
+.zone-guide .g-sub { display: block; font-size: 13px; color: var(--soft); line-height: 1.4; margin-top: 2px; }
+.zone-guide .g-now {
+  display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; margin: 12px 0 14px; padding: 10px 12px;
+  border: 1px dashed color-mix(in srgb, var(--hue) 55%, transparent); font-family: var(--font-ui); font-size: 14px; line-height: 1.6; color: var(--soft); max-width: 78ch;
+}
+.zone-guide .g-now-tag { font-family: 'MEK Mono', var(--font-ui); font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase; color: #05060b; background: var(--hue); padding: 1px 6px; }
+.zone-guide .g-now .g-b { font-weight: 500; }
+
+.zone-guide .g-table-wrap { margin: 6px 0 14px; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.zone-guide .g-table-wrap::-webkit-scrollbar { display: none; }
+.zone-guide .g-table {
+  border-collapse: collapse; font-family: var(--font-ui); font-size: 14px; color: var(--text); min-width: min(520px, 100%);
+  border: 1px solid color-mix(in srgb, var(--hue) 50%, transparent);
+  box-shadow: inset 0 0 0 3px var(--bg), inset 0 0 0 4px color-mix(in srgb, var(--hue) 22%, transparent);
+}
+.zone-guide .g-table th {
+  font-family: 'MEK Mono', var(--font-ui); font-weight: normal; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--hue); text-align: left; padding: 8px 12px 6px;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 14%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+}
+.zone-guide .g-table td { padding: 6px 12px; vertical-align: top; line-height: 1.45; border-top: 1px solid color-mix(in srgb, var(--hue) 16%, transparent); }
+.zone-guide .g-table td:first-child { color: var(--text); }
+.zone-guide .g-table td:not(:first-child) { color: var(--soft); }
+.zone-guide .g-table td .g-b { color: var(--hue); }
+.zone-guide .g-table-note { font-family: var(--font-body); font-size: 13px; color: var(--soft); margin: 6px 0 0; line-height: 1.45; }
+
+@media (max-width: 760px) {
+  .zone-guide.panel.plate-panel { width: 100vw; height: 100vh; padding: 14px 12px; }
+  .zg-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; gap: 10px; }
+  .zg-index { flex-direction: row; overflow-x: auto; overflow-y: hidden; gap: 10px; padding: 0 0 8px; background: none; }
+  .zg-group { display: flex; gap: 4px; align-items: center; flex: none; }
+  .zg-group-name { margin: 0 4px 0 0; }
+  .zg-link { white-space: nowrap; border-left: 0; border-bottom: 2px solid transparent; }
+  .zg-link.on { border-bottom-color: var(--hue); }
+  .zg-title { font-size: 24px; }
+}

@@ -4,8 +4,8 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { CHALLENGES } from '../../game/challenges';
 import {
   buyLantern, buyLens, buyShade, buyWire, chapters, CHAPTERS, COLS, cut, darkLen, dreamMap, EDGES, edgeKey, edgeWeight, fragment,
-  gateCost, GATE_CURRENTS, GATE_LEVEL, lanternCost, lensCost, liveCurrents, offerings, openGate, PAGES_PER_CHAPTER, pilgrimSpeed,
-  NIGHT, ROOMS, ROWS, route, routeEdge, shadeCost, totality, totalityLeft, totalityLen, totalityMult, untilTotality, wireCost, wiresFree,
+  gateCost, GATE_CURRENTS, GATE_LEVEL, lanternCost, lensCost, liveCurrents, neighbours, offerings, openGate, PAGES_PER_CHAPTER, pilgrimSpeed,
+  NIGHT, ROOMS, ROWS, routeEdge, shadeCost, totality, totalityLeft, totalityLen, totalityMult, toggle, untilTotality, wireCost, wiresFree,
   wiresTotal, ZONE, type SyzygyState,
 } from '../../game/challenges/syzygy';
 import { fmt } from '../../game/format';
@@ -139,15 +139,34 @@ function drawSun(v: Float32Array, acc: Float32Array, w: number, h: number, z: Sy
   }
 }
 
+/** Which node sits under a pointer, with a generous reach (at least 18 screen px) so small plates stay easy to hit. */
+function nodeAt(el: HTMLCanvasElement, cx: number, cy: number) {
+  const b = el.getBoundingClientRect();
+  const reach = Math.max(18, b.height * 0.12);
+  let best = -1, bd = reach;
+  POS.forEach(([nx, ny], n) => {
+    const d = Math.hypot(b.left + nx * b.width - cx, b.top + ny * b.height - cy);
+    if (d < bd) { bd = d; best = n; }
+  });
+  return best;
+}
+
 /** The Numogram plate: nodes lit by strength, wired currents glowing with pulses running along them. */
-function Numogram({ w, h, selected, onPick, sun = true }: { w: number; h: number; selected?: number | null; onPick?: (n: number) => void; sun?: boolean }) {
+function Numogram({ w, h, selected, onPick, onMiss, sun = true }: {
+  w: number; h: number; selected?: number | null; onPick?: (n: number) => void; onMiss?: () => void; sun?: boolean;
+}) {
   const game = useGame(st => st.game);
   const sel = useRef(selected);
   sel.current = selected;
+  const hover = useRef(-1);
+  const [over, setOver] = useState(false);
   const ref = useDither(w, h, (v, acc, t) => {
     const z = game.challenges.syzygy;
     const open = z.gateOpen;
     const px = (n: number) => POS[n][0] * w, py = (n: number) => POS[n][1] * h;
+    const s0 = sel.current ?? null;
+    const near = s0 === null ? [] : neighbours(s0);
+    const blink = Math.floor(t * 4) % 2 === 0;
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const i = y * w + x;
       v[i] = 0.1 + 0.08 * (y / h) + 0.04 * Math.sin(x * 0.11 + t * 0.3) * Math.sin(y * 0.17 - t * 0.2);
@@ -157,41 +176,77 @@ function Numogram({ w, h, selected, onPick, sun = true }: { w: number; h: number
     for (const e of EDGES) {
       const wired = z.links[edgeKey(e)] ?? 0;
       const k = edgeWeight(z, e);
+      const cand = s0 !== null && (e.a === s0 || e.b === s0);
       if (!wired) {
-        // Unwired routes are a faint dotted trace.
+        // Unwired routes are a faint dotted trace; from the chosen node they march, in bone.
         const n = Math.ceil(Math.hypot(px(e.b) - px(e.a), py(e.b) - py(e.a)));
-        for (let s = 0; s <= n; s += 3) {
+        const shift = cand ? Math.floor(t * 8) % 3 : 0;
+        for (let s = shift; s <= n; s += 3) {
           const x = Math.round(px(e.a) + (px(e.b) - px(e.a)) * s / n), y = Math.round(py(e.a) + (py(e.b) - py(e.a)) * s / n);
-          if (x >= 0 && y >= 0 && x < w && y < h) v[y * w + x] = Math.max(v[y * w + x], e.kind === 'syzygy' ? 0.42 : 0.3);
+          if (x < 0 || y < 0 || x >= w || y >= h) continue;
+          if (cand) acc[y * w + x] = 0.85;
+          else v[y * w + x] = Math.max(v[y * w + x], e.kind === 'syzygy' ? 0.42 : 0.3);
         }
         continue;
       }
       const at = ((t * 0.35 + e.a * 0.13 + e.b * 0.07) % 1 + 1) % 1;
-      glowLine(v, w, h, px(e.a), py(e.a), px(e.b), py(e.b), 1.6 + Math.min(2.5, Math.sqrt(wired)), k > 0 ? 0.6 + Math.min(0.4, k * 0.05) : 0.3, k > 0 ? { at, buf: acc } : undefined);
+      glowLine(v, w, h, px(e.a), py(e.a), px(e.b), py(e.b), 1.6 + Math.min(2.5, Math.sqrt(wired)), (k > 0 ? 0.6 + Math.min(0.4, k * 0.05) : 0.3) + (cand ? 0.2 : 0), k > 0 ? { at, buf: acc } : undefined);
     }
     for (let n = 0; n < 10; n++) {
       const str = z.nodes[n] ?? 0;
       const cx = px(n), cy = py(n), r = Math.max(4, h * 0.055) + Math.min(3, str * 0.35);
       const sealed = n === 0 && !z.gateOpen;
-      for (let y = Math.floor(cy - r - 2); y <= cy + r + 2; y++) for (let x = Math.floor(cx - r - 2); x <= cx + r + 2; x++) {
+      const isSel = s0 === n, isCand = near.includes(n), isHover = hover.current === n;
+      const out = isSel || isCand ? 3.2 : 2;
+      for (let y = Math.floor(cy - r - out - 1); y <= cy + r + out + 1; y++) for (let x = Math.floor(cx - r - out - 1); x <= cx + r + out + 1; x++) {
         if (x < 0 || y < 0 || x >= w || y >= h) continue;
         const d = Math.hypot(x - cx, y - cy), i = y * w + x;
         if (d < r) v[i] = sealed ? 0.04 : 0.32 + Math.min(0.65, str * 0.09);
-        else if (d < r + 1.2) { v[i] = sealed ? 0.6 : 0.9; if (sel.current === n) acc[i] = 1; }
+        else if (d < r + 1.2) {
+          v[i] = sealed ? 0.6 : 0.9;
+          if (isSel ? blink : isHover) acc[i] = 1;
+        } else if (d >= r + 2 && d < r + 3.2) {
+          // A second ring: solid and blinking on the chosen node, broken and turning on the nodes it can reach.
+          if (isSel && blink) acc[i] = 1;
+          else if (isCand && Math.floor((Math.atan2(y - cy, x - cx) / Math.PI + 1) * 6 + t * 2) % 2 === 0) acc[i] = 0.9;
+        }
       }
       digit(v, w, h, n, Math.round(cx - 1), Math.round(cy - 2), sealed ? 0.7 : str > 4 ? 0 : 1);
     }
     if (sun) drawSun(v, acc, w, h, z, w * 0.89, h * 0.2, h * 0.12, t);
   }, 10);
   const click = (ev: MouseEvent<HTMLCanvasElement>) => {
-    if (!onPick) return;
-    const b = ev.currentTarget.getBoundingClientRect();
-    const x = (ev.clientX - b.left) / b.width, y = (ev.clientY - b.top) / b.height;
-    let best = -1, bd = 0.08;
-    POS.forEach(([nx, ny], n) => { const d = Math.hypot((nx - x) * (w / h), ny - y); if (d < bd) { bd = d; best = n; } });
-    if (best >= 0) onPick(best);
+    if (!onPick) { onMiss?.(); return; }
+    const n = nodeAt(ev.currentTarget, ev.clientX, ev.clientY);
+    if (n >= 0) onPick(n); else onMiss?.();
   };
-  return <canvas ref={ref} width={w} height={h} className={`syzygy-canvas ${onPick ? 'pick' : ''}`} onClick={click} data-nodrag />;
+  const move = (ev: MouseEvent<HTMLCanvasElement>) => {
+    if (!onPick) return;
+    hover.current = nodeAt(ev.currentTarget, ev.clientX, ev.clientY);
+    setOver(hover.current >= 0);
+  };
+  const leave = () => { hover.current = -1; setOver(false); };
+  return <canvas ref={ref} width={w} height={h} className={`syzygy-canvas ${onPick ? 'pick' : ''} ${over ? 'over' : ''}`}
+    onClick={click} onMouseMove={move} onMouseLeave={leave} data-nodrag />;
+}
+
+/** Touch a node, then a node it can reach: lays a wire, or takes one back if that route is wired. The first node stays chosen. */
+function usePicker() {
+  const game = useGame(st => st.game);
+  const run = useGame(st => st.run);
+  const [sel, setSel] = useState<number | null>(null);
+  const [note, setNote] = useState('');
+  const pick = (n: number) => {
+    if (sel === null || sel === n) { setSel(sel === n ? null : n); setNote(''); return; }
+    if (!neighbours(sel).includes(n)) { setSel(n); setNote(''); return; }
+    const z = game.challenges.syzygy;
+    const a = sel;
+    const wired = EDGES.some(e => ((e.a === a && e.b === n) || (e.a === n && e.b === a)) && z.links[edgeKey(e)]);
+    if (!wired && wiresFree(z) <= 0) { setNote('No wire free. Take one back, or twist another from dreams.'); return; }
+    run(s => toggle(s, a, n));
+    setNote(wired ? `Wire taken back from ${a}·${n}.` : `Wire laid ${a}·${n}. Touch ${n} again to take it back.`);
+  };
+  return { sel, pick, note, clear: () => { setSel(null); setNote(''); } };
 }
 
 const CELL = 9;
@@ -251,6 +306,7 @@ export function SyzygyPanel() {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
   const [open, setOpen] = useState(false);
+  const pk = usePicker();
   const z = game.challenges.syzygy;
   const offs = offerings(game);
   const given = offs.filter(o => o.ok).length;
@@ -262,18 +318,20 @@ export function SyzygyPanel() {
     : 'The gate is ready.';
   return (
     <div className={`syzygy ${z.gateOpen ? 'syzygy-opened' : ''}`}>
-      <button className="syzygy-thumb" onClick={() => setOpen(true)} title="Open the Syzygy">
-        <Numogram w={150} h={84} />
-      </button>
+      <div className={`syzygy-thumb ${pk.sel !== null ? 'picking' : ''}`} title="Touch two nodes to wire them. Touch the dark to open the Syzygy.">
+        <Numogram w={150} h={84} selected={pk.sel} onPick={pk.pick} onMiss={() => (pk.sel !== null ? pk.clear() : setOpen(true))} />
+      </div>
       <div className="ch-row syzygy-stats">
         <span className="ch-stat"><b>{fmt(z.dreams)}</b> dreams</span>
         <span className="ch-stat"><b>{live}</b>/{wiresTotal(z)} currents</span>
         <span className={`ch-stat ${totality(z) ? 'syzygy-hot' : ''}`}>{eclipseText(z)}</span>
         <span className="ch-stat">Gate {z.gateOpen ? <b>open</b> : <><b>{given}</b>/{offs.length}</>}</span>
       </div>
-      <p className="small-note dim syzygy-hint">{hint}</p>
-      <button className="max-all syzygy-open" onClick={() => setOpen(true)}>Open the Syzygy</button>
-      {open && <SyzygyRoom onClose={() => setOpen(false)} />}
+      <p className={`small-note syzygy-hint ${pk.sel !== null || pk.note ? 'syzygy-picking' : 'dim'}`}>
+        {pk.note || (pk.sel !== null ? `${pk.sel} chosen. Touch a ringed node to wire it.` : hint)}
+      </p>
+      <button className="max-all syzygy-btn syzygy-open" onClick={() => setOpen(true)}>Open the Syzygy</button>
+      {open && <SyzygyRoom onClose={() => { setOpen(false); pk.clear(); }} />}
     </div>
   );
 }
@@ -282,19 +340,13 @@ function SyzygyRoom({ onClose }: { onClose: () => void }) {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
   const run = useGame(st => st.run);
-  const [sel, setSel] = useState<number | null>(null);
+  const { sel, pick, note } = usePicker();
   useEffect(() => {
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', esc);
     return () => window.removeEventListener('keydown', esc);
   }, [onClose]);
   const z = game.challenges.syzygy;
-  const pick = (n: number) => {
-    if (sel === null || sel === n) { setSel(sel === n ? null : n); return; }
-    const a = sel;
-    run(s => route(s, a, n));
-    setSel(null);
-  };
   const nodeName = (n: number) => n === 0 ? 'The gate' : n === 9 ? 'The Syzygy' : CHALLENGES.find(c => c.zone === n - 1)?.name ?? `Zone ${n}`;
   const offs = offerings(game);
   const gc = gateCost(game);
@@ -311,21 +363,21 @@ function SyzygyRoom({ onClose }: { onClose: () => void }) {
         <section className="syzygy-col">
           <h3 className="sub-head">The Numogram</h3>
           <div className="artwork-frame knots syzygy-frame"><Numogram w={240} h={150} selected={sel} onPick={pick} /></div>
-          <p className="small-note dim">{sel === null ? 'Touch a node, then another, to lay a wire between them.' : `${sel}: ${nodeName(sel)}. Now touch where the wire goes.`}</p>
+          <p className={`small-note ${sel === null && !note ? 'dim' : 'syzygy-picking'}`}>{note || (sel === null ? 'Touch a node, then a ringed one, to lay a wire. Touch the pair again to take it back.' : `${sel}: ${nodeName(sel)}. Touch a ringed node.`)}</p>
           <div className="ch-row">
             <span className="ch-stat"><b>{wiresFree(z)}</b> of {wiresTotal(z)} wires free</span>
-            <button onClick={() => run(buyWire)} disabled={z.dreams < wireCost(z)}>A wire <span className="syzygy-cost">{fmt(wireCost(z))} dreams</span></button>
+            <button className="syzygy-btn" onClick={() => run(buyWire)} disabled={z.dreams < wireCost(z)}>A wire <span className="syzygy-cost">{fmt(wireCost(z))} dreams</span></button>
           </div>
           <div className="syzygy-edges" data-scroll>
             {EDGES.map(e => {
               const k = edgeKey(e), t = z.links[k] ?? 0, wgt = edgeWeight(z, e);
               return (
-                <div key={k} className={`syzygy-edge ${t ? 'on' : ''} ${wgt > 0 ? 'live' : ''}`}>
+                <div key={k} className={`syzygy-edge ${t ? 'on' : ''} ${wgt > 0 ? 'live' : ''} ${sel !== null && (e.a === sel || e.b === sel) ? 'cand' : ''}`}>
                   <span className="syzygy-pair">{e.a}·{e.b}</span>
                   <span className="syzygy-ename">{e.name} <small>{e.kind}</small></span>
                   <span className="syzygy-w">{t ? (wgt > 0 ? `x${(1 + 0.35 * wgt).toFixed(2)} ash` : 'dark end') : ''}{t > 1 ? ` ·${t}` : ''}</span>
-                  <button className="secondary" disabled={wiresFree(z) <= 0} onClick={() => run(s => routeEdge(s, k))} title="Lay a wire here (another braids it)">+</button>
-                  <button className="secondary" disabled={!t} onClick={() => run(s => cut(s, k))} title="Take a wire back">−</button>
+                  <button className="syzygy-pm add" disabled={wiresFree(z) <= 0} onClick={() => run(s => routeEdge(s, k))} title="Lay a wire here (another braids it)" aria-label="Lay a wire">+</button>
+                  <button className="syzygy-pm cut" disabled={!t} onClick={() => run(s => cut(s, k))} title="Take a wire back" aria-label="Take a wire back">−</button>
                 </div>
               );
             })}
@@ -345,7 +397,7 @@ function SyzygyRoom({ onClose }: { onClose: () => void }) {
               <span className="ch-stat"><b>{z.finds}</b> finds kept</span>
               <span className="ch-stat"><b>{(pilgrimSpeed(z) * 60).toFixed(2)}</b> rooms a minute</span>
               <span className="ch-stat dim">The map changes in {hm((z.night + 1) * NIGHT - z.clock)}</span>
-              <button onClick={() => run(buyLantern)} disabled={game.ash.lt(lc)}>A lantern for the pilgrim <span className="syzygy-cost">{fmt(lc)} ash</span></button>
+              <button className="syzygy-btn" onClick={() => run(buyLantern)} disabled={game.ash.lt(lc)}>A lantern for the pilgrim <span className="syzygy-cost">{fmt(lc)} ash</span></button>
             </div>
           </div>
           <p className="syzygy-quote">“The pilgrim goes down by themselves. What they bring back stays.”</p>
@@ -357,8 +409,8 @@ function SyzygyRoom({ onClose }: { onClose: () => void }) {
               <span className={`ch-stat ${totality(z) ? 'syzygy-hot' : ''}`}>{eclipseText(z)}</span>
               <span className="ch-stat">Totality: every zone <b>x{totalityMult(z).toFixed(2)}</b> for {hm(totalityLen(z))}, dreams x2</span>
               <div className="ch-row">
-                <button onClick={() => run(buyShade)} disabled={z.dreams < shadeCost(z)}>A shade <span className="syzygy-cost">{fmt(shadeCost(z))} dreams</span></button>
-                <button onClick={() => run(buyLens)} disabled={game.ash.lt(lens)}>A lens <span className="syzygy-cost">{fmt(lens)} ash</span></button>
+                <button className="syzygy-btn" onClick={() => run(buyShade)} disabled={z.dreams < shadeCost(z)}>A shade <span className="syzygy-cost">{fmt(shadeCost(z))} dreams</span></button>
+                <button className="syzygy-btn" onClick={() => run(buyLens)} disabled={game.ash.lt(lens)}>A lens <span className="syzygy-cost">{fmt(lens)} ash</span></button>
               </div>
               <span className="small-note dim">Shades hold totality longer. Lenses bring the next one sooner.</span>
             </div>
@@ -374,7 +426,7 @@ function SyzygyRoom({ onClose }: { onClose: () => void }) {
               ))}
               <span className={liveCurrents(z) >= GATE_CURRENTS ? 'ok' : ''}>{liveCurrents(z) >= GATE_CURRENTS ? '◆' : '◇'} Live currents <i>{liveCurrents(z)}/{GATE_CURRENTS}</i></span>
             </div>
-            <button className="max-all" disabled={!ready || z.dreams < gc.dreams || game.ash.lt(gc.ash)} onClick={() => run(openGate)}>
+            <button className="max-all syzygy-btn syzygy-gate" disabled={!ready || z.dreams < gc.dreams || game.ash.lt(gc.ash)} onClick={() => run(openGate)}>
               Open the gate · {fmt(gc.dreams)} dreams + {fmt(gc.ash)} ash
             </button>
           </>}

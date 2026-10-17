@@ -20,7 +20,6 @@ const RED: RGB = [255, 42, 42];
 const WHITE: RGB = [240, 236, 226];
 const mixc = (a: RGB, b: RGB, k: number): RGB => [0, 1, 2].map(i => Math.round(a[i] + (b[i] - a[i]) * k)) as RGB;
 const RAMP: RGB[] = [mixc(HUE, BG, 0.92), mixc(HUE, BG, 0.7), mixc(HUE, BG, 0.4), HUE, mixc(HUE, WHITE, 0.55)];
-const CELL = 8; // dither cells per map tile
 
 const hash = (a: number, b: number) => {
   let x = Math.imul(a ^ Math.imul(b, 0x27d4eb2d), 0x85ebca6b) >>> 0;
@@ -29,95 +28,140 @@ const hash = (a: number, b: number) => {
 };
 
 /** Footprints that are not ours: now and then a line of them crosses the field and fills in slowly. */
-function footprints(seed: number, clock: number): { x: number; y: number; k: number }[] {
+function footprints(seed: number, clock: number, cell: number): { x: number; y: number; k: number }[] {
   const WIN = 150, k = Math.floor(clock / WIN), into = clock - k * WIN;
   if (hash(seed, k) > 0.4) return [];
-  const w = MAP_W * CELL, h = MAP_H * CELL;
+  const w = MAP_W * cell, h = MAP_H * cell;
   const edge = (r: number, side: number): [number, number] =>
     side === 0 ? [r * w, -2] : side === 1 ? [w + 2, r * h] : side === 2 ? [r * w, h + 2] : [-2, r * h];
   const s0 = Math.floor(hash(seed, k * 3 + 1) * 4);
   const [ax, ay] = edge(hash(seed, k * 5 + 2), s0);
   const [bx, by] = edge(hash(seed, k * 7 + 3), (s0 + 2) % 4);
-  const len = Math.hypot(bx - ax, by - ay), n = Math.floor(len / 4);
-  const nx = -(by - ay) / len, ny = (bx - ax) / len;
+  const len = Math.hypot(bx - ax, by - ay), n = Math.floor(len / (cell / 2));
+  const nx = -(by - ay) / len, ny = (bx - ax) / len, sw = cell / 7;
   const walked = Math.min(1, into / 70), fade = into > 70 ? 1 - (into - 70) / (WIN - 70) : 1;
   const out: { x: number; y: number; k: number }[] = [];
   for (let j = 0; j < n * walked; j++) {
-    const t = j / n, side = j % 2 ? 1.2 : -1.2;
+    const t = j / n, side = j % 2 ? sw : -sw;
     out.push({ x: Math.round(ax + (bx - ax) * t + nx * side), y: Math.round(ay + (by - ay) * t + ny * side), k: fade * (0.6 + 0.4 * t) });
   }
   return out;
 }
 
-/** The snow map: how thick the ash falls, dithered, with the bore heads on it. Low fps, pauses off screen. */
-const SnowMap = memo(function SnowMap({ className, selected = -1, hover = -1, onTile, onHover }: {
-  className?: string; selected?: number; hover?: number; onTile?: (tile: number) => void; onHover?: (tile: number) => void;
+type Set = (x: number, y: number, col: RGB) => void;
+
+/** A bore head seen from above: a toothed collar, a two-flight auger turning inside it, a dark throat, and
+ *  one red lamp on the collar. `ghost` draws it half-dithered (where a head would go). */
+function drawHead(set: Set, cell: number, tx: number, ty: number, spin: number, lamp: boolean, ghost: boolean) {
+  const c = (cell - 1) / 2, R = cell / 2;
+  for (let y = 0; y < cell; y++) for (let x = 0; x < cell; x++) {
+    const dx = x - c, dy = y - c, r = Math.hypot(dx, dy) / R, a = Math.atan2(dy, dx);
+    if (r > 1.02) continue;
+    if (ghost && ((x + y) & 1)) continue;
+    let col: RGB;
+    if (r > 0.74) col = Math.floor((a + Math.PI) / (Math.PI / 4)) % 2 && r > 0.88 ? RAMP[2] : WHITE; // collar with teeth
+    else if (r < 0.24) col = BG; // the throat
+    else {
+      const ph = ((a + spin - r * 4.2) / Math.PI) % 1; // two flights, wound inward
+      const f = ph < 0 ? ph + 1 : ph;
+      col = f < 0.3 ? RAMP[4] : f < 0.42 ? RAMP[2] : BG;
+    }
+    set(tx + x, ty + y, col);
+  }
+  if (lamp && !ghost) { const lx = tx + Math.round(c), ly = ty; set(lx, ly, RED); set(lx + (cell > 9 ? 1 : 0), ly, RED); if (cell > 12) { set(lx, ly + 1, RED); set(lx + 1, ly + 1, RED); } }
+}
+
+/** The first bore, at the middle of the field: the same collar, wider and doubled, braced with four struts,
+ *  and a red lamp down the throat instead of a bit. */
+function drawBore(set: Set, cell: number, bx: number, by: number, t: number) {
+  const R = cell * 0.95;
+  const n = Math.ceil(R) + 1;
+  for (let y = -n; y < n; y++) for (let x = -n; x < n; x++) {
+    const dx = x + 0.5, dy = y + 0.5, r = Math.hypot(dx, dy) / R, a = Math.atan2(dy, dx);
+    if (r > 1.02) continue;
+    let col: RGB | null = null;
+    if (r > 0.86) col = ((x + y) & 1) ? RAMP[4] : BG; // dotted outer ring
+    else if (r > 0.76) col = BG;
+    else if (r > 0.6) col = Math.floor((a + Math.PI) / (Math.PI / 6)) % 2 ? RAMP[2] : WHITE; // the collar
+    else if (r < 0.26) col = r < 0.15 || Math.floor(t * 1.5) % 2 ? RED : mixc(RED, BG, 0.6); // the lamp
+    else col = (Math.abs(dx) < 0.9 || Math.abs(dy) < 0.9) ? WHITE : BG; // struts
+    set(bx + x, by + y, col);
+  }
+}
+
+/** The snow map: how thick the ash falls, dithered, with the bore heads on it. Low fps, pauses off screen.
+ *  `grid` draws every tile edge (while picking a tile); `ghost` previews a head under the hover. */
+const SnowMap = memo(function SnowMap({ className, cell = 10, selected = -1, hover = -1, grid = false, ghost = false, onTile, onHover }: {
+  className?: string; cell?: number; selected?: number; hover?: number; grid?: boolean; ghost?: boolean;
+  onTile?: (tile: number) => void; onHover?: (tile: number) => void;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const live = useRef({ selected, hover });
-  live.current = { selected, hover };
+  const live = useRef({ selected, hover, grid, ghost });
+  live.current = { selected, hover, grid, ghost };
   useEffect(() => {
     const c = ref.current!;
     const g = c.getContext('2d')!;
+    const CELL = cell;
     const w = MAP_W * CELL, h = MAP_H * CELL;
     const img = g.createImageData(w, h);
     const d = img.data;
     const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     let raf = 0, last = -1e9, visible = true;
-    const set = (x: number, y: number, col: RGB) => {
+    const set: Set = (x, y, col) => {
       if (x < 0 || y < 0 || x >= w || y >= h) return;
       const i = (y * w + x) * 4;
       d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
     };
-    const draw = (ms: number) => {
-      if (ms - last >= 1000 / 8) {
-        last = ms;
-        const v = useGame.getState().game.challenges.survey;
-        const t = ms / 1000;
-        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-          const dn = density(v.seed, v.clock, (x + 0.5) / CELL - 0.5, (y + 0.5) / CELL - 0.5);
-          let b = Math.min(1, (dn - 0.25) / 1.5) * 0.85 + 0.05;
-          // falling flakes, thicker where the ash is thicker
-          if (hash(x * 131 + Math.floor(y - t * 6) * 7, 99) < 0.012 * dn) b += 0.45;
-          const edge = (x % CELL === 0 || y % CELL === 0) && ((x + y) & 1) === 0;
-          if (edge) b = Math.max(b, 0.22);
-          const lv = Math.max(0, Math.min(RAMP.length - 1, b * (RAMP.length - 1)));
-          const lo = Math.floor(lv);
-          set(x, y, RAMP[Math.min(RAMP.length - 1, lo + (lv - lo > threshold(x, y) ? 1 : 0))]);
-        }
-        // the bore and its lamp, at the middle of the field
-        const bx = w / 2, by = h / 2;
-        for (let y = -3; y <= 3; y++) for (let x = -3; x <= 3; x++) {
-          const r = Math.hypot(x, y);
-          if (r < 1.6) set(bx + x, by + y, BG);
-          else if (r < 3.2 && ((x + y) & 1) === 0) set(bx + x, by + y, RAMP[4]);
-        }
-        for (const p of footprints(v.seed, v.clock)) if (p.k > threshold(p.x, p.y)) { set(p.x, p.y, RED); set(p.x + 1, p.y, RED); }
-        const { selected: sel, hover: hov } = live.current;
-        const frame = (tile: number, col: RGB, dash: boolean) => {
-          const x0 = (tile % MAP_W) * CELL, y0 = Math.floor(tile / MAP_W) * CELL;
-          for (let k = 0; k < CELL; k++) {
-            if (dash && k % 2) continue;
-            set(x0 + k, y0, col); set(x0 + k, y0 + CELL - 1, col); set(x0, y0 + k, col); set(x0 + CELL - 1, y0 + k, col);
-          }
-        };
-        for (const tile of v.heads) {
-          // a derrick filling its tile: a dark pad, a white A-frame, a red lamp blinking on top
-          const tx = (tile % MAP_W) * CELL, ty = Math.floor(tile / MAP_W) * CELL;
-          for (let y = 0; y < CELL; y++) for (let x = 0; x < CELL; x++) set(tx + x, ty + y, BG);
-          const x0 = tx + 4;
-          for (let k = 0; k < 7; k++) { set(x0 - Math.floor(k / 2), ty + 1 + k, WHITE); set(x0 + Math.floor(k / 2), ty + 1 + k, WHITE); }
-          for (let x = -2; x <= 2; x++) set(x0 + x, ty + 5, WHITE);
-          set(x0, ty + 7, RAMP[2]);
-          if (Math.floor(t * 2 + tile) % 3) set(x0, ty, RED);
-        }
-        if (hov >= 0) frame(hov, RAMP[4], true);
-        if (sel >= 0 && Math.floor(t * 3) % 2 === 0) frame(sel, RED, false);
-        g.putImageData(img, 0, 0);
+    const flake = CELL / 8;
+    const paint = (ms: number) => {
+      const v = useGame.getState().game.challenges.survey;
+      const t = ms / 1000;
+      const { selected: sel, hover: hov, grid: showGrid, ghost: showGhost } = live.current;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const dn = density(v.seed, v.clock, (x + 0.5) / CELL - 0.5, (y + 0.5) / CELL - 0.5);
+        let b = Math.min(1, (dn - 0.25) / 1.5) * 0.85 + 0.05;
+        // falling flakes, thicker where the ash is thicker
+        if (hash(Math.floor(x / flake) * 131 + Math.floor(y / flake - t * 6) * 7, 99) < 0.012 * dn) b += 0.45;
+        const onEdge = x % CELL === 0 || y % CELL === 0;
+        if (onEdge && showGrid) { set(x, y, (x + y) & 1 ? BG : RAMP[4]); continue; } // a dotted grid that reads on light and dark snow
+        if (onEdge && ((x + y) & 1) === 0) b = Math.max(b, 0.22);
+        const lv = Math.max(0, Math.min(RAMP.length - 1, b * (RAMP.length - 1)));
+        const lo = Math.floor(lv);
+        set(x, y, RAMP[Math.min(RAMP.length - 1, lo + (lv - lo > threshold(x, y) ? 1 : 0))]);
       }
+      drawBore(set, CELL, w / 2, h / 2, t);
+      for (const p of footprints(v.seed, v.clock, CELL)) if (p.k > threshold(p.x, p.y)) {
+        const s = Math.max(1, Math.round(CELL / 8));
+        for (let yy = 0; yy < s; yy++) for (let xx = 0; xx <= s; xx++) set(p.x + xx, p.y + yy, RED);
+      }
+      const frame = (tile: number, col: RGB, dash: boolean, inset = 0) => {
+        const x0 = (tile % MAP_W) * CELL + inset, y0 = Math.floor(tile / MAP_W) * CELL + inset, n = CELL - inset * 2;
+        for (let k = 0; k < n; k++) {
+          if (dash && k % 2) continue;
+          set(x0 + k, y0, col); set(x0 + k, y0 + n - 1, col); set(x0, y0 + k, col); set(x0 + n - 1, y0 + k, col);
+        }
+      };
+      if (hov >= 0 && !v.heads.includes(hov)) {
+        // light the hovered tile: lift its snow a step, then a solid double frame
+        const x0 = (hov % MAP_W) * CELL, y0 = Math.floor(hov / MAP_W) * CELL;
+        for (let y = 1; y < CELL - 1; y++) for (let x = 1; x < CELL - 1; x++) if (((x + y) & 3) === 0) set(x0 + x, y0 + y, RAMP[3]);
+        if (showGhost) drawHead(set, CELL, x0, y0, t * 1.5, false, true);
+      }
+      for (const tile of v.heads) {
+        const tx = (tile % MAP_W) * CELL, ty = Math.floor(tile / MAP_W) * CELL;
+        drawHead(set, CELL, tx, ty, still ? tile : t * 1.5 + tile, Math.floor(t * 2 + tile) % 3 !== 0, false);
+      }
+      if (hov >= 0) { frame(hov, WHITE, false); if (CELL >= 12) frame(hov, RAMP[3], false, 1); }
+      if (sel >= 0 && Math.floor(t * 3) % 2 === 0) { frame(sel, RED, false); if (CELL >= 12) frame(sel, RED, false, 1); }
+      g.putImageData(img, 0, 0);
+    };
+    const draw = (ms: number) => {
+      if (ms - last >= 1000 / 8) { last = ms; paint(ms); }
       if (visible && !still) raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
+    // when still, repaint on hover / pick changes only
+    const poke = still ? setInterval(() => paint(performance.now()), 250) : undefined;
     let io: IntersectionObserver | undefined;
     if (typeof IntersectionObserver === 'function') {
       io = new IntersectionObserver(([e]) => {
@@ -127,15 +171,15 @@ const SnowMap = memo(function SnowMap({ className, selected = -1, hover = -1, on
       });
       io.observe(c);
     }
-    return () => { cancelAnimationFrame(raf); io?.disconnect(); };
-  }, []);
+    return () => { cancelAnimationFrame(raf); clearInterval(poke); io?.disconnect(); };
+  }, [cell]);
   const tileAt = (e: RPointerEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     const x = Math.floor((e.clientX - r.left) / r.width * MAP_W), y = Math.floor((e.clientY - r.top) / r.height * MAP_H);
     return x >= 0 && y >= 0 && x < MAP_W && y < MAP_H ? y * MAP_W + x : -1;
   };
   return (
-    <canvas ref={ref} width={MAP_W * CELL} height={MAP_H * CELL} className={`survey-map ${className ?? ''}`} data-nodrag
+    <canvas ref={ref} width={MAP_W * cell} height={MAP_H * cell} className={`survey-map ${className ?? ''}`} data-nodrag
       onPointerDown={onTile ? e => { const t = tileAt(e); if (t >= 0) onTile(t); } : undefined}
       onPointerMove={onHover ? e => onHover(tileAt(e)) : undefined}
       onPointerLeave={onHover ? () => onHover(-1) : undefined} />
@@ -267,28 +311,43 @@ function Field() {
     if (placing && afford) { run(s => placeHead(s, t)); setPlacing(false); }
   };
   const info = hover >= 0 ? hover : sel;
+  const picking = sel >= 0 || (placing && afford);
   return (
-    <section className="survey-field">
-      <div className="survey-cap">"WHERE IT FALLS THICKEST"</div>
-      <div className="survey-frame"><SnowMap className="big" selected={sel} hover={hover} onTile={onTile} onHover={setHover} /></div>
-      <div className="ch-row">
-        <button className={placing ? '' : 'secondary'} disabled={!afford} onClick={() => { setPlacing(!placing); setSel(-1); }}>
-          {placing ? 'Pick a tile' : 'Buy a bore head'} ({fmt(cost)} ash)
-        </button>
-        <span className="ch-stat">Heads <b>{v.heads.length}</b></span>
-        <span className="ch-stat">Survey <b>+{fmt(surveyRate(game))}/s</b></span>
-      </div>
-      <p className="survey-note">
-        {info >= 0
-          ? `Tile ${info % MAP_W + 1},${Math.floor(info / MAP_W) + 1}: the snow falls ${tileDensity(game, info).toFixed(2)} thick here.`
-          : sel >= 0 ? 'Pick an empty tile to move the head.' : 'Heads pay by how thick it falls on their tile. The drifts wander. Moving a head is free.'}
-      </p>
-      <div className="ch-row">
-        <span className="ch-stat">Surveyed <b>{fmt(v.surveyed)}</b></span>
-        <span className="ch-stat">Shallow Bores <b>x{zoneBonus(v).toFixed(2)}</b></span>
-        <span className="ch-stat">ash <b>x{surveyAsh(v).toFixed(2)}</b></span>
-      </div>
-    </section>
+    <div className="survey-room-grid">
+      <section className="survey-field">
+        <div className="survey-cap">"WHERE IT FALLS THICKEST"</div>
+        <div className={`survey-frame${picking ? ' survey-picking' : ''}`}>
+          <SnowMap className="big" cell={16} selected={sel} hover={hover} grid={picking} ghost={placing && afford && sel < 0}
+            onTile={onTile} onHover={setHover} />
+        </div>
+      </section>
+      <aside className="survey-aside">
+        <section className="survey-controls">
+          <div className="ch-row">
+            <button className={placing ? '' : 'secondary'} disabled={!afford} onClick={() => { setPlacing(!placing); setSel(-1); }}>
+              {placing ? 'Pick a tile' : 'Buy a bore head'} ({fmt(cost)} ash)
+            </button>
+          </div>
+          <div className="ch-row">
+            <span className="ch-stat">Heads <b>{v.heads.length}</b></span>
+            <span className="ch-stat">Survey <b>+{fmt(surveyRate(game))}/s</b></span>
+          </div>
+          <p className="survey-note survey-tile-note">
+            {info >= 0
+              ? `Tile ${info % MAP_W + 1},${Math.floor(info / MAP_W) + 1}: the snow falls ${tileDensity(game, info).toFixed(2)} thick here.`
+              : sel >= 0 ? 'Pick an empty tile to move the head.'
+              : placing && afford ? 'Pick a tile for the head.'
+              : 'Heads pay by how thick it falls on their tile. The drifts wander. Moving a head is free.'}
+          </p>
+          <div className="ch-row">
+            <span className="ch-stat">Surveyed <b>{fmt(v.surveyed)}</b></span>
+            <span className="ch-stat">Bores <b>x{zoneBonus(v).toFixed(2)}</b></span>
+            <span className="ch-stat">ash <b>x{surveyAsh(v).toFixed(2)}</b></span>
+          </div>
+        </section>
+        <CoreBench />
+      </aside>
+    </div>
   );
 }
 
@@ -299,10 +358,7 @@ function SurveyRoom({ onClose }: { onClose: () => void }) {
   return (
     <ChallengeRoom zone={ZONE} title="The Survey" note="a hole in the snow, and what it catches" onClose={onClose}
       stat={<>cores x{coreMult(v).toFixed(2)} ash · bores x{zoneBonus(v).toFixed(2)}</>} className="survey-room">
-      <div className="survey-room-grid">
-        <CoreBench />
-        <Field />
-      </div>
+      <Field />
     </ChallengeRoom>
   );
 }
@@ -317,7 +373,7 @@ export function SurveyPanel() {
   return (
     <div className="survey-inline">
       <figure className="survey-fig">
-        <div className="survey-frame"><SnowMap /></div>
+        <div className="survey-frame"><SnowMap cell={12} /></div>
         <figcaption className="survey-cap">"ONE LAMP. IT CATCHES WHAT FALLS"</figcaption>
       </figure>
       <div className="survey-side">

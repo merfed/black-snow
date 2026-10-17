@@ -80,12 +80,19 @@ export function DreamEnginePanel() {
         {de.slots.map((id, i) => {
           if (i >= de.slotCount) {
             const cost = SLOT_NUL[i];
-            return <button key={i} className="dream-bed locked" disabled={game.citadel.nul < cost} onClick={() => run(s => openDreamSlot(s))}>Make up another bed <small>{fmt(cost)} nul</small></button>;
+            return (
+              <button key={i} className="dream-bed knots locked" disabled={game.citadel.nul < cost} onClick={() => run(s => openDreamSlot(s))}>
+                <Cot />
+                <span>Make up another bed</span><small>{fmt(cost)} nul</small>
+              </button>
+            );
           }
           const def = id ? DREAMS[id] : null;
           return (
-            <button key={i} className={`dream-bed ${id && act.includes(id) ? 'on' : ''} ${pick === i ? 'picking' : ''}`} onClick={() => setPick(pick === i ? null : i)}>
-              {def ? <><b>{def.name}</b><small>holds back {pct(dreamWard(game, def.id))}</small></> : <small>An empty bed. Choose a dream.</small>}
+            <button key={i} className={`dream-bed knots ${id && act.includes(id) ? 'on' : ''} ${pick === i ? 'picking' : ''}`} onClick={() => setPick(pick === i ? null : i)}
+              aria-label={def ? `Bed ${i + 1}: ${def.name}` : `Bed ${i + 1}: empty`}>
+              <Cot sleeper={!!def} burning={!!id && act.includes(id)} />
+              {def ? <><b>{def.name}</b><small>holds back {pct(dreamWard(game, def.id))}</small></> : <><span>Empty</span><small>choose a dream</small></>}
             </button>
           );
         })}
@@ -116,6 +123,27 @@ export function DreamEnginePanel() {
       </div>
       <p className="dim small-note">{fmt(de.burned)} dreams burned{de.badClicked ? ` · ${de.badClicked} bad ashes touched` : ''}{de.omensCaught ? ` · ${de.omensCaught} bright flakes caught` : ''}.</p>
     </section>
+  );
+}
+
+/** A pixel iron cot, someone on it if the bed is taken, the dream rising off them while it burns. */
+function Cot({ sleeper = false, burning = false }: { sleeper?: boolean; burning?: boolean }) {
+  return (
+    <svg className={`cot ${burning ? 'burning' : ''}`} viewBox="0 0 32 16" width="96" height="48" shapeRendering="crispEdges" aria-hidden="true">
+      <rect x="2" y="9" width="28" height="2" fill="currentColor" opacity="0.8" />
+      <rect x="2" y="4" width="2" height="11" fill="currentColor" />
+      <rect x="28" y="7" width="2" height="8" fill="currentColor" />
+      <rect x="4" y="12" width="24" height="1" fill="currentColor" opacity="0.35" />
+      {sleeper && <>
+        <rect x="5" y="6" width="4" height="3" fill="currentColor" opacity="0.95" />
+        <rect x="9" y="7" width="17" height="2" fill="currentColor" opacity="0.7" />
+      </>}
+      {burning && <>
+        <rect className="cot-wisp w1" x="7" y="3" width="1" height="1" fill="var(--accent-ink)" />
+        <rect className="cot-wisp w2" x="9" y="1" width="1" height="1" fill="var(--accent-ink)" />
+        <rect className="cot-wisp w3" x="6" y="0" width="1" height="1" fill="var(--accent-ink)" />
+      </>}
+    </svg>
   );
 }
 

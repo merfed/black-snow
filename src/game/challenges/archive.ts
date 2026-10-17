@@ -26,6 +26,7 @@ export interface ArchiveState {
 }
 
 export const SHELF_BASE = 3;
+export const SHELF_MAX = 32; // the shelf never holds more tapes than this
 export const RECORD_MIN = 0.6; // a slot must match at least this to be worth recording
 export const GOLD_AT = 0.98;
 export const GOLD_MULT = 2;
@@ -51,7 +52,8 @@ export function ahash(seed: number, n: number) {
 
 // ---------- tapes ----------
 
-export const shelfSize = (s: GameState) => SHELF_BASE + at(s).space;
+export const shelfSize = (s: GameState) => Math.min(SHELF_MAX, SHELF_BASE + at(s).space);
+export const shelfFull = (s: GameState) => shelfSize(s) >= SHELF_MAX;
 /** The share of a live lock's bonus a tape keeps paying. Grows with tape stock, tapering. */
 export const tapeShare = (s: GameState) => 0.35 * Math.sqrt(1 + 0.5 * at(s).stock);
 const tapeWeight = (t: Tape) => Math.pow(t.q, 4) * (t.gold ? GOLD_MULT : 1);
@@ -107,6 +109,7 @@ export const shelfCost = (s: GameState) => Decimal.max(1e15, passiveRate(s).mul(
 export const stockCost = (s: GameState) => Decimal.max(1e15, passiveRate(s).mul(600 * Math.pow(1.8, at(s).stock))).floor();
 
 export function buyShelf(s: GameState): boolean {
+  if (shelfFull(s)) return false;
   const c = shelfCost(s);
   if (s.ash.lt(c)) return false;
   s.ash = s.ash.sub(c);
@@ -179,6 +182,9 @@ export const albumMult = (s: GameState) => 1 + 0.5 * Math.pow(albumSets(s), 0.7)
 function step(s: GameState, dt: number) {
   const a = at(s);
   a.clock += dt;
+  // Old saves may carry more than the shelf holds: keep the best, let the rest go.
+  if (a.space > SHELF_MAX - SHELF_BASE) a.space = SHELF_MAX - SHELF_BASE;
+  if (a.shelf.length > SHELF_MAX) a.shelf = a.shelf.slice(0, SHELF_MAX);
   a.freshLeft = Math.max(0, a.freshLeft - dt);
 
   a.frameProg += frameRate(s) * dt;

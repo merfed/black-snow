@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { newGame } from '../state';
 import { CHALLENGES } from './index';
 import {
-  buyLantern, buyLens, buyShade, buyWire, chapters, cut, darkLen, dreamMap, EDGES, edgeKey, gateReady, liveCurrents, openGate,
-  PAGES_PER_CHAPTER, refreshNodes, ROOMS, routeEdge, syzygy, TAPE13, totality, wireCost, wiresFree,
+  buyLantern, buyLens, buyShade, buyWire, chapters, cut, darkLen, dreamMap, EDGES, edgeKey, gateReady, liveCurrents, neighbours, openGate,
+  PAGES_PER_CHAPTER, refreshNodes, ROOMS, routeEdge, syzygy, TAPE13, toggle, totality, wireCost, wiresFree,
 } from './syzygy';
 
 const others = CHALLENGES.filter(c => c.id !== 'syzygy');
@@ -166,5 +166,19 @@ describe('syzygy', () => {
     const ash = syzygy.mult(s, 'ash');
     expect(ash).toBeGreaterThan(3);
     expect(ash).toBeLessThan(12);
+  });
+
+  it('touching two nodes lays a wire, touching them again takes it back', () => {
+    const s = late();
+    const z = s.challenges.syzygy;
+    expect(neighbours(8).sort()).toEqual([1, 7, 9]);
+    expect(toggle(s, 3, 9)).toBe(false); // no route between them
+    expect(toggle(s, 1, 8)).toBe(true);
+    expect(z.links[key(8, 1)]).toBe(1);
+    expect(wiresFree(z)).toBe(0);
+    expect(toggle(s, 2, 7)).toBe(false); // no wire left
+    expect(toggle(s, 8, 1)).toBe(true);
+    expect(z.links[key(8, 1)]).toBeUndefined();
+    expect(wiresFree(z)).toBe(1);
   });
 });
