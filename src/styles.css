@@ -1070,3 +1070,69 @@ body:has(.warm-flake.rarity-4) .crt { background: radial-gradient(circle at cent
 .shop-owned { font-family: var(--font-ui); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
 .shop-tape button { padding: 4px 8px; font-size: 12px; }
 .chip.dormant { opacity: 0.45; text-decoration: line-through; }
+
+/* ---------- dithered plates ---------- */
+
+:root {
+  /* A square knot in an 8x8 grid, used as a mask for frame corners. */
+  --knot: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'%3E%3Cpath fill-rule='evenodd' d='M0 0h8v8H0zM1 1v6h6V1zM2 2h4v4H2zM3 3v2h2V3z'/%3E%3C/svg%3E");
+}
+.knots::after {
+  content: ''; position: absolute; inset: -1px; pointer-events: none; background: var(--ink, var(--hue));
+  -webkit-mask: var(--knot) 0 0 / 16px 16px no-repeat, var(--knot) 100% 0 / 16px 16px no-repeat, var(--knot) 0 100% / 16px 16px no-repeat, var(--knot) 100% 100% / 16px 16px no-repeat;
+  mask: var(--knot) 0 0 / 16px 16px no-repeat, var(--knot) 100% 0 / 16px 16px no-repeat, var(--knot) 0 100% / 16px 16px no-repeat, var(--knot) 100% 100% / 16px 16px no-repeat;
+}
+.artwork { margin: 0; }
+.artwork-frame {
+  position: relative; padding: 6px; background: var(--plate-bg);
+  border: 1px solid color-mix(in srgb, var(--ink) 75%, transparent);
+  box-shadow: inset 0 0 0 3px var(--plate-bg), inset 0 0 0 4px color-mix(in srgb, var(--ink) 40%, transparent);
+}
+.plate { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+.artwork figcaption {
+  font-family: 'MEK Mono', var(--font-ui); font-size: 15px; letter-spacing: 0.18em; text-transform: uppercase; text-align: center;
+  color: var(--ink); opacity: 0.85; margin-top: 10px; line-height: 1.6; text-wrap: balance;
+}
+
+/* ---------- zone boxes, printed ---------- */
+
+/* Each zone is a plate in a double frame: hue ink on near-black, knotted corners, a dotted rule. */
+.panel.zone-panel {
+  --ink: var(--hue);
+  background: color-mix(in srgb, var(--hue) 5%, color-mix(in srgb, var(--bg) 88%, transparent));
+  border: 1px solid color-mix(in srgb, var(--hue) 60%, transparent);
+  padding: 22px 20px 20px;
+}
+.panel.zone-panel::before {
+  content: ''; position: absolute; inset: 4px; pointer-events: none;
+  --fr: color-mix(in srgb, var(--hue) 32%, transparent);
+  background:
+    linear-gradient(var(--fr), var(--fr)) 12px 0 / calc(100% - 24px) 1px no-repeat,
+    linear-gradient(var(--fr), var(--fr)) 12px 100% / calc(100% - 24px) 1px no-repeat,
+    linear-gradient(var(--fr), var(--fr)) 0 12px / 1px calc(100% - 24px) no-repeat,
+    linear-gradient(var(--fr), var(--fr)) 100% 12px / 1px calc(100% - 24px) no-repeat;
+}
+.panel.zone-panel.affordable { border-color: var(--hue); }
+.panel.zone-panel > h2 { font-family: 'MEK Mono', var(--font-ui); font-size: 15px; letter-spacing: 0.22em; margin-bottom: 14px; }
+.panel.zone-panel > h2::before { box-shadow: none; width: 6px; height: 6px; }
+.zone-art { margin: 0 0 16px; }
+.zone-art .artwork-frame { border-color: color-mix(in srgb, var(--hue) 45%, transparent); }
+.zone-panel .zone-lore { text-align: center; margin: 0 0 12px; }
+.zone-panel .zone-head { padding-bottom: 12px; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--hue) 45%, transparent) 0 2px, transparent 2px 5px) bottom / 100% 1px no-repeat; margin-bottom: 12px; }
+.zone-panel .zone-amount { color: var(--hue); }
+
+/* Dithered pips: empty ones are a 1px checker of the ink, full ones solid. */
+.zone-panel .pips span:not(.pips-label) { height: 6px; background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 45%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; }
+.zone-panel .pips span.on { background: var(--hue); box-shadow: 0 0 6px color-mix(in srgb, var(--hue) 50%, transparent); }
+
+.zone-panel button.dig { border-color: var(--hue); color: var(--hue); }
+.zone-panel button.dig:hover:not(:disabled) { background: var(--hue); color: #05060b; box-shadow: 0 0 16px color-mix(in srgb, var(--hue) 35%, transparent); }
+.zone-panel button.secondary, .zone-panel button.max-all { border-style: dashed; border-color: color-mix(in srgb, var(--hue) 45%, transparent); }
+.zone-panel button.secondary:hover:not(:disabled), .zone-panel button.max-all:hover:not(:disabled) {
+  color: var(--hue); background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 18%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+}
+.zone-panel .zone-ups { border-top: 0; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--hue) 45%, transparent) 0 2px, transparent 2px 5px) top / 100% 1px no-repeat; }
+.zone-panel .card { background: color-mix(in srgb, var(--hue) 4%, rgba(0, 0, 0, 0.4)); }
+.zone-panel .card-head { background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 16%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; }
+.panel.zone-teaser { opacity: 0.75; border-style: dashed; }
+.decor .artwork { pointer-events: none; }

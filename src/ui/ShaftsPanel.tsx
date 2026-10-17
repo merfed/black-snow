@@ -17,6 +17,21 @@ import { useGame } from '../game/store';
 import { ZONE_UP_SLOTS } from '../game/systems';
 import { Sprite } from './Sprite';
 import { ZONE_ICONS } from './sprites';
+import { Artwork } from './Artwork';
+import { ZONE_SCENES } from './scenes';
+
+/** What each zone's plate says under it, and the second ink it is printed with. */
+const ZONE_ART = [
+  { caption: '"What falls, we keep."', accent: '#ff3030' },
+  { caption: '"The pipes carry something up."', accent: '#ff3030' },
+  { caption: '"It remembers your face wrong."', accent: '#ff3030' },
+  { caption: '"The water is warm. Do not drink."', accent: '#ff5a3b' },
+  { caption: '"Each turn lets one out."', accent: '#ff3030' },
+  { caption: '"Left, forever, and above itself."', accent: '#ffe066' },
+  { caption: '"It writes us in its sleep."', accent: '#ff3030' },
+  { caption: '"The walls speak in your voice."', accent: '#ff3030' },
+  { caption: '"Into the iron, dreaming."', accent: '#3bd8ff' },
+];
 
 const HELP_KEY = 'black-snow-shaft-help';
 
@@ -77,7 +92,7 @@ export function ZonePanel({ i }: { i: number }) {
   const above = i > 0 ? ZONES[i - 1].name : '';
 
   return (
-    <section className={`panel zone-panel framed reveal ${afford ? 'affordable' : ''}`} data-panel={`zone-${i}`}
+    <section className={`panel zone-panel knots reveal ${afford ? 'affordable' : ''}`} data-panel={`zone-${i}`}
       style={{ '--hue': hue } as CSSProperties}>
       <h2>
         <span className="zone-num">{def.id}</span> Zone {def.id}
@@ -85,6 +100,8 @@ export function ZonePanel({ i }: { i: number }) {
           <button className="help-toggle" onClick={() => setHow(h => !h)} aria-expanded={how}>{how ? 'hide' : 'how it works'}</button>
         )}
       </h2>
+
+      <Artwork scene={ZONE_SCENES[i]} ink={hue} accent={ZONE_ART[i].accent} caption={ZONE_ART[i].caption} className="zone-art" />
 
       <div className="zone-head">
         <Sprite rows={ZONE_ICONS[i]} px={4} className="zone-icon" />
@@ -158,9 +175,9 @@ export function ZoneTeaser({ i }: { i: number }) {
   const game = useGame(st => st.game);
   const above = ZONES[i - 1];
   return (
-    <section className="panel zone-panel zone-teaser" data-panel={`zone-${i}`} style={{ '--hue': ZONE_COLORS[i] } as CSSProperties}>
+    <section className="panel zone-panel zone-teaser knots" data-panel={`zone-${i}`} style={{ '--hue': ZONE_COLORS[i] } as CSSProperties}>
       <h2><span className="zone-num">{i + 1}</span> Zone {i + 1}</h2>
-      <div className="zone-name">? ? ?</div>
+      <Artwork scene={ZONE_SCENES[i]} ink={ZONE_COLORS[i]} accent={ZONE_ART[i].accent} veil={0.82} caption="? ? ?" className="zone-art" />
       <p className="zone-desc">Opens at 5 {above.name}s ({game.zones[i - 1].bought}/5). It will dig {above.name}s.</p>
     </section>
   );

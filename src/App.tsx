@@ -18,6 +18,8 @@ import { KilnPanel, StationPanel } from './ui/SidePanels';
 import { Snowfall } from './ui/Snowfall';
 import { Sprite } from './ui/Sprite';
 import { TOWER } from './ui/sprites';
+import { Artwork } from './ui/Artwork';
+import { SCENES } from './ui/scenes';
 import { TopBar } from './ui/TopBar';
 import { WarmFlake } from './ui/WarmFlake';
 import { WeatherFx } from './ui/WeatherFx';
@@ -65,6 +67,9 @@ export function App() {
     { id: 'tower', x: -1560, y: 40, w: 180, decor: true, content: <Sprite rows={TOWER} px={10} className="decor-tower" /> },
     // Lull itself, past the last shaft: a dead town that gets more lit the deeper you go.
     { id: 'town', x: 1580, y: 60, w: 520, decor: true, content: <Scenery depth={game.zonesOpened} /> },
+    // Two plates hung on the floor: the mast's keeper under the tower, and Lull from the road under the town.
+    { id: 'keeper', x: -1620, y: 470, w: 300, decor: true, content: <Artwork scene={SCENES.keeper} ink="#7fd6c2" accent="#ff3030" caption='"The mast hears you back."' /> },
+    { id: 'lull', x: 1640, y: 560, w: 440, decor: true, content: <Artwork scene={SCENES.lull} ink="#b9a8ff" accent="#ffcf6b" caption='"Lull was a town once. The lights still come on."' /> },
     { id: 'far', x: -1160, w: 420, content: <>{show('station') && <StationPanel />}{show('egg') && <NurseryPanel />}</> },
     { id: 'left', x: -700, w: 450, content: <>{show('instruments') && <InstrumentsPanel />}{show('kiln') && <KilnPanel />}</> },
     { id: 'center', x: -210, w: 420, content: <><AshPanel /><TvPanel /><ShopPanel />{show('dial') && <DialPanel />}{show('rites') && <RitesPanel />}</> },
