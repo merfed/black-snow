@@ -304,11 +304,35 @@ export function ArchivePanel() {
 
 // ---------- room ----------
 
+/** Shelves of the rack: spines per plank. Three planks hold the whole 32. */
+const PER_PLANK = 11;
+
+/** A cassette spine on the rack: label strip, a quality gauge, gold if it locked true. */
+function RackSpine({ t, sel, onPick }: { t: Tape; sel: boolean; onPick: () => void }) {
+  return (
+    <button className={`ar-spine${t.gold ? ' gold' : ''}${sel ? ' sel' : ''}`} onClick={onPick} aria-pressed={sel}
+      title={`${name(t.target)} · ${Math.round(t.q * 100)}%${t.gold ? ' · gold label' : ''}`}>
+      <span className="ar-spine-label">{t.target.slice(0, 3).toUpperCase()}</span>
+      <span className="ar-spine-q" style={{ height: `${Math.round(t.q * 100)}%` }} />
+    </button>
+  );
+}
+
+/** Two tape reels in a cassette window; they turn while the slot holds something worth recording. */
+function Reels({ turning }: { turning: boolean }) {
+  return (
+    <span className={`ar-reels${turning ? ' turning' : ''}`} aria-hidden>
+      <i /><span className="ar-reel-tape" /><i />
+    </span>
+  );
+}
+
 function ArchiveRoom({ onClose }: { onClose: () => void }) {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
   const run = useGame(st => st.run);
   const [view, setView] = useState<PatternTarget | null>(null);
+  const [pick, setPick] = useState<number | null>(null);
   const a = game.challenges.archive;
   const size = shelfSize(game);
   const sets = albumSets(game);
@@ -324,10 +348,13 @@ function ArchiveRoom({ onClose }: { onClose: () => void }) {
   }, [a.recent]);
   const shown = view && a.channels.includes(view) ? view : (a.channels[0] as PatternTarget | undefined) ?? null;
   const shelfAt = shelfFull(game);
+  const picked = a.shelf.find(t => t.id === pick) ?? null;
+  const planks = Math.ceil(SHELF_MAX / PER_PLANK);
+  const share = Math.round(tapeShare(game) * 100);
   const status = (
     <RoomStatus
       stats={[
-        { label: 'Shelf', value: `${a.shelf.length}/${size}`, rate: `pays ${Math.round(tapeShare(game) * 100)}%`, title: 'Tapes on the shelf, and the share of a live lock each keeps paying' },
+        { label: 'Shelf', value: `${a.shelf.length}/${size}`, rate: `pays ${share}%`, title: 'Tapes on the shelf, and the share of a live lock each keeps paying' },
         { label: 'Blank reels', value: a.blanks, rate: a.blanks < BLANK_CAP ? `next ${fmtTime((1 - a.blankProg) * BLANK_EVERY)}` : 'full',
           title: `A blank reel comes every ${BLANK_EVERY / 60} minutes, up to ${BLANK_CAP}. Each tape uses one.` },
         { label: 'Frames', value: fmt(a.frames), rate: `~${fmt(perHour)}/h` },
@@ -344,59 +371,139 @@ function ArchiveRoom({ onClose }: { onClose: () => void }) {
   return (
     <ChallengeRoom zone={BUFFER} title="The Archive" note="records the shaft, plays it back wrong" onClose={onClose}
       status={status} className="archive-room">
-      <div className="archive-grid" data-scroll>
-        <section className="archive-sec">
-          <span className="sub-head">The shelf</span>
-          <p className="dim small-note">Tapes keep paying {Math.round(tapeShare(game) * 100)}% of a live lock. Gold labels pay double. A second tape of the same thing pays half, a third a third.</p>
-          <div className="archive-tapes" data-scroll>
-            {a.shelf.length === 0 && <p className="dim small-note">Empty. Lock a slot on the modulator, then record it. Each tape takes a blank reel, and the slot's dials spin back to rest.</p>}
-            {a.shelf.map(t => (
-              <div key={t.id} className={`archive-tape ${t.gold ? 'gold' : ''}`}>
-                <span className="archive-label">{t.gold ? '◆ ' : ''}{name(t.target).toUpperCase()} · {Math.round(t.q * 100)}%</span>
-                <span className="ch-stat">x<b>{fmt(tapeValue(game, t))}</b></span>
-                <button className="secondary" onClick={() => run(s => eraseTape(s, t.id))} title="Erase it and free the space">Erase</button>
+      <div className="ar-grid">
+        {/* ---- the rack ---- */}
+        <section className="ar-col ar-rack-col" aria-label="The shelf">
+          <div className="ar-head"><span className="ar-cap">"THE SHELF"</span><span className="ar-head-note">{a.shelf.length} of {size} · {SHELF_MAX} at most</span></div>
+          <div className="ar-rack" title={`Tapes keep paying ${share}% of a live lock. Gold labels pay double. A second tape of the same thing pays half, a third a third.`}>
+            {Array.from({ length: planks }, (_, r) => (
+              <div key={r} className="ar-plank">
+                {Array.from({ length: PER_PLANK }, (_, c) => {
+                  const i = r * PER_PLANK + c;
+                  if (i >= SHELF_MAX) return <span key={c} className="ar-gap none" />;
+                  const t = a.shelf[i];
+                  if (t) return <RackSpine key={t.id} t={t} sel={pick === t.id} onPick={() => setPick(pick === t.id ? null : t.id)} />;
+                  return <span key={c} className={`ar-gap${i < size ? '' : ' locked'}`} title={i < size ? 'An empty space' : 'Buy more shelf'} />;
+                })}
               </div>
             ))}
           </div>
-          <div className="ch-row">
+          <div className={`ar-card${picked?.gold ? ' gold' : ''}`}>
+            {picked ? <>
+              <div className="ar-card-label">{picked.gold ? '◆ ' : ''}{name(picked.target).toUpperCase()}</div>
+              <div className="ar-card-row">
+                <span>locked <b>{Math.round(picked.q * 100)}%</b></span>
+                <span>pays <b>x{fmt(tapeValue(game, picked))}</b></span>
+                <button className="secondary" onClick={() => { run(s => eraseTape(s, picked.id)); setPick(null); }} title="Erase it and free the space">Erase</button>
+              </div>
+            </> : a.shelf.length
+              ? <p className="ar-card-hint">Pick a tape to read its label.</p>
+              : <p className="ar-card-hint">Empty. Lock a slot on the modulator, then record it on the deck.</p>}
+          </div>
+          <div className="ar-chips">
             {PATTERN_TARGETS.filter(p => a.shelf.some(t => t.target === p.id)).map(p => (
-              <span key={p.id} className="ch-stat">{p.name} <b>x{fmt(tapeMult(game, p.id))}</b></span>
+              <span key={p.id} className="ar-chip">{p.name} <b>x{fmt(tapeMult(game, p.id))}</b></span>
             ))}
           </div>
-          <div className="ch-row">
-            <button className="secondary" disabled={game.ash.lt(sc)} onClick={() => run(buyStock)} title="Better tape keeps more of the lock">Better stock ({a.stock}) · {fmt(sc)} ash</button>
-            <SaveHint game={game} cost={sc} />
+          <div className="ar-buy-row">
+            <button className="secondary ar-stock" disabled={game.ash.lt(sc)} onClick={() => run(buyStock)} title={`Better tape keeps more of the lock. Now ${share}%.`}>
+              <span>Better stock <small>lv {a.stock}</small></span><small className="cost">{fmt(sc)} ash</small>
+            </button>
+            {game.ash.lt(sc) && <SaveHint game={game} cost={sc} />}
           </div>
-
-          <span className="sub-head">Drift</span>
-          <p className="dim small-note">The signatures wander a little each station day. Meet one where it is today for a fresh lock: tapes pay x{FRESH_MULT} for four hours, once a day. Tapes never drift.</p>
-          {slots === 0 ? <p className="dim small-note">The modulator is asleep.</p> : Array.from({ length: slots }, (_, i) => {
-            const slot = game.patterns.slots[i];
-            return (
-              <div key={i} className="ch-row">
-                <span className="ch-stat">Slot {i + 1} · {slot?.target ? <>{name(slot.target)} · today <b>{Math.round(driftMatch(game, slot) * 100)}%</b></> : <span className="dim">empty</span>}</span>
-              </div>
-            );
-          })}
-          <p className="ch-stat">{a.freshLeft > 0 ? <>Fresh lock · <b>{Math.ceil(a.freshLeft / 60)}m</b> left</> : <span className="dim">No fresh lock.</span>} <span className="dim">Next day in {hours}h {mins}m.</span></p>
         </section>
 
-        <section className="archive-sec">
-          <span className="sub-head">Wrong frames</span>
-          <p className="dim small-note">Every glitch on the plate leaves a frame; more buffers, more glitches. Each full row of four is a set, and each set pays the Pattern Buffer.</p>
-          <div className="archive-album" data-scroll>
+        {/* ---- the set and the deck ---- */}
+        <section className="ar-col ar-set-col" aria-label="The set">
+          <div className="ar-tv">
+            <div className="ar-tv-screen">
+              {shown
+                ? <Ink key={shown} shade={tapeShades[shown]} accent={CHANNELS[shown].accent} cols={120} rows={68} animate fps={10} className="archive-screen" />
+                : <Ink shade={noSignal} cols={120} rows={68} animate fps={8} className="archive-screen" />}
+              <span className="ar-tv-osd">{shown ? CHANNELS[shown].title.split(' · ')[0] : 'NO SIGNAL'}</span>
+            </div>
+            <div className="ar-tv-side">
+              <div className="ar-tv-grille" aria-hidden />
+              <div className="ar-tv-keys" role="group" aria-label="Channels">
+                {PATTERN_TARGETS.map((p, k) => {
+                  const on = a.channels.includes(p.id);
+                  return (
+                    <button key={p.id} className={`ar-key${on ? ' on' : ''}${shown === p.id ? ' sel' : ''}`} disabled={!on} onClick={() => setView(p.id)}
+                      title={on ? CHANNELS[p.id].title : `No signal. Lock ${p.name.toLowerCase()} exactly. Each channel found: x${CHANNEL_MULT} on it.`}>
+                      {k + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="ar-tv-plate">ARCHIVE·7 <span>{a.channels.length}/{PATTERN_TARGETS.length} found</span></div>
+          </div>
+          <p className="ar-caption">
+            {a.channels.length >= PATTERN_TARGETS.length
+              ? '"SEVEN CHANNELS. THERE IS A THIRTEENTH TAPE ON THE SHELF ALREADY. THE LABEL IS IN YOUR HANDWRITING."'
+              : shown ? CHANNELS[shown].caption : '"NO SIGNAL. THE TAPE IS STILL ROLLING."'}
+          </p>
+
+          <div className="ar-deck" aria-label="The deck">
+            <div className="ar-deck-head">
+              <span className="ar-cap">"THE DECK"</span>
+              <span className={`ar-lamp${a.freshLeft > 0 ? ' lit' : ''}`} title={`Meet a signature where it drifted today for a fresh lock: tapes pay x${FRESH_MULT} for four hours, once a day. Tapes never drift.`}>
+                <i /> {a.freshLeft > 0 ? `FRESH ${Math.ceil(a.freshLeft / 60)}m` : 'NO FRESH LOCK'}
+              </span>
+              <span className="ar-head-note">day turns in {hours}h {mins}m</span>
+            </div>
+            {slots === 0 ? <p className="ar-card-hint">The modulator is asleep. Nothing to record yet.</p> : Array.from({ length: slots }, (_, i) => {
+              const slot = game.patterns.slots[i];
+              const q = slot?.target ? match(game, slot) : 0;
+              const d = slot?.target ? driftMatch(game, slot) : 0;
+              const ok = canRecord(game, i);
+              const why = recordBlock(game, i);
+              return (
+                <div key={i} className={`ar-slot${slot?.target ? '' : ' empty'}`}>
+                  <Reels turning={ok} />
+                  <div className="ar-slot-info">
+                    <span className="ar-slot-name">{i + 1} · {slot?.target ? name(slot.target).toUpperCase() : 'EMPTY'}</span>
+                    {slot?.target && <span className="ar-meters">
+                      <span title="How well it locks">lock <b>{Math.round(q * 100)}%</b></span>
+                      <span title="How close it sits to today's drifted signature. Meet it exactly for a fresh lock.">today <b>{Math.round(d * 100)}%</b></span>
+                    </span>}
+                  </div>
+                  <button className="ar-rec" disabled={!ok} onClick={() => run(s => recordSlot(s, i))}
+                    title={why || 'Record this match onto a blank reel. The slot lets go of it and its dials spin back to rest.'}>
+                    <i /> REC
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ---- the album ---- */}
+        <section className="ar-col ar-album-col" aria-label="Wrong frames">
+          <div className="ar-head"><span className="ar-cap">"WRONG FRAMES"</span><span className="ar-head-note">{sets} {sets === 1 ? 'set' : 'sets'}</span></div>
+          <div className="ar-strip" title="The last frames the plate glitched out">
+            {Array.from({ length: 6 }, (_, i) => {
+              const sd = a.recent[i];
+              return <div key={i} className="ar-strip-cell">{sd != null ? <Frame seed={sd} /> : <span className="archive-blank">·</span>}</div>;
+            })}
+          </div>
+          {a.recent.length > 0 && <p className="ar-strip-cap">"{SITTER_NAMES[sitterOf(a.recent[0])]}, {WRONG_NAMES[wrongOf(a.recent[0])]}"</p>}
+          <div className="ar-album" title="Every glitch on the plate leaves a frame; more buffers, more glitches. Each full row of four is a set, and each set pays the Pattern Buffer.">
+            <div className="ar-album-row ar-album-key" aria-hidden>
+              <span />{WRONG_NAMES.map(w => <span key={w}>{w.split(' ')[0]}</span>)}
+            </div>
             {Array.from({ length: SITTERS }, (_, k) => {
               const row = a.album.slice(k * WRONGS, k * WRONGS + WRONGS);
               const full = Math.min(...row);
               return (
-                <div key={k} className={`archive-row ${full ? 'full' : ''}`}>
-                  <span className="archive-sitter">{SITTER_NAMES[k]}{full ? ` ×${full}` : ''}</span>
+                <div key={k} className={`ar-album-row${full ? ' full' : ''}`}>
+                  <span className="ar-sitter">{SITTER_NAMES[k].replace(/^THE /, '')}{full ? <b> ×{full}</b> : ''}</span>
                   {row.map((n, w) => {
                     const sd = cells.get(k * WRONGS + w) ?? stand(game.patterns.seed, k * WRONGS + w);
                     return (
-                      <div key={w} className={`archive-cell ${n ? '' : 'missing'}`} title={n ? `${WRONG_NAMES[w]} · ${n}` : 'Not yet'}>
+                      <div key={w} className={`ar-cell${n ? '' : ' missing'}`} title={n ? `${WRONG_NAMES[w]} · ${n}` : 'Not yet'}>
                         {n ? <Frame seed={sd} /> : <span className="archive-blank">?</span>}
-                        <span className="archive-count">{n ? n : ''}</span>
+                        {n > 0 && <span className="archive-count">{n}</span>}
                       </div>
                     );
                   })}
@@ -404,44 +511,6 @@ function ArchiveRoom({ onClose }: { onClose: () => void }) {
               );
             })}
           </div>
-          {a.recent.length > 0 && (
-            <>
-              <span className="sub-head">Last frames</span>
-              <div className="archive-recent">
-                {a.recent.slice(0, 4).map((sd, i) => (
-                  <figure key={`${sd}-${i}`} className="archive-fig">
-                    <div className="archive-frame"><Frame seed={sd} big /></div>
-                    <figcaption>"{SITTER_NAMES[sitterOf(sd)]}, {WRONG_NAMES[wrongOf(sd)]}"</figcaption>
-                  </figure>
-                ))}
-              </div>
-            </>
-          )}
-        </section>
-
-        <section className="archive-sec archive-wide">
-          <span className="sub-head">Hidden channels</span>
-          <p className="dim small-note">Every exact lock, live or on a gold tape, finds a channel. Each one found: x{CHANNEL_MULT} on what it was locked to.</p>
-          <div className="archive-channels">
-            {PATTERN_TARGETS.map(p => {
-              const on = a.channels.includes(p.id);
-              return (
-                <button key={p.id} className={`archive-ch ${on ? 'on' : ''} ${shown === p.id ? 'sel' : ''}`} disabled={!on} onClick={() => setView(p.id)}
-                  title={on ? CHANNELS[p.id].title : `No signal. Lock ${p.name.toLowerCase()} exactly.`}>
-                  {on ? CHANNELS[p.id].title.split(' · ')[0] : '· · ·'}
-                </button>
-              );
-            })}
-          </div>
-          <figure className="archive-fig archive-tv">
-            <div className="archive-frame">
-              {shown
-                ? <Ink key={shown} shade={tapeShades[shown]} accent={CHANNELS[shown].accent} cols={120} rows={68} animate fps={10} className="archive-screen" />
-                : <Ink shade={noSignal} cols={120} rows={68} animate fps={8} className="archive-screen" />}
-            </div>
-            <figcaption>{shown ? <><b>{CHANNELS[shown].title}</b><br />{CHANNELS[shown].caption}</> : '"NO SIGNAL. THE TAPE IS STILL ROLLING."'}</figcaption>
-          </figure>
-          {a.channels.length >= PATTERN_TARGETS.length && <p className="archive-final">"SEVEN CHANNELS. THERE IS A THIRTEENTH TAPE ON THE SHELF ALREADY. THE LABEL IS IN YOUR HANDWRITING."</p>}
         </section>
       </div>
     </ChallengeRoom>

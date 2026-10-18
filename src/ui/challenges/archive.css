@@ -22,43 +22,162 @@
 .archive-slot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .archive-slot button { padding: 5px 10px; font-size: 13px; white-space: nowrap; }
 
-/* the room */
-.archive-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px 24px; }
-.archive-sec { display: grid; gap: 8px; align-content: start; min-width: 0; }
-.archive-sec .sub-head { margin: 6px 0 0; }
-.archive-wide { grid-column: 1 / -1; }
-@media (max-width: 820px) { .archive-grid { grid-template-columns: minmax(0, 1fr); } }
+/* ---------- the room: rack on the left, the set and its deck in the middle, the album on the right ---------- */
+.challenge-room.archive-room { width: min(1400px, 97vw); }
+.ar-grid { display: grid; grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.3fr) minmax(300px, 0.9fr); gap: 22px; height: 100%; min-height: 0; }
+.ar-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; }
+.ar-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 4px; border-bottom: 1px dashed color-mix(in srgb, var(--hue) 30%, transparent); }
+.ar-cap { font-family: 'MEK Mono', var(--font-ui); font-size: 13px; letter-spacing: 0.16em; color: var(--hue); }
+.ar-head-note { font-family: var(--font-ui); font-size: 13px; color: var(--soft); white-space: nowrap; }
+.ar-card-hint { margin: 0; font-family: var(--font-ui); font-size: 14px; color: var(--soft); line-height: 1.35; }
 
-.archive-tapes { display: grid; gap: 4px; max-height: 280px; overflow-y: auto; }
-.archive-tape {
-  display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 5px 8px;
-  border: 1px solid color-mix(in srgb, var(--hue) 40%, transparent);
+/* the rack: three steel planks, cassette spines standing on them */
+.ar-rack {
+  display: grid; gap: 0; padding: 8px 10px 0; position: relative;
+  border: 1px solid color-mix(in srgb, var(--hue) 60%, transparent);
+  box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px color-mix(in srgb, var(--hue) 25%, transparent);
+  background:
+    repeating-conic-gradient(color-mix(in srgb, var(--hue) 7%, transparent) 0 25%, transparent 0 50%) 0 0 / 4px 4px,
+    #07050c;
 }
-.archive-tape.gold { border-color: #e8c45a; background: color-mix(in srgb, #e8c45a 8%, transparent); }
-.archive-tape button { padding: 4px 10px; font-size: 13px; }
-.archive-label { font-family: 'MEK Mono', monospace; font-size: 14px; letter-spacing: 0.06em; }
-.archive-tape.gold .archive-label { color: #f5dc8a; }
+.ar-plank {
+  display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 3px; align-items: end; height: 88px; padding: 6px 2px 0;
+  border-bottom: 5px solid color-mix(in srgb, var(--hue) 45%, #05060b);
+  box-shadow: 0 2px 0 #05060b, 0 3px 0 color-mix(in srgb, var(--hue) 30%, transparent);
+  margin-bottom: 9px;
+}
+.ar-gap { height: 74px; border: 1px dashed color-mix(in srgb, var(--hue) 28%, transparent); opacity: 0.6; }
+.ar-gap.locked { border: 0; opacity: 1; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--hue) 14%, transparent) 0 2px, transparent 2px 6px); }
+.ar-gap.none { border: 0; background: none; }
+.archive-room button.ar-spine {
+  position: relative; height: 76px; padding: 0; min-width: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--hue) 75%, transparent); background: color-mix(in srgb, var(--hue) 20%, #0a0612);
+  box-shadow: inset 0 0 0 1px #05060b; transition: transform 0.12s;
+}
+.ar-spine-label {
+  position: relative; z-index: 1; writing-mode: vertical-rl; font-family: 'MEK Mono', monospace; font-size: 11px; letter-spacing: 0.1em;
+  padding: 4px 1px; background: #e8e4ff; color: #140a22; border: 1px solid #05060b;
+}
+.ar-spine-q { position: absolute; left: 0; bottom: 0; width: 3px; background: var(--hue); }
+.archive-room button.ar-spine.gold { border-color: #e8c45a; background: color-mix(in srgb, #e8c45a 22%, #0a0612); }
+.ar-spine.gold .ar-spine-label { background: #f5dc8a; }
+.ar-spine.gold .ar-spine-q { background: #e8c45a; }
+.archive-room button.ar-spine:hover { transform: translateY(-3px); }
+.archive-room button.ar-spine.sel { transform: translateY(-8px); outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.archive-album { display: grid; gap: 6px; max-height: 420px; overflow-y: auto; }
-.archive-row { display: grid; grid-template-columns: 120px repeat(4, 52px); gap: 6px; align-items: center; }
-.archive-row.full .archive-sitter { color: var(--hue); }
-.archive-sitter { font-family: 'MEK Mono', monospace; font-size: 12px; line-height: 1.25; color: var(--soft); }
-.archive-cell { position: relative; width: 52px; aspect-ratio: 24 / 30; border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent); outline: 1px solid color-mix(in srgb, var(--hue) 20%, transparent); outline-offset: 1px; }
-.archive-cell.missing { border-style: dashed; outline: none; display: flex; align-items: center; justify-content: center; }
+/* the label card for the picked tape */
+.ar-card { min-height: 70px; padding: 8px 12px; display: grid; gap: 6px; align-content: center; border: 3px double color-mix(in srgb, var(--hue) 55%, transparent); background: color-mix(in srgb, var(--hue) 5%, #05060b); }
+.ar-card.gold { border-color: #e8c45a; }
+.ar-card-label { font-family: 'MEK Mono', monospace; font-size: 15px; letter-spacing: 0.12em; color: var(--hue); }
+.ar-card.gold .ar-card-label { color: #f5dc8a; }
+.ar-card-row { display: flex; align-items: center; gap: 14px; font-family: var(--font-ui); font-size: 14px; color: var(--soft); }
+.ar-card-row b { color: var(--text); font-weight: 500; font-size: 17px; }
+.ar-card-row button { margin-left: auto; padding: 4px 12px; font-size: 13px; }
+.ar-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.ar-chip { font-family: var(--font-ui); font-size: 13px; padding: 2px 8px; color: var(--soft); border: 1px solid color-mix(in srgb, var(--hue) 30%, transparent); }
+.ar-chip b { color: var(--hue); font-weight: 500; }
+.ar-buy-row { display: grid; gap: 3px; justify-items: stretch; margin-top: auto; }
+.archive-room button.ar-stock { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 8px 12px; }
+.ar-stock small { font-size: 13px; color: var(--soft); }
+.ar-stock .cost { color: color-mix(in srgb, var(--accent) 70%, #d8d6cf); }
+.ar-buy-row .ch-save { font-size: 13px; justify-self: end; color: color-mix(in srgb, var(--accent) 65%, #bbb); }
+
+/* the set: a heavy cabinet, screen on the left, grille and channel keys on the right, a maker's plate below */
+.ar-tv {
+  display: grid; grid-template-columns: minmax(0, 1fr) 54px; grid-template-rows: auto auto; gap: 10px 12px; padding: 14px 14px 10px;
+  border: 1px solid var(--hue); background:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--hue) 6%, transparent) 0 1px, transparent 1px 3px), #0b0814;
+  box-shadow: inset 0 0 0 3px #05060b, inset 0 0 0 4px color-mix(in srgb, var(--hue) 40%, transparent), 0 0 0 2px #05060b, 0 0 0 3px color-mix(in srgb, var(--hue) 30%, transparent);
+  position: relative;
+}
+/* knotted corners, as on the plates */
+.ar-tv::before, .ar-tv::after { content: ''; position: absolute; width: 9px; height: 9px; border: 2px solid var(--hue); background: #05060b; }
+.ar-tv::before { left: -6px; top: -6px; }
+.ar-tv::after { right: -6px; bottom: -6px; }
+.ar-tv-screen { position: relative; border: 3px double color-mix(in srgb, var(--hue) 70%, transparent); padding: 3px; background: #05030a; border-radius: 10px / 14px; overflow: hidden; }
+.ar-tv-screen .archive-screen { border-radius: 7px / 11px; }
+.ar-tv-osd { position: absolute; top: 10px; left: 14px; font-family: 'MEK Mono', monospace; font-size: 13px; letter-spacing: 0.12em; color: #e8e4ff; text-shadow: 0 0 4px var(--hue), 1px 1px 0 #05060b; }
+.ar-tv-side { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.ar-tv-grille { flex: 1; min-height: 30px; background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--hue) 45%, transparent) 0 2px, transparent 2px 5px); border: 1px solid color-mix(in srgb, var(--hue) 35%, transparent); }
+.ar-tv-keys { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.ar-tv-keys .ar-key:last-child { grid-column: 1 / -1; }
+.archive-room button.ar-key {
+  padding: 3px 0; min-width: 0; font-family: 'MEK Mono', monospace; font-size: 13px; color: #6a6478;
+  border: 1px dashed #3a3446; background: #0a0812;
+}
+.archive-room button.ar-key:disabled { opacity: 1; cursor: default; }
+.archive-room button.ar-key.on { color: var(--hue); border-color: color-mix(in srgb, var(--hue) 70%, transparent); }
+.archive-room button.ar-key.sel { color: #05060b; background: var(--hue); border-color: var(--hue); box-shadow: 0 0 8px color-mix(in srgb, var(--hue) 50%, transparent); }
+.ar-tv-plate { grid-column: 1 / -1; display: flex; justify-content: space-between; font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.24em; color: color-mix(in srgb, var(--hue) 80%, #fff); }
+.ar-tv-plate span { letter-spacing: 0.1em; color: var(--soft); }
+.ar-caption { margin: 0; text-align: center; font-family: 'MEK Mono', monospace; font-size: 13px; letter-spacing: 0.06em; line-height: 1.35; text-transform: uppercase; color: var(--soft); min-height: 2.7em; }
+
+/* the deck: one strip per modulator slot, a cassette window, meters and a red REC key */
+.ar-deck { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent); background: #08060e; margin-top: auto; }
+.ar-deck-head { display: flex; align-items: center; gap: 12px; }
+.ar-deck-head .ar-head-note { margin-left: auto; }
+.ar-lamp { display: inline-flex; align-items: center; gap: 6px; font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.12em; color: var(--soft); }
+.ar-lamp i { width: 9px; height: 9px; border-radius: 50%; border: 1px solid #5a2020; background: #1a0808; }
+.ar-lamp.lit { color: var(--accent); }
+.ar-lamp.lit i { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.ar-slot { display: grid; grid-template-columns: 78px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 5px 6px; border-top: 1px dashed color-mix(in srgb, var(--hue) 22%, transparent); }
+.ar-slot.empty { opacity: 0.55; }
+.ar-reels { display: flex; align-items: center; justify-content: space-between; height: 30px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--hue) 50%, transparent); background: #05030a; position: relative; }
+.ar-reels i {
+  width: 22px; height: 22px; border-radius: 50%; position: relative; z-index: 1;
+  background: radial-gradient(circle, #05030a 0 3px, transparent 3.5px), repeating-conic-gradient(var(--hue) 0 20deg, color-mix(in srgb, var(--hue) 25%, #05030a) 20deg 60deg);
+}
+.ar-reel-tape { position: absolute; left: 16px; right: 16px; top: 50%; height: 2px; margin-top: 7px; background: color-mix(in srgb, var(--hue) 40%, transparent); }
+.ar-reels.turning i { animation: ar-spin 2.4s linear infinite; }
+@keyframes ar-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ar-reels.turning i { animation: none; } }
+.ar-slot-info { display: grid; gap: 2px; min-width: 0; }
+.ar-slot-name { font-family: 'MEK Mono', monospace; font-size: 13px; letter-spacing: 0.1em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ar-meters { display: flex; gap: 14px; font-family: var(--font-ui); font-size: 13px; color: var(--soft); }
+.ar-meters b { color: var(--hue); font-weight: 500; font-size: 15px; }
+.archive-room button.ar-rec {
+  display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; font-family: 'MEK Mono', monospace; font-size: 13px; letter-spacing: 0.14em;
+  color: var(--accent); border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, #05060b);
+}
+.ar-rec i { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+.archive-room button.ar-rec:disabled { color: #77727f; border-color: #2e2a36; border-style: dashed; background: #07060b; }
+.archive-room button.ar-rec:disabled i { background: #3a2a2a; }
+
+/* the album: a film strip of the newest frames, then the grid of sitters by wrongness */
+.ar-strip {
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; padding: 9px 8px;
+  background:
+    repeating-linear-gradient(90deg, #05060b 0 6px, transparent 6px 14px) top / 100% 5px no-repeat,
+    repeating-linear-gradient(90deg, #05060b 0 6px, transparent 6px 14px) bottom / 100% 5px no-repeat,
+    color-mix(in srgb, var(--hue) 30%, #0a0612);
+}
+.ar-strip-cell { aspect-ratio: 24 / 30; background: #0a0612; display: flex; align-items: center; justify-content: center; border: 1px solid #05060b; }
+.ar-strip-cap { margin: -2px 0 0; text-align: center; font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.06em; color: var(--soft); }
+.ar-album { display: grid; gap: 4px; }
+.ar-album-row { justify-content: center; }
+.ar-album-row { display: grid; grid-template-columns: 150px repeat(4, 50px); gap: 6px; align-items: center; }
+.ar-album-key span { font-family: 'MEK Mono', monospace; font-size: 11px; letter-spacing: 0.02em; color: var(--soft); text-align: center; white-space: nowrap; }
+.ar-sitter { font-family: 'MEK Mono', monospace; font-size: 13px; line-height: 1.2; color: var(--soft); }
+.ar-album-row.full .ar-sitter { color: var(--hue); }
+.ar-sitter b { color: var(--accent); font-weight: normal; }
+.ar-cell { position: relative; width: 50px; aspect-ratio: 24 / 30; border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent); background: #0a0612; }
+.ar-cell.missing { border-style: dashed; display: flex; align-items: center; justify-content: center; }
+.ar-album-row.full .ar-cell { border-color: var(--hue); box-shadow: 0 0 0 1px #05060b, 0 0 0 2px color-mix(in srgb, var(--hue) 40%, transparent); }
+
+/* short screens: tighter planks and a smaller album so the room never scrolls */
+@media (max-height: 860px) {
+  .ar-plank { height: 62px; margin-bottom: 7px; }
+  .ar-gap { height: 50px; }
+  .archive-room button.ar-spine { height: 52px; }
+  .ar-album-row { grid-template-columns: 150px repeat(4, 40px); }
+  .ar-cell { width: 40px; }
+  .ar-strip { padding: 8px 10px; }
+  .ar-card { min-height: 60px; }
+}
+@media (max-width: 1100px) {
+  .ar-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ar-album-col { grid-column: 1 / -1; }
+}
 .archive-blank { font-family: var(--font-ui); font-size: 14px; color: var(--soft); opacity: 0.6; }
 .archive-count { position: absolute; right: 2px; bottom: 0; font-family: var(--font-ui); font-size: 12px; color: var(--text); text-shadow: 0 0 3px #000, 0 0 2px #000; }
-
-.archive-recent { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.archive-fig { margin: 0; display: grid; gap: 6px; }
-.archive-fig figcaption { font-family: 'MEK Mono', monospace; font-size: 12px; text-transform: uppercase; color: var(--soft); text-align: center; line-height: 1.35; }
-.archive-frame { padding: 3px; border: 3px double color-mix(in srgb, var(--hue) 70%, transparent); background: #0a0612; }
-
-.archive-channels { display: flex; flex-wrap: wrap; gap: 6px; }
-.archive-ch { font-family: 'MEK Mono', monospace; font-size: 13px; padding: 5px 10px; min-width: 64px; }
-.archive-ch.on { border-color: var(--hue); color: var(--hue); }
-.archive-ch.sel { background: var(--hue); color: var(--bg); }
-.archive-tv { max-width: 560px; justify-self: center; width: 100%; }
-.archive-tv figcaption { font-size: 14px; }
-.archive-tv figcaption b { color: var(--hue); font-weight: normal; }
-.archive-final { font-family: 'MEK Mono', monospace; font-size: 14px; text-align: center; color: var(--accent); margin: 4px 0 0; }
 .archive-full { font-family: 'MEK Mono', monospace; text-transform: uppercase; letter-spacing: 0.1em; color: var(--hue); padding: 6px 10px; border: 1px dashed color-mix(in srgb, var(--hue) 50%, transparent); }
