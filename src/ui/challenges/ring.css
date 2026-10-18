@@ -7,7 +7,6 @@
   box-shadow: inset 0 0 0 3px #07050a, inset 0 0 0 4px color-mix(in srgb, var(--hue) 35%, transparent);
 }
 .ring-canvas { display: block; width: 168px; height: 168px; image-rendering: pixelated; cursor: pointer; }
-.ring-frame.big .ring-canvas { width: 280px; height: 280px; }
 .ring-canvas.locked { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--hue) 70%, transparent)); }
 .ring-side { display: grid; gap: 8px; min-width: 0; }
 .ring-status { margin: 0; font-family: 'MEK Mono', monospace; font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--soft); }
@@ -24,28 +23,189 @@
 .ring-cat-btn { display: inline-flex; align-items: center; gap: 8px; }
 .ring-swatch { display: inline-block; }
 
-.ring-room-cols { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(340px, 1.3fr); gap: 24px; }
-.ring-room-left { display: grid; gap: 10px; align-content: start; justify-items: start; }
-.ring-room-right { display: grid; gap: 10px; align-content: start; min-width: 0; }
-.ring-sockets { display: grid; gap: 8px; width: 100%; }
-.ring-socket { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 2px solid #241e28; background: #0e0b10; font-size: 14px; }
-.ring-socket.full { border-color: var(--c); }
-.ring-socket div { display: grid; flex: 1; }
-.ring-socket div span { font-family: var(--font-ui); font-size: 13px; color: var(--soft); }
-.ring-socket.sealed { justify-content: space-between; border-style: dashed; border-color: var(--line); }
-.ring-socket.sealed small { color: var(--dim); }
-.ring-dust { width: 100%; max-width: 340px; }
-.ring-cats { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 62vh; overflow-y: auto; }
-.ring-cats li { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: start; padding: 8px 10px; border: 1px solid #241e28; background: #0b090d; }
-.ring-cats li.in { border-color: var(--hue); }
-.ring-cats li.unknown { opacity: 0.6; }
-.ring-cats li > div { display: grid; gap: 2px; font-size: 14px; }
-.ring-cats li b small { font-family: var(--font-ui); color: var(--dim); font-weight: normal; font-size: 12px; margin-left: 6px; }
-.ring-cats li span { font-family: var(--font-ui); font-size: 13px; color: var(--soft); }
-.ring-cats li i { font-size: 13px; color: var(--dim); }
-.ring-cat-acts { grid-column: 2; display: flex; gap: 6px; flex-wrap: wrap; }
-.ring-cat-acts button { padding: 4px 10px; font-size: 13px; }
-@media (max-width: 760px) { .ring-room-cols { grid-template-columns: 1fr; } }
 .ring-mults { display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .ring-mults span { white-space: nowrap; }
 .ring-span span { white-space: nowrap; }
+
+/* ---------- the room: the rings on their dial, the sockets over the deep wind, the shelf of vials and the bench ---------- */
+.challenge-room.ring-room { width: min(1400px, 97vw); }
+.rg-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 1.05fr); gap: 24px; height: 100%; min-height: 0; }
+.rg-col { display: flex; flex-direction: column; gap: 9px; min-width: 0; min-height: 0; }
+.rg-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 4px; border-bottom: 1px dashed color-mix(in srgb, var(--hue) 30%, transparent); }
+.rg-cap { font-family: 'MEK Mono', var(--font-ui); font-size: 13px; letter-spacing: 0.16em; color: var(--hue); white-space: nowrap; }
+.rg-head-note { font-family: var(--font-ui); font-size: 13px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rg-quote { margin: 0; text-align: center; font-family: 'MEK Mono', monospace; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--hue); opacity: 0.85; }
+
+/* themed keys: square, double hue frame, dithered fill, bone on hover */
+.ring-room button.rg-btn {
+  display: inline-flex; align-items: baseline; justify-content: center; gap: 8px; padding: 6px 12px; border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--hue) 65%, transparent);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 16%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px, #070509;
+  box-shadow: inset 0 0 0 2px #070509, inset 0 0 0 3px color-mix(in srgb, var(--hue) 28%, transparent);
+  color: var(--text); font-family: 'MEK Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; font-size: 13px; white-space: nowrap;
+}
+.ring-room button.rg-btn:hover:not(:disabled) {
+  border-color: var(--hue); color: #ece6d2;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 34%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px, #070509;
+  box-shadow: inset 0 0 0 2px #070509, inset 0 0 0 3px var(--hue), 0 0 12px color-mix(in srgb, var(--hue) 30%, transparent);
+}
+.ring-room button.rg-btn:disabled { opacity: 0.42; }
+.rg-btn .cost { font-family: var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--hue); font-size: 13px; }
+.ring-room button.rg-pm {
+  width: 30px; height: 28px; padding: 0; min-width: 0; display: grid; place-items: center; border-radius: 0; font-family: var(--font-ui); font-size: 17px; line-height: 1; color: var(--hue);
+  border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 14%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px, #070509;
+  box-shadow: inset 0 0 0 1px #070509, inset 0 0 0 2px color-mix(in srgb, var(--hue) 25%, transparent);
+}
+.ring-room button.rg-pm:hover:not(:disabled) { border-color: var(--hue); color: #ece6d2; box-shadow: inset 0 0 0 1px #070509, inset 0 0 0 2px var(--hue); }
+.ring-room button.rg-pm:disabled { opacity: 0.4; }
+
+/* the ring plate inside a ticked bezel, sized by the screen's height */
+.rg-dial { position: relative; align-self: center; width: clamp(220px, calc(100vh - 470px), 370px); aspect-ratio: 1; display: grid; place-items: center; flex: none; }
+.rg-bezel { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.rg-bezel-track { fill: none; stroke: color-mix(in srgb, var(--hue) 22%, transparent); stroke-width: 1; stroke-dasharray: 2 3; }
+.rg-tick { stroke: color-mix(in srgb, var(--hue) 40%, transparent); stroke-width: 1; }
+.rg-tick.long { stroke: var(--hue); stroke-width: 1.6; }
+.rg-bezel.on .rg-tick.long { stroke: #ece6d2; }
+.rg-arrow { fill: var(--accent); }
+.ring-frame.rg-plate { padding: 4px; border-radius: 50%; overflow: hidden; }
+.ring-frame.rg-plate::after { display: none; }
+.rg-plate .ring-canvas { width: calc(clamp(220px, calc(100vh - 470px), 370px) - 34px); height: auto; aspect-ratio: 1; border-radius: 50%; }
+.rg-bezel.on { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--hue) 60%, transparent)); }
+
+.rg-verdict { margin: 0; text-align: center; font-family: 'MEK Mono', monospace; font-size: 15px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--soft); }
+.rg-verdict.on { color: #ece6d2; text-shadow: 0 0 8px var(--hue); }
+
+/* the code: one pixel key per ring, inner first; the read ones lit */
+.rg-code { display: flex; justify-content: center; gap: 3px; }
+.ring-room button.rg-cell {
+  flex: 0 1 28px; min-width: 0; height: 30px; padding: 0; display: grid; place-items: center; text-align: center; border-radius: 0; font-family: var(--font-ui); font-size: 17px; line-height: 1;
+  border: 1px dashed color-mix(in srgb, var(--hue) 28%, transparent); background: #070509; color: color-mix(in srgb, var(--hue) 45%, #555);
+}
+.ring-room button.rg-cell.read { border-style: solid; border-color: color-mix(in srgb, var(--hue) 70%, transparent); }
+.ring-room button.rg-cell.read.pos { color: #070509; background: repeating-conic-gradient(color-mix(in srgb, #ece6d2 40%, var(--hue)) 0 25%, var(--hue) 0 50%) 0 0 / 2px 2px; }
+.ring-room button.rg-cell.read.neg { color: var(--accent); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent) 0 1px, transparent 1px 3px), #070509; border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.ring-room button.rg-cell:hover { outline: 1px solid #ece6d2; outline-offset: 1px; }
+
+.rg-read-row { display: flex; align-items: flex-end; gap: 14px; }
+.rg-read-row .ring-lobes { flex: 1; min-width: 0; height: clamp(46px, calc(100vh - 820px), 74px); }
+.rg-read-row .ring-lobe { max-width: 26px; font-size: 13px; }
+.rg-read-row .ring-lobe i { height: calc(max(var(--h), 0.05) * (clamp(46px, calc(100vh - 820px), 74px) - 20px)); }
+.rg-span { display: flex; align-items: center; gap: 6px; flex: none; }
+.rg-span span { display: grid; justify-items: center; min-width: 46px; font-family: var(--font-ui); font-size: 14px; color: var(--soft); line-height: 1.1; white-space: nowrap; }
+.rg-span span b { font-size: 22px; font-weight: 500; color: var(--hue); }
+.rg-span span small { font-size: 12px; color: var(--soft); }
+.rg-span span { grid-template-columns: auto auto; align-items: baseline; column-gap: 1px; }
+.rg-span span small { grid-column: 1 / -1; }
+
+/* the sockets: a setting with prongs, the gem cut in its colour */
+.rg-sockets { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rg-socket {
+  position: relative; display: grid; justify-items: center; align-content: start; gap: 3px; padding: 10px 8px; min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent); background: color-mix(in srgb, var(--hue) 4%, #070509);
+  box-shadow: inset 0 0 0 2px #070509, inset 0 0 0 3px color-mix(in srgb, var(--hue) 18%, transparent);
+}
+.rg-socket.full { border-color: var(--c); box-shadow: inset 0 0 0 2px #070509, inset 0 0 0 3px color-mix(in srgb, var(--c) 40%, transparent); }
+.rg-socket.sealed { border-style: dashed; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--hue) 7%, transparent) 0 2px, transparent 2px 6px), #070509; }
+.ring-room button.rg-socket-gem { padding: 0; border: 0; background: none; min-width: 0; line-height: 0; cursor: pointer; }
+.ring-room button.rg-socket-gem:disabled { cursor: default; opacity: 1; }
+.rg-gem-rim { fill: #0a070c; stroke: color-mix(in srgb, var(--hue) 70%, transparent); stroke-width: 1.5; }
+.rg-gem-rim.inner { fill: none; stroke-dasharray: 2 2; stroke: color-mix(in srgb, var(--hue) 40%, transparent); }
+.rg-gem.full .rg-gem-rim { stroke: #ece6d2; }
+.rg-prong { fill: #070509; stroke: color-mix(in srgb, var(--hue) 70%, transparent); stroke-width: 1.2; }
+.rg-gem.full .rg-prong { fill: color-mix(in srgb, #ece6d2 70%, var(--hue)); stroke: #070509; }
+.rg-gem-cut { stroke-width: 1.4; }
+.rg-gem-glint { stroke: #ece6d2; stroke-width: 2; }
+.rg-gem-empty { font-family: 'MEK Mono', monospace; font-size: 22px; text-anchor: middle; fill: color-mix(in srgb, var(--hue) 50%, transparent); }
+.rg-seal-x { stroke: color-mix(in srgb, var(--hue) 35%, transparent); stroke-width: 2; stroke-dasharray: 3 3; }
+.rg-rivet { fill: color-mix(in srgb, var(--hue) 50%, #070509); }
+.rg-socket-no { font-family: 'MEK Mono', monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--soft); }
+.rg-socket-name { font-family: 'MEK Mono', monospace; font-size: 13px; letter-spacing: 0.06em; color: #ece6d2; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.rg-socket-name.dim { color: var(--dim); text-transform: uppercase; letter-spacing: 0.14em; }
+.rg-socket-mult { font-family: var(--font-ui); font-size: 14px; color: var(--soft); white-space: nowrap; }
+.rg-socket-mult b { font-size: 18px; font-weight: 500; color: var(--hue); }
+.rg-socket .rg-btn { margin-top: 4px; }
+.rg-socket.sealed .rg-btn { flex-direction: column; align-items: center; gap: 1px; padding: 5px 10px; }
+
+/* the deep wind: a spiral gauge that silts up */
+.rg-wind-wrap { flex: 1; min-height: 0; display: grid; place-items: center; }
+.rg-wind { width: clamp(170px, calc(100vh - 590px), 270px); height: auto; aspect-ratio: 1; color: color-mix(in srgb, var(--hue) 30%, transparent); overflow: visible; }
+.rg-wind-rim { fill: #070509; stroke: color-mix(in srgb, var(--hue) 70%, transparent); stroke-width: 1.5; }
+.rg-wind-floor { opacity: 0.8; }
+.rg-wind-track { fill: none; stroke: color-mix(in srgb, var(--hue) 22%, transparent); stroke-width: 7; stroke-dasharray: 1.2 0.6; }
+.rg-wind-fill { fill: none; stroke: var(--hue); stroke-width: 7; stroke-linecap: butt; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--hue) 60%, transparent)); }
+.rg-wind-eye { fill: #070509; stroke: #ece6d2; stroke-width: 1; }
+.rg-wind-num { font-family: var(--font-ui); font-size: 15px; font-weight: 500; text-anchor: middle; fill: #ece6d2; }
+.rg-wind-of { font-family: var(--font-ui); font-size: 9px; text-anchor: middle; fill: var(--soft); }
+.rg-wind.idle .rg-wind-fill { stroke: var(--dim); filter: none; }
+.rg-wind .rg-wind-fill { animation: rg-silt 3s ease-in-out infinite; }
+@keyframes rg-silt { 50% { opacity: 0.78; } }
+@media (prefers-reduced-motion: reduce) { .rg-wind .rg-wind-fill { animation: none; } }
+
+/* the shelf: eight vials on two planks */
+.rg-shelf { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 8px; padding: 6px 8px 0; position: relative;
+  border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent);
+  box-shadow: inset 0 0 0 2px #070509, inset 0 0 0 3px color-mix(in srgb, var(--hue) 22%, transparent);
+  background:
+    linear-gradient(color-mix(in srgb, var(--hue) 45%, #070509), color-mix(in srgb, var(--hue) 45%, #070509)) 0 calc(50% - 1px) / 100% 4px no-repeat,
+    linear-gradient(color-mix(in srgb, var(--hue) 45%, #070509), color-mix(in srgb, var(--hue) 45%, #070509)) 0 calc(100% - 3px) / 100% 4px no-repeat,
+    repeating-conic-gradient(color-mix(in srgb, var(--hue) 7%, transparent) 0 25%, transparent 0 50%) 0 0 / 4px 4px, #070509;
+}
+.ring-room button.rg-vial {
+  position: relative; display: grid; justify-items: center; gap: 1px; padding: 4px 0 9px; min-width: 0; border: 0; border-radius: 0; background: none;
+  transition: transform 0.12s;
+}
+.ring-room button.rg-vial:hover { transform: translateY(-3px); background: none; }
+.ring-room button.rg-vial.sel { transform: translateY(-5px); }
+.rg-vial-svg { width: 40px; height: auto; aspect-ratio: 40 / 70; overflow: visible; }
+.rg-vial-glass { fill: color-mix(in srgb, #ece6d2 3%, transparent); stroke: color-mix(in srgb, #ece6d2 60%, var(--hue)); stroke-width: 1.4; }
+.rg-vial-svg.ghost .rg-vial-glass { stroke: color-mix(in srgb, var(--hue) 40%, transparent); stroke-dasharray: 2 2; }
+.rg-vial-cork { fill: color-mix(in srgb, var(--hue) 40%, #2a1e14); stroke: #070509; }
+.rg-vial-svg.ghost .rg-vial-cork { fill: none; stroke: color-mix(in srgb, var(--hue) 30%, transparent); stroke-dasharray: 2 2; }
+.rg-vial-pip { fill: var(--accent); }
+.rg-vial-tag { fill: #ece6d2; }
+.rg-vial-s { font-family: 'MEK Mono', monospace; font-size: 9px; text-anchor: middle; fill: #070509; }
+.rg-vial-q { font-family: 'MEK Mono', monospace; font-size: 16px; text-anchor: middle; fill: color-mix(in srgb, var(--hue) 50%, transparent); }
+.rg-vial-label { font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--soft); white-space: nowrap; }
+.rg-vial.unknown .rg-vial-label { color: var(--dim); }
+.rg-vial.in .rg-vial-label { color: var(--hue); }
+.rg-vial.sel .rg-vial-label { color: #ece6d2; }
+.rg-vial.sel::after { content: ''; position: absolute; left: 50%; bottom: 0; width: 8px; height: 5px; margin-left: -4px; background: var(--accent); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.rg-vial-n { position: absolute; top: 4px; left: calc(50% + 26px); font-family: var(--font-ui); font-size: 12px; color: var(--text); }
+
+/* the bench: the picked vial's label card */
+.rg-bench {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; position: relative;
+  border: 3px double color-mix(in srgb, var(--c) 70%, var(--hue)); background: color-mix(in srgb, var(--c) 5%, #070509);
+}
+.rg-bench.unknown { border-color: color-mix(in srgb, var(--hue) 35%, transparent); border-style: dashed; border-width: 1px; }
+.rg-bench-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.rg-bench-name { font-family: 'MEK Mono', monospace; font-size: 16px; letter-spacing: 0.1em; text-transform: uppercase; color: #ece6d2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rg-bench-meta { font-family: var(--font-ui); font-size: 13px; color: var(--soft); white-space: nowrap; }
+.rg-bench-mult { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-ui); font-size: 15px; color: var(--soft); }
+.rg-bench-mult b { font-size: 26px; font-weight: 500; color: var(--hue); line-height: 1; }
+.rg-bench.in .rg-bench-mult b { text-shadow: 0 0 8px color-mix(in srgb, var(--hue) 60%, transparent); }
+.rg-bench-desc { margin: 0; font-family: var(--font-display); font-size: 15px; line-height: 1.35; color: color-mix(in srgb, #ece6d2 85%, transparent); font-style: italic; }
+.rg-bench-hint { margin: 0; font-family: var(--font-ui); font-size: 13px; color: var(--soft); }
+.rg-bench-body { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: start; }
+.rg-bench-art { width: clamp(56px, calc(100vh - 760px), 84px); height: auto; aspect-ratio: 40 / 70; overflow: visible; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--c) 35%, transparent)); }
+.rg-bench-text { display: grid; gap: 6px; min-width: 0; }
+.rg-bench-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+
+/* short screens: a smaller dial and wind so nothing scrolls */
+@media (max-height: 860px) {
+  .rg-col { gap: 7px; }
+  .rg-socket { padding: 7px 6px; }
+  .rg-gem, .rg-seal { width: 64px; height: 64px; }
+  .ring-room button.rg-cell { height: 27px; }
+}
+@media (max-width: 1100px) {
+  .rg-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .rg-col:last-child { grid-column: 1 / -1; }
+}
+.rg-bench-glint { fill: none; stroke: #ece6d2; stroke-width: 1; opacity: 0.6; }
+.rg-bubble { fill: #ece6d2; animation: rg-bubble 3.2s linear infinite; }
+.rg-bubble.b2 { animation-delay: -1.6s; }
+@keyframes rg-bubble { 0% { transform: translateY(0); opacity: 0.9; } 100% { transform: translateY(-14px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .rg-bubble { animation: none; } }
+.rg-bench-ghost .rg-vial-svg { width: clamp(56px, calc(100vh - 760px), 84px); }

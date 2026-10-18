@@ -6,7 +6,7 @@ import {
   digitOf, earCost, earReach, feel, frostIntake, gardenLit, gardenSymmetry, genTime, GH, GW, harvest, HARVEST_MIN, litCount,
   powerMult, pressSeal, pumpCost, repressSeal, REPRESS_COST, restDial, RIME_PER_FROST, SEAL_N, SEAL_ZONE, sealMult, sealPower, sealsPending,
   sealSyms, sealTarget, seedMax, seedsUsed, seedUpCost, setStance, STANCES, symMult, SYMS, tendCell, thaw, tierAshMult, tierCost,
-  tierZoneMult, turnWheel, voidRate, wantDir, type SealState,
+  tierZoneMult, turnWheel, voidRate, wantDir, type SealState, type Stance, type SymId,
 } from '../../game/challenges/seal';
 import type { MultTarget } from '../../game/challenges/types';
 import { ZONES } from '../../game/data';
@@ -185,32 +185,61 @@ const pct = (m: number) => `+${Math.round((m - 1) * 100)}%`;
 const blank = () => '0'.repeat(SEAL_N * SEAL_N);
 /** What one seal would give on its own. */
 const soloMult = (bits: string) => powerMult(sealTarget(digitOf(bits)), sealPower(bits));
+type Run = (fn: (s: GameState) => unknown) => void;
 
-function SealsSection({ game, run }: { game: GameState; run: (fn: (s: GameState) => unknown) => void }) {
+/** One symmetry as a tiny engraving: the fold line, or the turn's arc, across a square of wax. */
+function SymGlyph({ id }: { id: SymId }) {
+  return (
+    <svg viewBox="0 0 20 20" className="sl-glyph" aria-hidden>
+      <rect x="2.5" y="2.5" width="15" height="15" className="sl-glyph-box" />
+      {id === 'mirror' && <line x1="10" y1="1" x2="10" y2="19" className="sl-glyph-ln" />}
+      {id === 'flip' && <line x1="1" y1="10" x2="19" y2="10" className="sl-glyph-ln" />}
+      {id === 'cross' && <line x1="1" y1="1" x2="19" y2="19" className="sl-glyph-ln" />}
+      {id === 'half' && <><path d="M4.5 10 A5.5 5.5 0 0 1 15.5 10" className="sl-glyph-arc" /><path d="M13.2 8.6 L15.5 10.8 L17.4 8.2" className="sl-glyph-arc" /></>}
+      {id === 'turn' && <><path d="M10 4.5 A5.5 5.5 0 0 1 15.5 10" className="sl-glyph-arc" /><path d="M13.4 8.8 L15.5 10.9 L17.5 8.6" className="sl-glyph-arc" /></>}
+      <rect x="9" y="9" width="2" height="2" className="sl-glyph-dot" />
+    </svg>
+  );
+}
+
+const TRAY = 16; // stamps on one tray page: two rows of eight
+
+function SealsSection({ game, run }: { game: GameState; run: Run }) {
   const c = game.challenges.seal;
   const [bits, setBits] = useState(blank);
   const [sel, setSel] = useState<number | null>(null);
+  const [page, setPage] = useState(0);
   const pending = sealsPending(game);
   const d = digitOf(bits), lit = litCount(bits);
   const sy = sealSyms(bits);
   const flip = (i: number) => setBits(b => b.slice(0, i) + (b[i] === '1' ? '0' : '1') + b.slice(i + 1));
   const targets = [...new Set(c.seals.map(x => sealTarget(digitOf(x.bits))))];
+  const slots = c.seals.length + pending;
+  const pages = Math.max(1, Math.ceil(slots / TRAY));
+  const pg = Math.min(page, pages - 1);
   return (
-    <section className="seal-col">
-      <h3 className="sub-head">Seals <small>{c.seals.length} pressed{pending ? ` · ${pending} waiting` : ''}</small></h3>
-      <div className="seal-editor" data-nodrag>
-        {Array.from(bits, (b, i) => (
-          <button key={i} className={`seal-px ${b === '1' ? 'on' : ''}`} onClick={() => flip(i)} aria-label={`pixel ${i % SEAL_N + 1}, ${Math.floor(i / SEAL_N) + 1}`} />
-        ))}
+    <section className="sl-col" aria-label="Seals">
+      <div className="sl-head"><span className="sl-cap">"THE PRESS"</span><span className="sl-head-note">{c.seals.length} pressed{pending ? ` · ${pending} waiting` : ''}</span></div>
+      <div className="sl-press">
+        <div className={`sl-matrix knots${sel !== null ? ' melting' : ''}`} data-nodrag title="Light the wax: each lit pixel adds to the seal. Symmetric designs press harder.">
+          {Array.from(bits, (b, i) => (
+            <button key={i} className={`seal-px ${b === '1' ? 'on' : ''}`} onClick={() => flip(i)} aria-label={`pixel ${i % SEAL_N + 1}, ${Math.floor(i / SEAL_N) + 1}`} />
+          ))}
+        </div>
+        <div className="sl-read">
+          <div className="sl-digit" title="The digit is the lit count folded to 1-9. It picks what the seal feeds: 1-8 a zone, 9 all ash.">
+            <b>{d || '–'}</b><span><small>DIGIT</small><i>lit {lit}</i></span>
+          </div>
+          <p className="sl-gives" title="What this design would give on its own">{lit ? <><b>{pct(soloMult(bits))}</b><span>{TARGET_NAME(sealTarget(d))}</span></> : <><b className="dim">+0%</b><span className="dim">Light some wax.</span></>}</p>
+          <ul className="sl-syms" aria-label="Symmetries">
+            {SYMS.map(x => {
+              const st = lit && sy[x.id] === 1 ? 'on' : lit && sy[x.id] > 0.6 ? 'half' : '';
+              return <li key={x.id} className={st} title={`${x.name}: ${st === 'on' ? 'holds' : st === 'half' ? 'nearly holds' : 'broken'}`}><SymGlyph id={x.id} /><span>{x.name}</span></li>;
+            })}
+          </ul>
+        </div>
       </div>
-      <div className="seal-read">
-        <span className="ch-stat">Lit <b>{lit}</b> · digit <b>{d || '–'}</b></span>
-        <span className="seal-syms">
-          {SYMS.map(x => <i key={x.id} className={lit && sy[x.id] === 1 ? 'on' : lit && sy[x.id] > 0.6 ? 'half' : ''}>{x.name}</i>)}
-        </span>
-        <span className="ch-stat">{lit ? <>Would give <b>{pct(soloMult(bits))}</b> {TARGET_NAME(sealTarget(d))}</> : <span className="dim">Light some wax.</span>}</span>
-      </div>
-      <div className="ch-row">
+      <div className="sl-row">
         {sel === null
           ? <button className="max-all seal-press" disabled={!pending || !lit} onClick={() => run(s => { if (pressSeal(s, bits)) setBits(blank()); })}>
             {pending ? 'Press the seal' : 'Open a tier to press'}
@@ -218,22 +247,43 @@ function SealsSection({ game, run }: { game: GameState; run: (fn: (s: GameState)
           : <button className="max-all seal-press" disabled={!lit || c.rime < REPRESS_COST} onClick={() => run(s => { if (repressSeal(s, sel, bits)) setSel(null); })}>
             Melt and re-press <span className="cost">{REPRESS_COST} rime</span>
           </button>}
-        <button className="secondary" onClick={() => { setBits(blank()); setSel(null); }}>Clear</button>
+        <button className="sl-btn" onClick={() => { setBits(blank()); setSel(null); }}>Clear</button>
       </div>
-      {c.seals.length > 0 && <>
-        <div className="seal-stamps" data-scroll>
-          {c.seals.map((x, i) => (
-            <button key={i} className={`seal-stamp-btn ${sel === i ? 'sel' : ''}`} title={`${pct(soloMult(x.bits))} ${TARGET_NAME(sealTarget(digitOf(x.bits)))}. Click to melt and redraw.`}
-              onClick={() => { if (sel === i) { setSel(null); setBits(blank()); } else { setSel(i); setBits(x.bits); } }}>
-              <Stamp bits={x.bits} />
-            </button>
-          ))}
+
+      <div className="sl-head"><span className="sl-cap">"THE TRAY"</span>
+        <span className="sl-head-note">{sel !== null ? `seal ${sel + 1} on the press` : c.seals.length ? 'click one to melt it' : 'nothing pressed yet'}</span>
+        {pages > 1 && <span className="sl-tray-turn">
+          <button className="sl-pm" disabled={pg <= 0} onClick={() => setPage(pg - 1)} aria-label="Earlier seals">‹</button>
+          <span>{pg + 1}/{pages}</span>
+          <button className="sl-pm" disabled={pg >= pages - 1} onClick={() => setPage(pg + 1)} aria-label="Later seals">›</button>
+        </span>}
+      </div>
+      <div className="sl-tray">
+        <div className="sl-tray-grid">
+          {Array.from({ length: TRAY }, (_, k) => {
+            const i = pg * TRAY + k, x = c.seals[i];
+            if (x) return (
+              <button key={k} className={`sl-slot${sel === i ? ' sel' : ''}`} title={`${pct(soloMult(x.bits))} ${TARGET_NAME(sealTarget(digitOf(x.bits)))}. Click to melt and redraw.`}
+                onClick={() => { if (sel === i) { setSel(null); setBits(blank()); } else { setSel(i); setBits(x.bits); } }}>
+                <Stamp bits={x.bits} />
+              </button>
+            );
+            return <span key={k} className={`sl-slot ${i < slots ? 'wait' : 'none'}`} title={i < slots ? 'A tier waits for its seal' : undefined} />;
+          })}
         </div>
-        <ul className="seal-totals">
-          {targets.map(t => <li key={t}><span>{TARGET_NAME(t)}</span><b>x{sealMult(c, t).toFixed(2)}</b></li>)}
-        </ul>
-      </>}
-      <p className="dim small-note">"Every door that opens wants its mark. The wax remembers which way it was folded."</p>
+      </div>
+      <ul className="sl-key" aria-label="What the seals give, by digit">
+        {Array.from({ length: 9 }, (_, k) => {
+          const t = sealTarget(k + 1), m = sealMult(c, t), on = targets.includes(t);
+          return (
+            <li key={k} className={`${on ? 'on' : ''}${lit && d === k + 1 ? ' now' : ''}`} style={{ '--kc': t === 'ash' ? '#ece6d2' : ZONE_COLORS[k] } as CSSProperties}
+              title={`Digit ${k + 1}: ${TARGET_NAME(t)}${on ? ` x${m.toFixed(2)} from seals` : ', no seal yet'}`}>
+              <i>{k + 1}</i><b>{on ? `x${m >= 10 ? m.toFixed(1) : m.toFixed(2)}` : '·'}</b>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="sl-quote">"Every door that opens wants its mark."</p>
     </section>
   );
 }
@@ -271,33 +321,91 @@ function Airlock({ c }: { c: SealState }) {
       put(d, i, col);
     }
   }, 10);
-  return <div className="seal-frame knots"><canvas ref={ref} width={120} height={36} className="seal-airlock" /></div>;
+  return <canvas ref={ref} width={120} height={50} className="seal-airlock" />;
 }
 
-function AirlockSection({ game, run }: { game: GameState; run: (fn: (s: GameState) => unknown) => void }) {
+/**
+ * Where the airlock empties: one pipe down into a valve, forking to void ash (left, red) and frost (right, bone).
+ * A branch runs thick when it takes everything, thin at half, and dashed and dark when it's shut.
+ */
+function Valve({ stance }: { stance: Stance }) {
+  const [ashK, frostK] = stance === 'ash' ? [1, 0] : stance === 'frost' ? [0, 1] : [0.5, 0.5];
+  const turn = stance === 'ash' ? -45 : stance === 'frost' ? 45 : 0;
+  const w = (k: number) => (k ? 2 + 5 * k : 1.5);
+  return (
+    <svg className="sl-valve" viewBox="0 0 300 76" role="img" aria-label={`The valve: ${stance === 'split' ? 'half and half' : `all ${stance}`}`}>
+      <path d="M150 0 V22" className="sl-pipe sl-pipe-in" />
+      <path d="M150 34 C150 52 110 50 52 50 V70" className={`sl-pipe sl-pipe-ash${ashK ? ' flow' : ' shut'}`} style={{ strokeWidth: w(ashK) }} />
+      <path d="M150 34 C150 52 190 50 248 50 V70" className={`sl-pipe sl-pipe-frost${frostK ? ' flow' : ' shut'}`} style={{ strokeWidth: w(frostK) }} />
+      <g transform={`rotate(${turn} 150 28)`} className="sl-valve-wheel">
+        <circle cx="150" cy="28" r="12" />
+        <line x1="150" y1="16" x2="150" y2="40" /><line x1="138" y1="28" x2="162" y2="28" />
+        <circle cx="150" cy="16" r="2.4" className="sl-valve-mark" />
+      </g>
+      <text x="28" y="40" className="sl-valve-lbl ash">VOID ASH</text>
+      <text x="272" y="40" className="sl-valve-lbl frost" textAnchor="end">FROST</text>
+    </svg>
+  );
+}
+
+/** The pumps' gauge: a half dial, the needle pushed round by airlock speed (log scale to x20). */
+function SpeedGauge({ c }: { c: SealState }) {
+  const sp = airlockSpeed(c), k = Math.max(0, Math.min(1, Math.log(sp) / Math.log(20)));
+  const a = Math.PI * (1 - k), R = 40;
+  return (
+    <div className="sl-gauge" title={`Pumps lv ${c.pumps}: the airlock runs x${sp.toFixed(2)}, one cycle every ${Math.round(cycleLen(c))}s. Prime pumps below.`}>
+      <svg viewBox="0 0 110 66" aria-hidden>
+        <path d={`M${55 - R} 56 A${R} ${R} 0 0 1 ${55 + R} 56`} className="sl-gauge-track" />
+        <path d={`M${55 - R} 56 A${R} ${R} 0 0 1 ${55 + Math.cos(a) * R} ${56 - Math.sin(a) * R}`} className="sl-gauge-arc" />
+        {Array.from({ length: 11 }, (_, i) => {
+          const b = Math.PI * (1 - i / 10), r1 = R + 4, r2 = R + (i % 5 === 0 ? 10 : 7);
+          return <line key={i} x1={55 + Math.cos(b) * r1} y1={56 - Math.sin(b) * r1} x2={55 + Math.cos(b) * r2} y2={56 - Math.sin(b) * r2} className="sl-gauge-tick" />;
+        })}
+        <line x1="55" y1="56" x2={55 + Math.cos(a) * (R - 6)} y2={56 - Math.sin(a) * (R - 6)} className="sl-gauge-needle" />
+        <circle cx="55" cy="56" r="3.5" className="sl-gauge-hub" />
+      </svg>
+      <b>x{sp.toFixed(2)}</b>
+      <small>PUMPS {c.pumps}</small>
+    </div>
+  );
+}
+
+function AirlockSection({ game, run }: { game: GameState; run: Run }) {
   const c = game.challenges.seal;
   const fi = frostIntake(c);
   return (
-    <section className="seal-col">
-      <h3 className="sub-head">The airlock <small>one cycle every {Math.round(cycleLen(c))}s</small></h3>
-      <Airlock c={c} />
-      <div className="seal-stances" role="radiogroup" aria-label="What to feed the airlock">
+    <section className="sl-col" aria-label="The airlock">
+      <div className="sl-head"><span className="sl-cap">"THE AIRLOCK"</span><span className="sl-head-note">one cycle every {Math.round(cycleLen(c))}s</span></div>
+      <div className="seal-frame knots sl-lock">
+        <Airlock c={c} />
+        <div className="sl-chambers" aria-hidden><span>IN</span><span>VACUUM</span><span>OUT</span></div>
+      </div>
+      <Valve stance={c.stance} />
+      <div className="sl-stances" role="radiogroup" aria-label="What to feed the airlock">
         {STANCES.map(x => (
-          <button key={x.id} role="radio" aria-checked={c.stance === x.id} className={`secondary ${c.stance === x.id ? 'on' : ''}`} onClick={() => run(s => setStance(s, x.id))}>
-            {x.name}<small>{x.note}</small>
+          <button key={x.id} role="radio" aria-checked={c.stance === x.id} className={`sl-btn${c.stance === x.id ? ' on' : ''}`} onClick={() => run(s => setStance(s, x.id))} title={x.note}>
+            {x.name}<small>{x.note.split(': ').pop()}</small>
           </button>
         ))}
       </div>
-      {fi > 0 && c.frost <= 0 && <p className="dim small-note">No frost to feed it. Harvest the walls.</p>}
-      <div className="seal-ups">
-        <button disabled={c.voidAsh < earCost(c)} onClick={() => run(buyEar)}>
-          <span>Stethoscope <small>lv {c.ear} · the twitch reaches {earReach(game).toFixed(1)} marks · a miss costs {fmt(restCost(game))}</small></span><span className="cost">{fmt(earCost(c))} void</span>
-        </button>
-        <button disabled={c.voidAsh < handCost(c)} onClick={() => run(buyHand)}>
-          <span>A patient hand <small>lv {c.hand} · {c.hand ? `finds a number every ${Math.round(handTime(c.hand) / 60)}m` : 'turns the wheel by feel while you are away'}{c.hand ? ` → ${Math.round(handTime(c.hand + 1) / 60)}m` : ''}</small></span><span className="cost">{fmt(handCost(c))} void</span>
-        </button>
+      <div className="sl-instr">
+        <SpeedGauge c={c} />
+        <div className="sl-ups">
+          <button className="sl-up" disabled={c.voidAsh < earCost(c)} onClick={() => run(buyEar)}
+            title={`The twitch reaches ${earReach(game).toFixed(1)} marks from the number. A miss costs ${fmt(restCost(game))} void ash.`}>
+            <span className="sl-up-name">Stethoscope <i>lv {c.ear}</i></span>
+            <small>reach {earReach(game).toFixed(1)} · miss {fmt(restCost(game))}</small>
+            <span className="sl-cost">{fmt(earCost(c))} void</span>
+          </button>
+          <button className="sl-up" disabled={c.voidAsh < handCost(c)} onClick={() => run(buyHand)}
+            title={c.hand ? `Finds a number by itself every ${Math.round(handTime(c.hand) / 60)}m; next level every ${Math.round(handTime(c.hand + 1) / 60)}m` : 'Turns the wheel by feel while you are away'}>
+            <span className="sl-up-name">A patient hand <i>lv {c.hand}</i></span>
+            <small>{c.hand ? `every ${Math.round(handTime(c.hand) / 60)}m → ${Math.round(handTime(c.hand + 1) / 60)}m` : 'turns it while away'}</small>
+            <span className="sl-cost">{fmt(handCost(c))} void</span>
+          </button>
+        </div>
       </div>
-      <p className="dim small-note">"It breathes in. It breathes out. What went in is not what comes out."</p>
+      <p className={`sl-warn${fi > 0 && c.frost <= 0 ? ' on' : ''}`}>{fi > 0 && c.frost <= 0 ? 'No frost to feed it. Harvest the walls.' : '"It breathes in. It breathes out."'}</p>
     </section>
   );
 }
@@ -332,35 +440,57 @@ function Garden({ c, onCell }: { c: SealState; onCell: (i: number) => void }) {
     const x = Math.floor(((e.clientX - b.left) / b.width) * GW), y = Math.floor(((e.clientY - b.top) / b.height) * GH);
     if (x >= 0 && y >= 0 && x < GW && y < GH) onCell(y * GW + x);
   };
-  return <div className="seal-frame knots"><canvas ref={ref} width={GW * CELL} height={GH * CELL} className="seal-garden" data-nodrag onClick={click} aria-label="The frost garden" /></div>;
+  return <canvas ref={ref} width={GW * CELL} height={GH * CELL} className="seal-garden" data-nodrag onClick={click} aria-label="The frost garden" />;
 }
 
-function GardenSection({ game, run }: { game: GameState; run: (fn: (s: GameState) => unknown) => void }) {
+/** Symmetry as a thermometer beside the wall: the column climbs with the garden's symmetry. */
+function Thermo({ sym, mult }: { sym: number; mult: number }) {
+  return (
+    <div className="sl-thermo" title={`Symmetry ${Math.round(sym * 100)}%: crystals grow x${mult.toFixed(2)}. Mirror the frost left to right to raise it.`}>
+      <b>x{mult.toFixed(2)}</b>
+      <div className="sl-thermo-tube"><i style={{ height: `${Math.round(sym * 100)}%` }} /></div>
+      <span className="sl-thermo-bulb" />
+      <small>{Math.round(sym * 100)}%</small>
+    </div>
+  );
+}
+
+function GardenSection({ game, run }: { game: GameState; run: Run }) {
   const c = game.challenges.seal;
   const lit = gardenLit(c.garden), sym = gardenSymmetry(c.garden);
+  const used = seedsUsed(c), max = seedMax(c);
+  const nextGen = Math.round(30 / (1 + 0.3 * (c.cold + 1)));
   return (
-    <section className="seal-col">
-      <h3 className="sub-head">The walls <small>seeds {seedsUsed(c)}/{seedMax(c)} · grows every {Math.round(genTime(c))}s</small></h3>
-      <Garden c={c} onCell={i => run(s => tendCell(s, i))} />
-      <div className="seal-stats">
-        <span className="ch-stat">Frosted <b>{lit}</b>/{GW * GH} · symmetry <b>{Math.round(sym * 100)}%</b> · x{symMult(c.garden).toFixed(2)}</span>
-        <span className="ch-stat">Crystals <b>{fmt(c.crystals)}</b> · +{fmt(crystalRate(c))}/s · {c.harvests} harvests</span>
+    <section className="sl-col" aria-label="The frost garden">
+      <div className="sl-head"><span className="sl-cap">"THE WALLS"</span><span className="sl-head-note">grows every {Math.round(genTime(c))}s</span></div>
+      <div className="sl-wall">
+        <div className="seal-frame knots sl-garden"><Garden c={c} onCell={i => run(s => tendCell(s, i))} /></div>
+        <Thermo sym={sym} mult={symMult(c.garden)} />
       </div>
-      <div className="ch-row">
-        <button className="max-all seal-harvest" disabled={c.crystals < HARVEST_MIN} onClick={() => run(harvest)}>
+      <p className="sl-hint" title="Frost creeps where exactly one neighbour is lit. Seeds stay lit; thawing melts the frost and keeps them.">Click bare wall to seed, frost to prune.</p>
+      <div className="sl-readouts">
+        <span><b>{lit}<i>/{GW * GH}</i></b><small>frosted</small></span>
+        <span><b>+{fmt(crystalRate(c))}</b><small>crystals a second</small></span>
+        <span className="sl-seeds" title={`Seeds planted ${used} of ${max}`}>
+          <span className="sl-seed-pips">{Array.from({ length: max }, (_, k) => <i key={k} className={k < used ? 'on' : ''} />)}</span>
+          <small>seeds {used}/{max}</small>
+        </span>
+      </div>
+      <div className="sl-row">
+        <button className="max-all seal-harvest" disabled={c.crystals < HARVEST_MIN} onClick={() => run(harvest)} title={`${c.harvests} harvests so far`}>
           Harvest <span className="cost">{c.crystals < HARVEST_MIN ? `at ${HARVEST_MIN}` : `${fmt(c.crystals)} frost`}</span>
         </button>
-        <button className="secondary" onClick={() => run(thaw)} title="Melt the frost, keep the seeds">Thaw</button>
+        <button className="sl-btn" onClick={() => run(thaw)} title="Melt the frost, keep the seeds">Thaw</button>
       </div>
-      <div className="seal-ups">
-        <button disabled={c.rime < seedUpCost(c)} onClick={() => run(buySeedUp)}>
-          <span>Another seed <small>{seedMax(c)} → {seedMax(c) + 1}</small></span><span className="cost">{fmt(seedUpCost(c))} rime</span>
+      <div className="sl-ups sl-ups-2">
+        <button className="sl-up" disabled={c.rime < seedUpCost(c)} onClick={() => run(buySeedUp)} title="One more seed you can plant on the wall">
+          <span className="sl-up-name">Another seed</span><small>{max} → {max + 1}</small><span className="sl-cost">{fmt(seedUpCost(c))} rime</span>
         </button>
-        <button disabled={c.rime < coldCost(c)} onClick={() => run(buyCold)}>
-          <span>Let the cold in <small>grows every {Math.round(genTime(c))}s → {Math.round(30 / (1 + 0.3 * (c.cold + 1)))}s</small></span><span className="cost">{fmt(coldCost(c))} rime</span>
+        <button className="sl-up" disabled={c.rime < coldCost(c)} onClick={() => run(buyCold)} title={`The frost grows every ${Math.round(genTime(c))}s; next level every ${nextGen}s`}>
+          <span className="sl-up-name">Let the cold in</span><small>{Math.round(genTime(c))}s → {nextGen}s</small><span className="sl-cost">{fmt(coldCost(c))} rime</span>
         </button>
       </div>
-      <p className="dim small-note">Click bare wall to seed, frost to prune. Frost creeps where exactly one neighbour is lit. "It is warmer than it looks."</p>
+      <p className="sl-foot">{c.harvests} {c.harvests === 1 ? 'harvest' : 'harvests'} taken · "It is warmer than it looks."</p>
     </section>
   );
 }
@@ -396,7 +526,7 @@ function SealRoom({ onClose }: { onClose: () => void }) {
   }, [onClose]);
   return (
     <ChallengeRoom zone={SEAL_ZONE} title="Below the hatch" note="the lock holds, and lets go" onClose={onClose} className="seal-room" status={status}>
-      <div className="seal-cols">
+      <div className="sl-grid">
         <SealsSection game={game} run={run} />
         <AirlockSection game={game} run={run} />
         <GardenSection game={game} run={run} />

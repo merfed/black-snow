@@ -1,5 +1,5 @@
 // The Scriptorium: the panel inside the zone 8 box, and the room behind it.
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   answer, askWalls, GREEDY_K, assign, buyUp, foremanMult, foremanStrength, foremen, giveRate, glyphMult, glyphsSolved, heardGlyphs, HINT_CAP, HINT_SECS,
   hush, lay, leaning, loudCap, loudMult, POOL, QUESTIONS, retire, retireSilence, rosterCap, seat, TRAIT_TEXT, TRAITS, traitMult, unseat, upCost,
@@ -189,10 +189,39 @@ export function ScriptoriumPanel() {
 
 // ---------------------------------------------------------------- the room
 
-function Cipher() {
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+const LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('');
+
+function Head({ cap, note, title }: { cap: string; note?: ReactNode; title?: string }) {
+  return <div className="sc-head"><span className="sc-cap">"{cap}"</span>{note !== undefined && <span className="sc-head-note" title={title}>{note}</span>}</div>;
+}
+
+/** Three candles: one lit per banked hint, the next one filling with wax. */
+function Candles({ hints }: { hints: number }) {
+  const full = Math.floor(hints), part = hints % 1;
+  return (
+    <svg className="sc-candles" viewBox="0 0 66 40" aria-hidden>
+      {Array.from({ length: HINT_CAP }, (_, i) => {
+        const x = 6 + i * 21, lit = i < full, wax = lit ? 1 : i === full ? part : 0, h = 4 + 18 * wax;
+        return (
+          <g key={i} className={`sc-candle${lit ? ' lit' : ''}`}>
+            <rect x={x} y={16} width={12} height={22} className="sc-candle-ghost" />
+            <rect x={x} y={38 - h} width={12} height={h} className="sc-candle-wax" />
+            <line x1={x + 6} y1={38 - h} x2={x + 6} y2={35 - h} className="sc-candle-wick" />
+            {lit && <path d={`M${x + 6} ${22 - 18} q5 7 0 10 q-5 -3 0 -10z`} className="sc-flame" />}
+          </g>
+        );
+      })}
+      <line x1="2" y1="38.5" x2="64" y2="38.5" className="sc-candle-sill" />
+    </svg>
+  );
+}
+
+function Walls() {
   const game = useGame(st => st.game);
   const run = useGame(st => st.run);
   const [sel, setSel] = useState<number | null>(null);
+  const [tab, setTab] = useState<number | null>(null);
   const c = game.challenges.scriptorium, L = lay(game), n = wordsHeard(game);
   const conf = useMemo(() => new Set(c.conf), [c.conf, c.conf.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const heard = heardGlyphs(game);
@@ -211,98 +240,207 @@ function Cipher() {
 
   const used = new Map<string, number>();
   c.guess.forEach((l, g) => { if (l) used.set(l, g); });
+  // how often each glyph shows up in what has been heard
+  const count = new Array(26).fill(0);
+  L.words.slice(0, n).forEach(w => w.glyphs.forEach(g => { count[g]++; }));
+
+  const heardIn = (j: number) => L.sentWords[j].filter(i => i < n);
+  const auto = (() => {
+    const open = L.sentWords.findIndex((_, j) => !c.done.includes(j) && heardIn(j).length > 0);
+    if (open >= 0) return open;
+    let last = 0;
+    L.sentWords.forEach((_, j) => { if (heardIn(j).length) last = j; });
+    return last;
+  })();
+  const j = tab !== null && tab < L.sentWords.length && heardIn(tab).length ? tab : auto;
+  const ws = heardIn(j), done = c.done.includes(j);
+
   const cell = (g: number, k: number) => (
-    <button key={k} className={`scriptorium-cell ${conf.has(g) ? 'ok' : ''} ${sel === g ? 'sel' : ''}`} disabled={conf.has(g)}
+    <button key={k} className={`scriptorium-cell sc-cell ${conf.has(g) ? 'ok' : ''} ${sel === g ? 'sel' : ''}`} disabled={conf.has(g)}
       onClick={() => setSel(sel === g ? null : g)} title={conf.has(g) ? 'Confirmed' : 'Pick a letter for this glyph'}>
       <Glyph shape={L.shapes[g]} />
       <span>{c.guess[g] || '·'}</span>
     </button>
   );
-  const sentences = L.sentWords.map((ws, j) => ({ j, ws: ws.filter(i => i < n) })).filter(x => x.ws.length);
 
   return (
-    <section className="scriptorium-col scriptorium-cipher">
-      <h3 className="sub-head">The walls <small>hand {c.stratum + 1} · {c.done.length}/{L.sentWords.length} sentences</small></h3>
-      <div className="scriptorium-text" data-scroll>
-        {sentences.map(({ j, ws }) => (
-          <div key={j} className={`scriptorium-sentence ${c.done.includes(j) ? 'done' : ''}`}>
+    <section className="sc-col sc-walls" aria-label="The walls">
+      <Head cap="THE WALLS" note={`hand ${c.stratum + 1} · ${c.done.length}/${L.sentWords.length} sentences`} />
+      <div className="sc-tabs" role="tablist">
+        {L.sentWords.map((all, k) => {
+          const h = heardIn(k).length, d = c.done.includes(k);
+          return (
+            <button key={k} role="tab" aria-selected={k === j} className={`sc-tab${k === j ? ' now' : ''}${d ? ' done' : ''}`} disabled={!h}
+              onClick={() => setTab(k)} title={d ? 'Solved' : h ? `${h} of ${all.length} words heard` : 'Not heard yet'}>
+              <b>{ROMAN[k]}</b>
+              <span className="sc-tab-pips">{all.map((_, q) => <i key={q} className={q < h ? 'on' : ''} />)}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className={`sc-tablet artwork-frame knots${done ? ' done' : ''}`}>
+        <div className="sc-tablet-text">
+          {ws.length ? <>
             {ws.map(i => <span key={i} className="scriptorium-word">{L.words[i].glyphs.map(cell)}</span>)}
             {ws.length < L.sentWords[j].length && <span className="scriptorium-more dim">…</span>}
-          </div>
-        ))}
+          </> : <p className="sc-quiet">The walls are quiet. The first word comes in {fmtTime((1 - (c.heard % 1)) * WORD_SECS / give)}.</p>}
+        </div>
+        <p className={`sc-tablet-foot${done ? ' done' : ''}`}>
+          {done ? `"${POOL[L.pool[j]].toUpperCase()}."` : sel === null ? 'Pick a glyph, then a letter (or type it).' : 'Type a letter. Backspace clears.'}
+        </p>
       </div>
-      <div className="scriptorium-keys">
-        {'abcdefghijklmnopqrstuvwxyz'.split('').map(l => {
+      <Head cap="THE KEY" note={`${heard.size}/26 glyphs heard`} title={`Right guesses raise ash x${glyphMult(game).toFixed(2)}. A word that comes out right is confirmed.`} />
+      <div className="sc-key">
+        {L.shapes.map((sh, g) => {
+          const h = heard.has(g), ok = conf.has(g);
+          return h ? (
+            <button key={g} className={`sc-key-tile${ok ? ' ok' : ''}${sel === g ? ' sel' : ''}${c.guess[g] ? ' set' : ''}`} disabled={ok}
+              onClick={() => setSel(sel === g ? null : g)} title={`${ok ? 'Confirmed · ' : ''}heard ${count[g]} time${count[g] === 1 ? '' : 's'}`}>
+              <Glyph shape={sh} />
+              <span>{c.guess[g] || '·'}</span>
+            </button>
+          ) : <span key={g} className="sc-key-tile none" title="Not heard yet" />;
+        })}
+      </div>
+      <div className="sc-keys">
+        {LETTERS.map(l => {
           const g = used.get(l), locked = g !== undefined && conf.has(g);
           return (
-            <button key={l} className={`secondary ${g !== undefined ? 'used' : ''}`} disabled={sel === null || locked}
+            <button key={l} className={`sc-letter${g !== undefined ? ' used' : ''}${locked ? ' locked' : ''}`} disabled={sel === null || locked}
               onClick={() => sel !== null && run(s => assign(s, sel, l))}>{l}</button>
           );
         })}
-        <button className="secondary" disabled={sel === null || !c.guess[sel ?? 0]} onClick={() => sel !== null && run(s => assign(s, sel, ''))}>clear</button>
+        <button className="sc-letter sc-clear" disabled={sel === null || !c.guess[sel ?? 0]} onClick={() => sel !== null && run(s => assign(s, sel, ''))}>clear</button>
       </div>
-      <p className="dim small-note">
-        {sel === null ? 'Pick a glyph, then a letter (or type it). A word that comes out right is confirmed.' : 'Type a letter. Backspace clears.'}
-        {' '}Glyphs seen: {heard.size}. Right guesses raise ash x{glyphMult(game).toFixed(2)}.
-      </p>
-      <div className="ch-row">
-        <button disabled={c.hints < 1} onClick={() => run(askWalls)}>Ask the walls <span className="cost">{Math.floor(c.hints)}/{HINT_CAP}</span></button>
-        <span className="ch-stat dim">
-          {c.hints < HINT_CAP ? `next hint ${fmtTime((1 - (c.hints % 1)) * HINT_SECS / give)}` : 'bank full: spare hints come slowly and write themselves in'}
-          {n < L.words.length ? ` · next word ${fmtTime((1 - (c.heard % 1)) * WORD_SECS / give)}` : ''}
+      <div className="sc-ask">
+        <Candles hints={c.hints} />
+        <button className="sc-btn" disabled={c.hints < 1} onClick={() => run(askWalls)} title="The walls give up their most common glyph">
+          Ask the walls <span className="sc-cost">{Math.floor(c.hints)}/{HINT_CAP}</span>
+        </button>
+        <span className="sc-ask-note">
+          {c.hints < HINT_CAP ? <span>next hint <b>{fmtTime((1 - (c.hints % 1)) * HINT_SECS / give)}</b></span>
+            : <span title="Bank full: spare hints come slowly and write themselves in">hint bank full</span>}
+          {n < L.words.length ? <span>next word <b>{fmtTime((1 - (c.heard % 1)) * WORD_SECS / give)}</b></span> : <span>every word heard</span>}
         </span>
       </div>
-      {c.lore.length > 0 && <>
-        <h3 className="sub-head">Transcribed <small>{c.lore.length}/{POOL.length}</small></h3>
-        <ul className="scriptorium-lore" data-scroll>
-          {c.lore.slice().reverse().map(p => <li key={p}>"{POOL[p].toUpperCase()}."</li>)}
-        </ul>
-      </>}
     </section>
   );
 }
 
+type Pick = { kind: 'voice'; id: number } | { kind: 'chair'; i: number } | null;
+
 function Voices() {
   const game = useGame(st => st.game);
   const run = useGame(st => st.run);
+  const [pick, setPick] = useState<Pick>(null);
+  const [page, setPage] = useState(-1);
   const c = game.challenges.scriptorium;
   const seatOf = (id: number) => c.seats.indexOf(id);
+  const voice = pick?.kind === 'voice' ? c.voices.find(v => v.id === pick.id) : undefined;
+  const chair = pick?.kind === 'chair' ? pick.i : null;
+  const full = c.voices.length >= rosterCap(game);
+
+  const touchChair = (i: number) => {
+    if (voice) { if (c.seats[i] !== voice.id) run(s => seat(s, i, voice.id)); setPick({ kind: 'chair', i }); }
+    else setPick(chair === i ? null : { kind: 'chair', i });
+  };
+  const touchVoice = (id: number) => {
+    if (chair !== null) { if (c.seats[chair] !== id) run(s => seat(s, chair, id)); setPick({ kind: 'voice', id }); }
+    else setPick(voice?.id === id ? null : { kind: 'voice', id });
+  };
+
+  const lore = c.lore, pg = page < 0 || page >= lore.length ? lore.length - 1 : page;
+  const seated = chair !== null ? c.voices.find(v => v.id === c.seats[chair]) : undefined;
+
   return (
-    <section className="scriptorium-col">
-      <h3 className="sub-head">Foremen <small>{foremen(game)}/9 · x{foremanStrength(game).toFixed(2)} strength</small></h3>
-      <ul className="scriptorium-seats">
+    <section className="sc-col" aria-label="The foremen">
+      <Head cap="THE FOREMEN" note={`${foremen(game)}/9 · x${foremanStrength(game).toFixed(2)} strength`} />
+      <div className={`sc-chairs${voice ? ' seating' : ''}`}>
         {ZONES.map((z, i) => {
-          const id = c.seats[i], v = c.voices.find(x => x.id === id);
+          const v = c.voices.find(x => x.id === c.seats[i]), star = voice && voice.spec === i;
           return (
-            <li key={i}>
-              <span className="scriptorium-zone" style={{ color: ZONE_COLORS[i] }}>{i + 1} {z.name}</span>
-              <select value={v ? v.id : -1} onChange={e => run(s => (+e.target.value < 0 ? unseat(s, i) : seat(s, i, +e.target.value)))}>
-                <option value={-1}>empty</option>
-                {c.voices.map(x => <option key={x.id} value={x.id}>{x.name}{x.spec === i ? ' ★' : ''}{seatOf(x.id) >= 0 && seatOf(x.id) !== i ? ` (at ${seatOf(x.id) + 1})` : ''}</option>)}
-              </select>
-              <b className="ch-stat">{v ? `x${foremanMult(game, i).toFixed(2)}` : ''}</b>
-            </li>
+            <button key={i} className={`sc-chair${v ? ' filled' : ''}${chair === i ? ' sel' : ''}${star ? ' star' : ''}${v && v.spec === i ? ' home' : ''}`}
+              style={{ '--zc': ZONE_COLORS[i] } as CSSProperties} onClick={() => touchChair(i)}
+              title={`${z.name}${v ? `: ${v.name}, x${foremanMult(game, i).toFixed(2)}` : ': empty chair'}${voice ? `. Touch to seat ${voice.name} here.` : ''}`}>
+              <span className="sc-chair-name">{z.name}</span>
+              <span className="sc-chair-low"><i>{i + 1}</i>{v ? <><span className="sc-initials">{v.name.split(' ').map(w => w[0]).join('')}{v.spec === i ? ' ★' : ''}</span><b>x{foremanMult(game, i).toFixed(2)}</b></> : <span className="dim">empty</span>}{star && <b className="sc-star">★</b>}</span>
+            </button>
           );
         })}
-      </ul>
-      <h3 className="sub-head">Voices <small>{c.voices.length}/{rosterCap(game)} · tally {c.tally}</small></h3>
-      <ul className="scriptorium-voices" data-scroll>
-        {c.voices.map(v => (
-          <li key={v.id}>
-            <div>
-              <b>{v.name}</b> <span className="dim">{v.era}</span>
-              <span className="scriptorium-spec">knew the {ZONES[v.spec].name} · voice {v.q.toFixed(2)}{seatOf(v.id) >= 0 ? ` · foreman of ${seatOf(v.id) + 1}` : ''}</span>
-            </div>
-            <div className="ch-row">
-              <button className="secondary" onClick={() => run(s => retire(s, v.id, 'silence'))} title="Let it go quiet">Quiet <span className="cost">+{retireSilence(v)}</span></button>
-              <button className="secondary" onClick={() => run(s => retire(s, v.id, 'tally'))} title="Count it. Every foreman grows a little stronger, for good.">Tally</button>
-            </div>
-          </li>
-        ))}
-        {!c.voices.length && <li className="dim">Nobody yet. Keep listening.</li>}
-      </ul>
-      {c.voices.length >= rosterCap(game) && <p className="dim small-note">The roster is full. New voices wait until a chair is free.</p>}
+      </div>
+      <Head cap="THE VOICES" note={<>{c.voices.length}/{rosterCap(game)}{full ? ' · full' : ''} · tally {c.tally}</>}
+        title={full ? 'The roster is full. New voices wait until a chair is free.' : undefined} />
+      <div className={`sc-roster${c.voices.length > 10 ? ' dense' : ''}`}>
+        {c.voices.map(v => {
+          const at = seatOf(v.id);
+          return (
+            <button key={v.id} className={`sc-voice${voice?.id === v.id ? ' sel' : ''}${at >= 0 ? ' seated' : ''}`} onClick={() => touchVoice(v.id)}
+              style={{ '--zc': ZONE_COLORS[v.spec] } as CSSProperties} title={`${v.name}, ${v.era}. Knew the ${ZONES[v.spec].name}.`}>
+              <i className="sc-voice-swatch" />
+              <span className="sc-voice-name">{v.name}</span>
+              <span className="sc-voice-q">{at >= 0 ? <b>@{at + 1}</b> : v.q.toFixed(2)}</span>
+            </button>
+          );
+        })}
+        {!c.voices.length && <p className="sc-empty">Nobody yet. Keep listening.</p>}
+      </div>
+      <div className="sc-card">
+        {voice ? <>
+          <div className="sc-card-top" style={{ '--zc': ZONE_COLORS[voice.spec] } as CSSProperties}>
+            <b>{voice.name}</b><span>{voice.era}</span>
+          </div>
+          <p className="sc-card-line">knew the <em>{ZONES[voice.spec].name}</em> · voice <b>{voice.q.toFixed(2)}</b>{seatOf(voice.id) >= 0 ? <> · <b>@{seatOf(voice.id) + 1}</b></> : ''}</p>
+          <div className="sc-card-row">
+            <span className="sc-card-hint">Touch a chair to seat them.</span>
+            <button className="sc-btn small" onClick={() => { run(s => retire(s, voice.id, 'silence')); setPick(null); }} title="Let it go quiet">Quiet <span className="sc-cost">+{retireSilence(voice)}</span></button>
+            <button className="sc-btn small" onClick={() => { run(s => retire(s, voice.id, 'tally')); setPick(null); }} title="Count it. Every foreman grows a little stronger, for good.">Tally</button>
+          </div>
+        </> : chair !== null ? <>
+          <div className="sc-card-top" style={{ '--zc': ZONE_COLORS[chair] } as CSSProperties}>
+            <b>Chair {chair + 1}</b><span>{ZONES[chair].name}</span>
+          </div>
+          <p className="sc-card-line">{seated ? <>{seated.name}{seated.spec === chair ? ' ★' : ''} · <b>x{foremanMult(game, chair).toFixed(2)}</b></> : 'Nobody sits here.'}</p>
+          <div className="sc-card-row">
+            <span className="sc-card-hint">Touch a voice to seat them here.</span>
+            <button className="sc-btn small" disabled={!seated} onClick={() => run(s => unseat(s, chair))} title="Empty the chair">Empty</button>
+          </div>
+        </> : <p className="sc-card-hint idle">Touch a voice, then a chair, to make a foreman. ★ marks the zone a voice knew.</p>}
+      </div>
+      <Head cap="TRANSCRIBED" note={`${lore.length}/${POOL.length}`} />
+      <div className="sc-slip">
+        {lore.length ? <>
+          <span className="sc-slip-no">No. {pg + 1}</span>
+          <p className="sc-slip-text">"{POOL[lore[pg]].toUpperCase()}."</p>
+          <span className="sc-turn">
+            <button className="sc-pm" disabled={pg <= 0} onClick={() => setPage(pg - 1)} aria-label="Earlier line">‹</button>
+            <button className="sc-pm" disabled={pg >= lore.length - 1} onClick={() => setPage(pg + 1)} aria-label="Later line">›</button>
+          </span>
+        </> : <p className="sc-slip-text dim">Nothing written down yet.</p>}
+      </div>
     </section>
+  );
+}
+
+/** The confessional: an arched lattice window with the emblem behind it. */
+function Booth({ p }: { p: Record<Trait, number> }) {
+  return (
+    <div className="sc-booth">
+      <svg viewBox="0 0 100 120" className="sc-booth-svg" aria-hidden>
+        <defs>
+          <pattern id="sc-lattice" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="8" height="8" className="sc-lattice-bg" /><rect width="1.4" height="8" className="sc-lattice-bar" /><rect width="8" height="1.4" className="sc-lattice-bar" />
+          </pattern>
+          <clipPath id="sc-arch"><path d="M14 116 V48 A36 36 0 0 1 86 48 V116 Z" /></clipPath>
+        </defs>
+        <path d="M14 116 V48 A36 36 0 0 1 86 48 V116 Z" fill="url(#sc-lattice)" />
+        <circle cx="50" cy="66" r="25" className="sc-booth-hole" clipPath="url(#sc-arch)" />
+        <path d="M6 118 V46 A44 44 0 0 1 94 46 V118" className="sc-booth-outer" />
+        <path d="M14 116 V48 A36 36 0 0 1 86 48 V116" className="sc-booth-inner" />
+        <path d="M50 2 v8 M46 6 h8" className="sc-booth-cross" />
+        <line x1="2" y1="118.5" x2="98" y2="118.5" className="sc-booth-sill" />
+      </svg>
+      <Emblem p={p} />
+    </div>
   );
 }
 
@@ -311,25 +449,53 @@ function Silence() {
   const run = useGame(st => st.run);
   const c = game.challenges.scriptorium;
   const lean = leaning(game);
+  const top = Math.max(4, ...TRAITS.map(t => c.prof[t]));
+  const data = stream(game);
   return (
-    <section className="scriptorium-col">
-      <h3 className="sub-head">Silence <small>{fmt(c.silence)}</small></h3>
-      <div className="scriptorium-ups">
-        {UPGRADES.map(u => (
-          <button key={u.id} disabled={c.silence < upCost(game, u.id)} onClick={() => run(s => buyUp(s, u.id))} title={u.desc}>
-            <span>{u.name} <small>lv {upLevel(game, u.id)}</small><i>{u.desc}</i></span><span className="cost">{fmt(upCost(game, u.id))}</span>
-          </button>
-        ))}
+    <section className="sc-col" aria-label="Silence">
+      <Head cap="THE HORN" note="what the walls are saying" />
+      <div className="sc-horn artwork-frame knots"><GlyphLine data={data} loud={Math.min(1, c.loud / loudCap(game))} /></div>
+      <Head cap="SILENCE" note="spend it on the room" />
+      <div className="sc-ups">
+        {UPGRADES.map(u => {
+          const lv = upLevel(game, u.id), cost = upCost(game, u.id);
+          return (
+            <button key={u.id} className="sc-up" disabled={c.silence < cost} onClick={() => run(s => buyUp(s, u.id))} title={u.desc}>
+              <span className="sc-up-name">{u.name}</span>
+              <span className="sc-up-low"><small>lv {lv}</small><span className="sc-cost">{fmt(cost)}</span></span>
+            </button>
+          );
+        })}
       </div>
-      <h3 className="sub-head">The confessional</h3>
-      <div className="scriptorium-profile">
-        <Emblem p={c.prof} />
-        <ul>
-          {TRAITS.map(t => <li key={t} className={lean === t ? 'lean' : ''}><b>{t}</b> {c.prof[t]} <span className="dim">· {TRAIT_TEXT[t]}</span></li>)}
+      <Head cap="THE CONFESSIONAL" note={lean ? `you lean ${lean}` : 'no leaning yet'} />
+      <div className="sc-confess">
+        <Booth p={c.prof} />
+        <ul className="sc-traits">
+          {TRAITS.map(t => (
+            <li key={t} className={lean === t ? 'lean' : ''} title={`${t}: ${TRAIT_TEXT[t]}`}>
+              <span className="sc-trait-top"><b>{t}</b><span className="sc-trait-text">{TRAIT_TEXT[t]}</span><em>{c.prof[t]}</em></span>
+              <span className="sc-trait-bar"><i style={{ width: `${(c.prof[t] / top) * 100}%` }} /></span>
+            </li>
+          ))}
         </ul>
       </div>
-      {c.queue.length ? c.queue.map((_, k) => <Question key={k} slot={k} />) : <p className="dim small-note">The walls have nothing to ask. They will.</p>}
+      {c.queue.length ? <RoomQuestion more={c.queue.length - 1} /> : <p className="sc-empty">The walls have nothing to ask. They will.</p>}
     </section>
+  );
+}
+
+function RoomQuestion({ more }: { more: number }) {
+  const game = useGame(st => st.game);
+  const run = useGame(st => st.run);
+  const q = QUESTIONS[game.challenges.scriptorium.queue[0]];
+  if (!q) return null;
+  return (
+    <div className="sc-q">
+      <p className="sc-q-text">"{q.q.toUpperCase()}"{more > 0 && <small> +{more} waiting</small>}</p>
+      <div className="sc-q-answers">
+        {q.a.map((a, k) => <button key={k} className="sc-btn small" onClick={() => run(s => answer(s, 0, k))}>{a.text}</button>)}
+      </div>
+    </div>
   );
 }
 
@@ -361,13 +527,12 @@ function ScriptoriumRoom({ onClose }: { onClose: () => void }) {
   );
   return (
     <ChallengeRoom zone={ZONE} title="The Scriptorium" note="the walls speak in the voice of whoever dug them" onClose={onClose}
-      status={status}>
-      <div className="scriptorium-cols">
-        <Cipher />
+      className="scriptorium-room" status={status}>
+      <div className="sc-grid">
+        <Walls />
         <Voices />
         <Silence />
       </div>
-      <p className="scriptorium-caption dim">"WE WROTE IT DOWN SO IT WOULD STOP."</p>
     </ChallengeRoom>
   );
 }

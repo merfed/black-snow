@@ -1,5 +1,5 @@
 // The Operator: the panel inside the zone 7 box (the reader) and its room (the editor, the moths, the banks).
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type JSX, type MouseEvent } from 'react';
 import { ZONES } from '../../game/data';
 import { fmt } from '../../game/format';
 import { useGame } from '../../game/store';
@@ -201,37 +201,87 @@ const OP_HELP: Record<Op, string> = {
   CALL: 'Runs another card, then comes back. Each level deepens the stack.', IF: 'Skips the next line unless the gate is open.',
 };
 
-function LineEditor({ c, l, line, cards, n }: { c: number; l: number; line: Line; cards: string[]; n: number }) {
+function LineEditor({ c, l, line, cards, n, at }: { c: number; l: number; line: Line; cards: string[]; n: number; at?: boolean }) {
   const run = useGame(st => st.run);
   const set = (ln: Line) => run(s => setLine(s, c, l, ln));
   const setCond = (patch: Partial<Cond>) => set({ ...line, cond: { ...line.cond!, ...patch } });
   const args = ARGS[line.op]?.(cards, n);
   return (
-    <div className="operator-line">
-      <span className="operator-ln">{l}</span>
-      <select value={line.op} title={OP_HELP[line.op]} onChange={e => { const o = e.target.value as Op; set({ op: o, arg: DEFAULT_ARG[o] ?? 0 }); }}>
+    <div className={`op-line${at ? ' at' : ''}${line.op === 'WAIT' || line.op === 'NOP' ? ' idle' : ''}`}>
+      <span className="op-ln" title={at ? 'The reader is on this line' : undefined}>{l}</span>
+      <select className="op-op" value={line.op} title={OP_HELP[line.op]} onChange={e => { const o = e.target.value as Op; set({ op: o, arg: DEFAULT_ARG[o] ?? 0 }); }}>
         {OPS.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
-      {args && <select value={line.arg} onChange={e => set({ ...line, arg: Number(e.target.value) })}>{args.map(a => <option key={a.v} value={a.v}>{a.t}</option>)}</select>}
+      {args && <select className="op-arg" value={line.arg} onChange={e => set({ ...line, arg: Number(e.target.value) })}>{args.map(a => <option key={a.v} value={a.v}>{a.t}</option>)}</select>}
       {line.op === 'IF' && line.cond && <>
-        <button className={`secondary operator-not ${line.cond.na ? 'on' : ''}`} onClick={() => setCond({ na: !line.cond!.na })}>NOT</button>
+        <button className={`op-not ${line.cond.na ? 'on' : ''}`} title="Invert this gate" onClick={() => setCond({ na: !line.cond!.na })}>NOT</button>
         <select value={line.cond.a} onChange={e => setCond({ a: e.target.value })}>{CONDS.map(k => <option key={k} value={k}>{k}</option>)}</select>
-        <select value={line.cond.join} onChange={e => setCond({ join: e.target.value as Join })}>
+        <select className="op-join" value={line.cond.join} onChange={e => setCond({ join: e.target.value as Join })}>
           <option value="">·</option><option value="AND">AND</option><option value="OR">OR</option>
         </select>
         {line.cond.join && <>
-          <button className={`secondary operator-not ${line.cond.nb ? 'on' : ''}`} onClick={() => setCond({ nb: !line.cond!.nb })}>NOT</button>
+          <button className={`op-not ${line.cond.nb ? 'on' : ''}`} title="Invert this gate" onClick={() => setCond({ nb: !line.cond!.nb })}>NOT</button>
           <select value={line.cond.b} onChange={e => setCond({ b: e.target.value })}>{CONDS.map(k => <option key={k} value={k}>{k}</option>)}</select>
         </>}
       </>}
-      <span className="operator-line-tools">
-        <button className="secondary" aria-label="Move up" disabled={l === 0} onClick={() => run(s => moveLine(s, c, l, -1))}>↑</button>
-        <button className="secondary" aria-label="Move down" disabled={l === n - 1} onClick={() => run(s => moveLine(s, c, l, 1))}>↓</button>
-        <button className="secondary" aria-label="Delete line" disabled={n <= 1} onClick={() => run(s => removeLine(s, c, l))}>×</button>
+      <span className="op-line-tools">
+        <button aria-label="Move up" title="Move up" disabled={l === 0} onClick={() => run(s => moveLine(s, c, l, -1))}>↑</button>
+        <button aria-label="Move down" title="Move down" disabled={l === n - 1} onClick={() => run(s => moveLine(s, c, l, 1))}>↓</button>
+        <button aria-label="Delete line" title="Delete line" disabled={n <= 1} onClick={() => run(s => removeLine(s, c, l))}>×</button>
       </span>
     </div>
   );
 }
+
+/** A card in the cabinet, drawn small: its holes as a little grid, one column a line. */
+function MiniHoles({ lines }: { lines: Line[] }) {
+  const rects: JSX.Element[] = [];
+  for (let l = 0; l < MAX_LINES; l++) {
+    const b = l < lines.length ? lineBits(lines[l]) : 0;
+    for (let r = 0; r < 12; r++) {
+      const on = (b >> r) & 1;
+      if (on) rects.push(<rect key={`${l}-${r}`} x={l * 4 + 1} y={r * 2} width={2.4} height={1.3} className="op-hole" />);
+      else if (l < lines.length && (l + r) % 3 === 0) rects.push(<rect key={`${l}-${r}`} x={l * 4 + 1.8} y={r * 2 + 0.3} width={0.8} height={0.7} className="op-pin" />);
+    }
+  }
+  return <svg className="op-mini" viewBox="0 0 32 24" preserveAspectRatio="none" aria-hidden>{rects}</svg>;
+}
+
+/** The clock: twelve ticks, a hand that steps once a beat, an arc for the work it wants before the next gear. */
+function ClockDial({ gear, beat, running, learn }: { gear: number; beat: number; running: boolean; learn: number }) {
+  const R = 44, arc = 2 * Math.PI * (R + 6);
+  return (
+    <svg className={`op-dial${running ? ' run' : ''}`} viewBox="-60 -60 120 120" aria-hidden style={{ '--beat-dur': `${(12 / Math.max(0.01, beat)).toFixed(2)}s` } as CSSProperties}>
+      <circle r={R + 6} className="op-dial-track" />
+      <circle r={R + 6} className="op-dial-arc" strokeDasharray={`${arc * Math.max(0, Math.min(1, learn))} ${arc}`} transform="rotate(-90)" />
+      <circle r={R} className="op-dial-face" />
+      {Array.from({ length: 12 }, (_, i) => {
+        const a = (i / 12) * Math.PI * 2, big = i % 3 === 0;
+        return <line key={i} x1={Math.sin(a) * (R - (big ? 9 : 5))} y1={-Math.cos(a) * (R - (big ? 9 : 5))} x2={Math.sin(a) * (R - 2)} y2={-Math.cos(a) * (R - 2)} className={`op-dial-tick${big ? ' big' : ''}`} />;
+      })}
+      <g className="op-dial-hand"><line x1={0} y1={6} x2={0} y2={-R + 10} /><rect x={-2} y={-R + 8} width={4} height={4} /></g>
+      <circle r={3.5} className="op-dial-hub" />
+      <text y={22} className="op-dial-gear">{gear}</text>
+    </svg>
+  );
+}
+
+/** The stack, as plates: one per level the limit allows, lit as deep as the chosen card reaches. */
+function StackTower({ limit, reach }: { limit: number; reach: number }) {
+  const n = Math.min(limit, 10), h = 78 / Math.max(n, 4);
+  return (
+    <svg className="op-tower" viewBox="0 0 90 100" aria-hidden>
+      <rect x={6} y={92} width={78} height={5} className="op-tower-base" />
+      {Array.from({ length: n }, (_, i) => {
+        const w = 70 - i * (30 / Math.max(1, n));
+        return <rect key={i} x={45 - w / 2} y={90 - (i + 1) * h + 1.5} width={w} height={h - 3} className={`op-plate${i < reach ? ' lit' : ''}`} />;
+      })}
+      {limit > n && <text x={45} y={8} className="op-tower-more">+{limit - n}</text>}
+    </svg>
+  );
+}
+
+const PAGE = 9;
 
 function OperatorRoom({ onClose }: { onClose: () => void }) {
   const game = useGame(st => st.game);
@@ -240,6 +290,7 @@ function OperatorRoom({ onClose }: { onClose: () => void }) {
   const st = game.challenges.operator;
   const [sel, setSel] = useState(0);
   const c = Math.min(sel, st.cards.length - 1);
+  const [page, setPage] = useState(0);
   const card = st.cards[c];
   const names = st.cards.map(k => k.name);
   const slots = readerSlots(game);
@@ -249,6 +300,14 @@ function OperatorRoom({ onClose }: { onClose: () => void }) {
   const live = activeSlots(game).length;
   const mothsHere = st.moths.filter(m => m.c === c).length;
   const ck = clockCost(st), cn = clockNeed(st);
+  const readSlot = st.reader.findIndex((r, i) => r === c && i < slots);
+  const ptr = readSlot >= 0 ? st.ptrs[readSlot] : undefined;
+  const atLine = st.running && ptr && ptr.atC === c ? ptr.atL : -1;
+  const pages = Math.max(1, Math.ceil(st.cards.length / PAGE));
+  const pg = Math.min(page, pages - 1);
+  const pick = (i: number) => { setSel(i); setPage(Math.floor(i / PAGE)); };
+  const reach = depthOf(st, c, memo);
+  const wired = st.banks.filter(Boolean).length;
   const status = (
     <RoomStatus
       stats={[
@@ -266,71 +325,127 @@ function OperatorRoom({ onClose }: { onClose: () => void }) {
   );
   return (
     <ChallengeRoom zone={ZONE} title="The Operator" note="cards, stack, memory" onClose={onClose} className="operator-room" status={status}>
-      <div className="operator-room-grid">
-        <section className="operator-col">
-          <h3 className="sub-head">Cabinet</h3>
-          <div className="operator-files" data-scroll>
-            {st.cards.map((k, i) => (
-              <button key={i} className={`secondary operator-file ${i === c ? 'on' : ''}`} onClick={() => setSel(i)}>
-                <span>{k.name}</span><span className="dim">{k.lines.length} ln · d{depthOf(st, i, memo)}</span>
+      <div className="op-grid">
+        {/* ---- the cabinet of cards, and the reader they go into ---- */}
+        <section className="op-col" aria-label="Cabinet">
+          <div className="op-head"><span className="op-cap">"THE CABINET"</span><span className="op-head-note">{st.cards.length} of {MAX_CARDS} cards</span></div>
+          <div className="op-drawer">
+            <div className="op-files">
+              {st.cards.slice(pg * PAGE, pg * PAGE + PAGE).map((k, j) => {
+                const i = pg * PAGE + j;
+                const m = st.moths.filter(x => x.c === i).length;
+                const inReader = st.reader.some((r, s) => r === i && s < slots);
+                return (
+                  <button key={i} className={`op-file${i === c ? ' on' : ''}${inReader ? ' loaded' : ''}`} onClick={() => pick(i)}
+                    title={`${k.name}: ${k.lines.length} line${k.lines.length === 1 ? '' : 's'}, CALL depth ${depthOf(st, i, memo)}${inReader ? ', in the reader' : ''}${m ? `, ${m} moth${m > 1 ? 's' : ''}` : ''}`}>
+                    <span className="op-file-top"><span className="op-file-name">{k.name}</span>{m > 0 && <i className="op-moth-dot">{m}</i>}</span>
+                    <MiniHoles lines={k.lines} />
+                    <span className="op-file-foot">{k.lines.length} ln · d{depthOf(st, i, memo)}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <span className="op-pull" aria-hidden />
+            {pages > 1 && (
+              <div className="op-pager">
+                <button className="op-pm" disabled={pg <= 0} onClick={() => setPage(pg - 1)} aria-label="Earlier cards">‹</button>
+                <span>drawer {pg + 1}/{pages}</span>
+                <button className="op-pm" disabled={pg >= pages - 1} onClick={() => setPage(pg + 1)} aria-label="Later cards">›</button>
+              </div>
+            )}
+          </div>
+          <button className="op-btn op-wide" disabled={st.cards.length >= MAX_CARDS || cyc < punchCost(st)} onClick={() => run(s => { if (punchCard(s)) pick(s.challenges.operator.cards.length - 1); })}>
+            Punch a blank card <span className="op-cost">{fmt(punchCost(st))} cyc</span>
+          </button>
+
+          <div className="op-head" title="More slots open as you compile."><span className="op-cap">"THE READER"</span><span className="op-head-note">{live} of {slots} slots fed</span></div>
+          <div className="op-slots">
+            {Array.from({ length: slots }, (_, i) => {
+              const r = st.reader[i] ?? -1, has = !!st.cards[r];
+              return (
+                <label key={i} className={`op-slot${has ? ' fed' : ''}`} title={`Slot ${i + 1}`}>
+                  <i className={`op-lamp${has && st.running ? ' lit' : ''}`} />
+                  <span className="op-slot-no">{i + 1}</span>
+                  <select value={r} onChange={e => run(s => loadCard(s, i, Number(e.target.value)))}>
+                    <option value={-1}>empty</option>
+                    {names.map((nm, k) => <option key={k} value={k}>{nm}</option>)}
+                  </select>
+                </label>
+              );
+            })}
+          </div>
+          <button className={`op-btn op-wide op-run${st.running ? ' on' : ''}`} onClick={() => run(s => setRunning(s, !st.running))}>
+            <i className={`op-lamp${st.running ? ' lit' : ''}`} />{st.running ? 'Pause the reader' : 'Run the reader'}
+          </button>
+        </section>
+
+        {/* ---- the chosen card, big, and its lines ---- */}
+        <section className="op-col op-editor" aria-label="Card editor">
+          <div className="op-head">
+            <span className="op-cap">"{card.name}"</span>
+            <span className={`op-head-note${mothsHere ? ' hot' : ''}`} title="Moths nest in idle lines: WAIT and NOP. Click them off the card; each leaves a part.">
+              {mothsHere ? `${mothsHere} moth${mothsHere > 1 ? 's' : ''} here · click them off` : 'moths nest in WAIT and NOP'}
+            </span>
+          </div>
+          <div className="op-punch op-cardframe">
+            <span className="op-rows" aria-hidden>{['12', '11', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].map(r => <i key={r}>{r}</i>)}</span>
+            <PunchCard card={c} slot={readSlot} onSwat={id => run(s => swat(s, id))} />
+            <span className="op-cols" aria-hidden>{Array.from({ length: MAX_LINES }, (_, l) => <i key={l} className={l === atLine ? 'at' : l < card.lines.length ? 'used' : ''}>{l}</i>)}</span>
+          </div>
+          <div className="op-lines">
+            {card.lines.map((ln, l) => <LineEditor key={l} c={c} l={l} line={ln} cards={names} n={card.lines.length} at={l === atLine} />)}
+            {Array.from({ length: MAX_LINES - card.lines.length }, (_, k) => k === 0
+              ? <button key="add" className="op-line op-add" onClick={() => run(s => addLine(s, c))}><span className="op-ln">{card.lines.length}</span>+ Add a line</button>
+              : <div key={k} className="op-line op-empty" aria-hidden><span className="op-ln">{card.lines.length + k}</span></div>)}
+          </div>
+          <p className="operator-caption op-caption">"ONE LINE A BEAT. IT NEVER SKIPS A BEAT. IT SKIPS LINES."</p>
+        </section>
+
+        {/* ---- the machine: clock, stack, memory banks ---- */}
+        <section className="op-col" aria-label="Machine">
+          <div className="op-head"><span className="op-cap">"THE MACHINE"</span><span className="op-head-note">gear {st.clock} · limit {st.stack}</span></div>
+          <div className="op-machine">
+            <div className="op-punch op-inst" title={`Clock: beat ${beatRate(st).toFixed(2)}/s. The arc fills with lines run toward the next gear (the Faster clock below).`}>
+              <ClockDial gear={st.clock} beat={beatRate(st)} running={st.running} learn={cn > 0 ? st.lines / cn : 1} />
+              <span className="op-inst-cap">"CLOCK"</span>
+              <span className="op-inst-line">next <b>{(beatRate(st) * 1.2).toFixed(2)}/s</b></span>
+              <span className={`op-inst-line${st.lines < cn ? ' hot' : ''}`}>{st.lines < cn ? `wants ${fmt(cn)} lines` : 'ready to learn'}</span>
+            </div>
+            <div className="op-punch op-inst" title={`Stack limit ${st.stack}. Each level of CALL a card can reach adds to every payout.`}>
+              <StackTower limit={st.stack} reach={reach} />
+              <span className="op-inst-cap">"STACK"</span>
+              <span className="op-inst-line" title={`${card.name} reaches depth ${reach}`}>this card <b>d{reach}</b></span>
+              <button className="op-btn op-wide op-stack-btn" disabled={cyc < sc.cycles || st.parts < sc.parts} onClick={() => run(buyStack)} title="One more level of CALL">
+                Deeper stack <span className="op-cost"><span>{fmt(sc.cycles)} cyc</span> <span>+ {sc.parts} part{sc.parts > 1 ? 's' : ''}</span></span>
               </button>
-            ))}
+            </div>
           </div>
-          <button disabled={st.cards.length >= MAX_CARDS || cyc < punchCost(st)} onClick={() => run(s => { if (punchCard(s)) setSel(s.challenges.operator.cards.length - 1); })}>
-            Punch a blank card <span className="cost">{fmt(punchCost(st))} cyc</span>
-          </button>
-          <h3 className="sub-head">Reader</h3>
-          {Array.from({ length: slots }, (_, i) => (
-            <label key={i} className="operator-slot-pick">
-              <span className="dim">Slot {i + 1}</span>
-              <select value={st.reader[i] ?? -1} onChange={e => run(s => loadCard(s, i, Number(e.target.value)))}>
-                <option value={-1}>empty</option>
-                {names.map((nm, k) => <option key={k} value={k}>{nm}</option>)}
-              </select>
-            </label>
-          ))}
-          <p className="small-note dim">More slots open as you compile.</p>
-          <button className={st.running ? 'secondary' : ''} onClick={() => run(s => setRunning(s, !st.running))}>{st.running ? 'Pause the reader' : 'Run the reader'}</button>
-        </section>
 
-        <section className="operator-col operator-editor">
-          <h3 className="sub-head">{card.name}</h3>
-          <div className="operator-big">
-            <PunchCard card={c} slot={st.reader.findIndex((r, i) => r === c && i < slots)} onSwat={id => run(s => swat(s, id))} />
+          <div className="op-head" title="Banks read the station into a signal. Signals strengthen the payout, and IF BANKn opens above half.">
+            <span className="op-cap">"MEMORY BANKS"</span><span className="op-head-note">{wired} wired · {st.banks.length} of {MAX_BANKS}</span>
           </div>
-          <p className="small-note dim">{mothsHere ? `${mothsHere} moth${mothsHere > 1 ? 's' : ''} on this card. Click them off; each leaves a part.` : 'Moths nest in idle lines: WAIT and NOP.'}</p>
-          <div className="operator-lines" data-scroll>
-            {card.lines.map((ln, l) => <LineEditor key={l} c={c} l={l} line={ln} cards={names} n={card.lines.length} />)}
+          <div className="op-banks">
+            {st.banks.map((b, i) => {
+              const v = b ? bankSignal(game, b) : 0;
+              return (
+                <label key={i} className={`op-bank${b ? ' wired' : ''}${v > 0.5 ? ' open' : ''}`} title={b ? `BANK${i + 1}: ${(v * 100).toFixed(0)}%${v > 0.5 ? ', open (IF BANK' + (i + 1) + ' passes)' : ', shut'}` : `BANK${i + 1}: unwired`}>
+                  <span className="op-bank-top">
+                    <span className="op-bank-name">BANK{i + 1}</span>
+                    <span className="op-seg" aria-hidden>{Array.from({ length: 10 }, (_, k) => <i key={k} className={k < Math.round(v * 10) ? 'on' : ''} />)}</span>
+                  </span>
+                  <select value={b} onChange={e => run(s => setBank(s, i, e.target.value))}>
+                    <option value="">unwired</option>
+                    {SOURCES.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+                  </select>
+                </label>
+              );
+            })}
+            {st.banks.length < MAX_BANKS && (
+              <button className="op-bank op-bank-add" disabled={cyc < bc.cycles || st.parts < bc.parts} onClick={() => run(buyBank)} title="Wire another memory bank">
+                <span>+ Wire a bank</span><span className="op-cost">{fmt(bc.cycles)} cyc · {bc.parts} part{bc.parts > 1 ? 's' : ''}</span>
+              </button>
+            )}
           </div>
-          <button className="secondary" disabled={card.lines.length >= MAX_LINES} onClick={() => run(s => addLine(s, c))}>Add a line</button>
-          <p className="operator-caption">"ONE LINE A BEAT. IT NEVER SKIPS A BEAT. IT SKIPS LINES."</p>
-        </section>
-
-        <section className="operator-col">
-          <h3 className="sub-head">Machine</h3>
-          <p className="small-note dim">
-            Clock: beat {beatRate(st).toFixed(2)}/s, {(beatRate(st) * 1.2).toFixed(2)}/s with the next.
-            {st.lines < cn && <> It only learns from work: it wants {fmt(cn)} lines run first.</>}
-          </p>
-          <button disabled={cyc < sc.cycles || st.parts < sc.parts} onClick={() => run(buyStack)}>
-            Deeper stack <span className="cost">{fmt(sc.cycles)} cyc · {sc.parts} part{sc.parts > 1 ? 's' : ''}</span>
-          </button>
-          <p className="small-note dim">Stack limit {st.stack}. Each level of CALL a card can reach adds to every payout.</p>
-          <h3 className="sub-head">Memory banks</h3>
-          {st.banks.map((b, i) => (
-            <label key={i} className="operator-bank">
-              <span className="dim">BANK{i + 1}</span>
-              <select value={b} onChange={e => run(s => setBank(s, i, e.target.value))}>
-                <option value="">unwired</option>
-                {SOURCES.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
-              </select>
-              <span className="operator-meter"><span style={{ width: `${(b ? bankSignal(game, b) : 0) * 100}%` }} /></span>
-            </label>
-          ))}
-          <button disabled={st.banks.length >= MAX_BANKS || cyc < bc.cycles || st.parts < bc.parts} onClick={() => run(buyBank)}>
-            Wire a bank <span className="cost">{fmt(bc.cycles)} cyc · {bc.parts} part{bc.parts > 1 ? 's' : ''}</span>
-          </button>
-          <p className="small-note dim">Banks read the station into a signal. Signals strengthen the payout, and IF BANKn opens above half.</p>
         </section>
       </div>
     </ChallengeRoom>

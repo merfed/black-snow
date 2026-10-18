@@ -165,6 +165,119 @@ export function RingPanel() {
   );
 }
 
+/** A 2px dither of a colour, for SVG fills. Ids are scoped by `id` so two pages never collide. */
+function Dith({ id, c, sparse }: { id: string; c: string; sparse?: boolean }) {
+  return (
+    <pattern id={id} width={sparse ? 4 : 2} height={sparse ? 4 : 2} patternUnits="userSpaceOnUse">
+      <rect width="1" height="1" fill={c} />{!sparse && <rect x="1" y="1" width="1" height="1" fill={c} />}
+    </pattern>
+  );
+}
+
+/** A bezel of ticks around the ring plate: a long one every sixth, a red arrow for the way the spiral turns. */
+function RingBezel({ locked }: { locked: boolean }) {
+  return (
+    <svg className={`rg-bezel${locked ? ' on' : ''}`} viewBox="0 0 200 200" aria-hidden>
+      <circle cx="100" cy="100" r="97" className="rg-bezel-track" />
+      {Array.from({ length: 72 }, (_, i) => {
+        const a = (i / 72) * Math.PI * 2, long = i % 6 === 0, r1 = 92, r2 = long ? 99 : 96;
+        return <line key={i} x1={100 + Math.sin(a) * r1} y1={100 - Math.cos(a) * r1} x2={100 + Math.sin(a) * r2} y2={100 - Math.cos(a) * r2} className={long ? 'rg-tick long' : 'rg-tick'} />;
+      })}
+      <path d="M100 0 l-5 -7 h10 z" className="rg-arrow" transform="translate(0 8)" />
+    </svg>
+  );
+}
+
+/** A socket: a round setting with six prongs, the gem dithered in its own colour. */
+function SocketGem({ k, id, size = 76 }: { k: number; id: string; size?: number }) {
+  const c = k >= 0 ? CATALYSTS[k].hex : '';
+  return (
+    <svg className={`rg-gem${k >= 0 ? ' full' : ''}`} viewBox="0 0 80 80" width={size} height={size} aria-hidden>
+      {k >= 0 && <defs><Dith id={id} c={c} /><Dith id={`${id}-s`} c={c} sparse /></defs>}
+      <circle cx="40" cy="40" r="36" className="rg-gem-rim" />
+      <circle cx="40" cy="40" r="31" className="rg-gem-rim inner" />
+      {Array.from({ length: 6 }, (_, i) => {
+        const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+        return <rect key={i} x={40 + Math.cos(a) * 30 - 3} y={40 + Math.sin(a) * 30 - 3} width="6" height="6" className="rg-prong" transform={`rotate(45 ${40 + Math.cos(a) * 30} ${40 + Math.sin(a) * 30})`} />;
+      })}
+      {k >= 0 ? <>
+        <polygon points="40,14 62,28 62,52 40,66 18,52 18,28" fill={`url(#${id}-s)`} className="rg-gem-cut" style={{ stroke: c }} />
+        <polygon points="40,22 54,31 54,49 40,58 26,49 26,31" fill={`url(#${id})`} />
+        <polygon points="40,22 54,31 40,40 26,31" fill={c} />
+        <path d="M30 30 l6 -4" className="rg-gem-glint" />
+      </> : <text x="40" y="46" className="rg-gem-empty">·</text>}
+    </svg>
+  );
+}
+
+/** A vial on the shelf: liquid in its colour, as full as the copies held; a dashed ghost before it is found. */
+function Vial({ k, have, refined, slot }: { k: number; have: number; refined: number; slot: number }) {
+  const c = CATALYSTS[k].hex, id = `rg-vial-${k}`;
+  const lvl = have ? Math.min(1, 0.35 + 0.15 * have) : 0;
+  const top = 62 - lvl * 40;
+  return (
+    <svg className={`rg-vial-svg${have ? '' : ' ghost'}`} viewBox="0 0 40 70" aria-hidden>
+      <defs>
+        <Dith id={id} c={c} />
+        <clipPath id={`${id}-clip`}><path d="M15 6 V24 L5 46 Q3 64 20 64 Q37 64 35 46 L25 24 V6 Z" /></clipPath>
+      </defs>
+      {have > 0 && <g clipPath={`url(#${id}-clip)`}>
+        <rect x="0" y={top} width="40" height={70 - top} fill={`url(#${id})`} />
+        <rect x="0" y={top} width="40" height="2" fill={c} />
+      </g>}
+      <path d="M15 6 V24 L5 46 Q3 64 20 64 Q37 64 35 46 L25 24 V6 Z" className="rg-vial-glass" />
+      <rect x="12" y="2" width="16" height="5" className="rg-vial-cork" />
+      {Array.from({ length: Math.min(4, refined) }, (_, i) => <rect key={i} x={8 + i * 7} y="66" width="4" height="3" className="rg-vial-pip" />)}
+      {slot >= 0 && <g><title>{`In socket ${slot + 1}`}</title><rect x="27" y="11" width="10" height="11" className="rg-vial-tag" /><text x="32" y="20" className="rg-vial-s">{slot + 1}</text></g>}
+      {!have && <text x="20" y="52" className="rg-vial-q">?</text>}
+    </svg>
+  );
+}
+
+/** The picked colour, large, on the bench: a tall flask with a bubble rising. */
+function BenchVial({ k, have }: { k: number; have: number }) {
+  const c = CATALYSTS[k].hex, id = `rg-bench-${k}`;
+  const top = 62 - Math.min(1, 0.35 + 0.15 * have) * 40;
+  const shape = 'M15 6 V24 L5 46 Q3 64 20 64 Q37 64 35 46 L25 24 V6 Z';
+  return (
+    <svg className="rg-bench-art" viewBox="0 0 40 70" aria-hidden>
+      <defs><Dith id={id} c={c} /><clipPath id={`${id}-clip`}><path d={shape} /></clipPath></defs>
+      <g clipPath={`url(#${id}-clip)`}>
+        <rect x="0" y={top} width="40" height={70 - top} fill={`url(#${id})`} />
+        <rect x="0" y={top} width="40" height="1.5" fill={c} />
+        <rect x="12" y={top + 6} width="2" height="2" className="rg-bubble" />
+        <rect x="24" y={top + 12} width="1.5" height="1.5" className="rg-bubble b2" />
+      </g>
+      <path d={shape} className="rg-vial-glass" />
+      <path d="M10 46 Q9 58 16 60" className="rg-bench-glint" />
+      <rect x="12" y="2" width="16" height="5" className="rg-vial-cork" />
+    </svg>
+  );
+}
+
+/** The deep wind: a left-turning spiral that silts up from the outside in toward the next drop. */
+function DeepWind({ frac, silt, need, idle }: { frac: number; silt: number; need: number; idle: boolean }) {
+  const pts: string[] = [];
+  const turns = 3.25, steps = 140;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps, a = -t * turns * Math.PI * 2 - Math.PI / 2, r = 86 - t * 56;
+    pts.push(`${(100 + Math.cos(a) * r).toFixed(1)},${(100 + Math.sin(a) * r).toFixed(1)}`);
+  }
+  const d = 'M' + pts.join(' L');
+  return (
+    <svg className={`rg-wind${idle ? ' idle' : ''}`} viewBox="0 0 200 200" role="img" aria-label={`Deep wind: ${silt.toFixed(1)} of ${need} silt`}>
+      <defs><Dith id="rg-wind-d" c="currentColor" sparse /></defs>
+      <circle cx="100" cy="100" r="96" className="rg-wind-rim" />
+      <circle cx="100" cy="100" r="92" fill="url(#rg-wind-d)" className="rg-wind-floor" />
+      <path d={d} pathLength={100} className="rg-wind-track" />
+      <path d={d} pathLength={100} className="rg-wind-fill" strokeDasharray={`${Math.max(0.01, frac * 100)} 100`} />
+      <circle cx="100" cy="100" r="24" className="rg-wind-eye" />
+      <text x="100" y="101" className="rg-wind-num">{silt.toFixed(1)}</text>
+      <text x="100" y="113" className="rg-wind-of">of {need}</text>
+    </svg>
+  );
+}
+
 function CatalystRoom({ onClose }: { onClose: () => void }) {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
@@ -174,6 +287,7 @@ function CatalystRoom({ onClose }: { onClose: () => void }) {
   const pig = game.alchemy.pigment;
   const need = dropCost(r.found);
   const rate = dustRate(game);
+  const [pickK, setPick] = useState(-1);
   useEffect(() => {
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', esc);
@@ -181,6 +295,7 @@ function CatalystRoom({ onClose }: { onClose: () => void }) {
   }, [onClose]);
   const pc = pourCost(game);
   const n = spanOf(game);
+  const total = rings(game);
   const status = (
     <RoomStatus
       stats={[
@@ -193,72 +308,135 @@ function CatalystRoom({ onClose }: { onClose: () => void }) {
       buy={{ label: 'Pour pigment', cost: pc, unit: 'pigment', afford: pig >= pc, onClick: () => run(pour), title: 'Pour into the deep wind: +1 silt toward the next catalyst' }}
     />
   );
+  // the vial on the bench: the one picked, else the one in the first socket, else the first found
+  const firstFound = r.cats.findIndex(c => c > 0);
+  const sel = pickK >= 0 ? pickK : r.sock[0] >= 0 ? r.sock[0] : Math.max(0, firstFound);
+  const sc = CATALYSTS[sel], have = r.cats[sel], slotted = r.sock.indexOf(sel);
+  const codeTitle = rd.barker ? `A Barker code ${n} long. Every sidelobe is within 1.` : `Not a Barker code. Codes exist at ${BARKER_LENGTHS.join(', ')}.`;
   return (
     <ChallengeRoom zone={SPIRAL} title="The fourth slot" note="it is never used up" onClose={onClose} className="ring-room" status={status}>
-      <div className="ring-room-cols">
-        <section className="ring-room-left">
-          <div className="ring-frame knots big">
-            <RingCanvas pol={r.pol} n={rings(game)} span={n} locked={rd.barker} size={160} onFlip={i => run(s => flip(s, i))} />
+      <div className="rg-grid">
+        {/* ---- the rings, the code they spell, its sidelobes ---- */}
+        <section className="rg-col" aria-label="The rings">
+          <div className="rg-head"><span className="rg-cap">"THE RINGS"</span><span className="rg-head-note">best held {r.best || 'none'}</span></div>
+          <div className="rg-dial">
+            <RingBezel locked={rd.barker} />
+            <div className="ring-frame knots rg-plate">
+              <RingCanvas pol={r.pol} n={total} span={n} locked={rd.barker} size={160} onFlip={i => run(s => flip(s, i))} />
+            </div>
           </div>
+          <p className={`rg-verdict${rd.barker ? ' on' : ''}`} title={codeTitle}>“{rd.barker ? `BARKER ${n}` : rd.psl <= 1 ? `NO BARKER AT ${n}` : `SIDELOBE ${rd.psl}`}”</p>
+          <div className="rg-code" title="Inner ring first. Click a cell to flip its ring.">
+            {Array.from({ length: total }, (_, i) => (
+              <button key={i} className={`rg-cell ${r.pol[i] > 0 ? 'pos' : 'neg'}${i < n ? ' read' : ''}`} onClick={() => run(s => flip(s, i))}
+                aria-label={`Ring ${i + 1}: ${r.pol[i] > 0 ? 'plus' : 'minus'}. Flip it.`}>{r.pol[i] > 0 ? '+' : '−'}</button>
+            ))}
+          </div>
+          <div className="rg-read-row">
+            <Lobes lobes={rd.lobes} n={n} />
+            <div className="rg-span" title="How many rings, from the inside, are read as the code">
+              <button className="rg-pm" disabled={n <= 2} onClick={() => run(s => setSpan(s, n - 1))} aria-label="Read fewer rings">−</button>
+              <span><b>{n}</b>/{total}<small>read</small></span>
+              <button className="rg-pm" disabled={n >= total} onClick={() => run(s => setSpan(s, n + 1))} aria-label="Read more rings">+</button>
+            </div>
+          </div>
+        </section>
 
-          <h3 className="sub-head">Sockets</h3>
-          <div className="ring-sockets">
+        {/* ---- the sockets and the deep wind ---- */}
+        <section className="rg-col" aria-label="The sockets">
+          <div className="rg-head"><span className="rg-cap">"THE SOCKETS"</span><span className="rg-head-note">{sockets(game)} of 2 open</span></div>
+          <div className="rg-sockets">
             {Array.from({ length: 2 }, (_, i) => {
               const k = r.sock[i];
               if (i >= sockets(game)) return (
-                <button key={i} className="ring-socket sealed" disabled={r.found < SOCK2_FOUND || pig < sock2Cost(game)} onClick={() => run(openSocket2)}>
-                  <span>Open a second socket <small>{r.found < SOCK2_FOUND ? `after ${SOCK2_FOUND} drops` : ''}</small></span><span className="cost">{fmt(sock2Cost(game))} pigment</span>
-                </button>
+                <div key={i} className="rg-socket sealed">
+                  <svg className="rg-seal" viewBox="0 0 80 80" width="76" height="76" aria-hidden>
+                    <circle cx="40" cy="40" r="36" className="rg-gem-rim" />
+                    <path d="M14 14 L66 66 M66 14 L14 66" className="rg-seal-x" />
+                    {[[16, 40], [64, 40], [40, 16], [40, 64]].map(([x, y], j) => <circle key={j} cx={x} cy={y} r="3" className="rg-rivet" />)}
+                  </svg>
+                  <span className="rg-socket-name dim">sealed</span>
+                  <button className="rg-btn" disabled={r.found < SOCK2_FOUND || pig < sock2Cost(game)} onClick={() => run(openSocket2)}
+                    title={r.found < SOCK2_FOUND ? `Opens after ${SOCK2_FOUND} drops (${r.found} so far)` : 'Open a second socket'}>
+                    Open <span className="cost">{r.found < SOCK2_FOUND ? `after ${SOCK2_FOUND} drops` : `${fmt(sock2Cost(game))} pigment`}</span>
+                  </button>
+                </div>
               );
               return (
-                <div key={i} className={`ring-socket ${k >= 0 ? 'full' : ''}`} style={{ '--c': k >= 0 ? CATALYSTS[k].hex : 'transparent' } as CSSProperties}>
-                  <CatSwatch k={k} />
-                  <div>{k >= 0 ? <><b>{CATALYSTS[k].name}</b><span>x{catMult(game, k).toFixed(2)} {TARGET[CATALYSTS[k].target]}</span></> : <span className="dim">empty</span>}</div>
-                  {k >= 0 && <button className="secondary" onClick={() => run(s => socket(s, i, -1))}>Lift</button>}
+                <div key={i} className={`rg-socket${k >= 0 ? ' full' : ''}`} style={{ '--c': k >= 0 ? CATALYSTS[k].hex : 'transparent' } as CSSProperties}>
+                  <button className="rg-socket-gem" onClick={() => k >= 0 && setPick(k)} disabled={k < 0} title={k >= 0 ? `${CATALYSTS[k].name}: show it on the bench` : 'Empty. Socket a catalyst from the shelf.'}>
+                    <SocketGem k={k} id={`rg-sock-${i}`} />
+                  </button>
+                  <span className="rg-socket-no">socket {i + 1}</span>
+                  {k >= 0 ? <>
+                    <span className="rg-socket-name">{CATALYSTS[k].name}</span>
+                    <span className="rg-socket-mult"><b>x{catMult(game, k).toFixed(2)}</b> {TARGET[CATALYSTS[k].target]}</span>
+                    <button className="rg-btn" onClick={() => run(s => socket(s, i, -1))}>Lift</button>
+                  </> : <span className="rg-socket-name dim">empty</span>}
                 </div>
               );
             })}
           </div>
 
-          <h3 className="sub-head">Deep wind</h3>
-          <div className="wind-bar ring-dust"><span style={{ width: `${Math.min(100, r.dust / need * 100)}%` }} /><b>{r.dust.toFixed(1)} / {need} silt</b></div>
-          <p className="dim small-note">
-            {rate > 0 ? `About ${dur(Math.max(0, need - r.dust) / rate)} to the next drop. Deeper with every tincture level; quicker while a code holds. Pour pigment to hurry it.` : 'The spiral is not taking colour yet.'}
-          </p>
+          <div className="rg-head"><span className="rg-cap">"THE DEEP WIND"</span><span className="rg-head-note">drop {r.found + 1}</span></div>
+          <div className="rg-wind-wrap" title="Silt settles in the deep wind; a catalyst drops when it fills. Deeper with every tincture level, quicker while a code holds. Pour pigment to hurry it.">
+            <DeepWind frac={Math.min(1, r.dust / need)} silt={r.dust} need={need} idle={rate <= 0} />
+          </div>
+          <p className="rg-quote">{rate > 0 ? (rd.barker ? '“The code holds. The silt comes quicker.”' : '“Silt settles in the deep wind.”') : '“The spiral is not taking colour yet.”'}</p>
         </section>
 
-        <section className="ring-room-right">
-          <h3 className="sub-head">Catalysts <small>{kindsFound(game)}/{CATALYSTS.length} · {r.found} drops</small></h3>
-          <ul className="ring-cats" data-scroll>
+        {/* ---- the shelf of catalysts and the bench ---- */}
+        <section className="rg-col" aria-label="The catalysts">
+          <div className="rg-head"><span className="rg-cap">"THE SHELF"</span><span className="rg-head-note">{kindsFound(game)} of {CATALYSTS.length} colours</span></div>
+          <div className="rg-shelf">
             {CATALYSTS.map((c, k) => {
-              const have = r.cats[k];
-              if (!have) return (
-                <li key={k} className="unknown"><CatSwatch k={-1} /><div><b>? ? ?</b><span>Not yet. Something about {TARGET[c.target]}.</span></div></li>
-              );
-              const slotted = r.sock.indexOf(k);
+              const h = r.cats[k], s = r.sock.indexOf(k);
               return (
-                <li key={k} className={slotted >= 0 ? 'in' : ''}>
-                  <CatSwatch k={k} />
-                  <div>
-                    <b>{c.name} <small>{have} held{r.ref[k] ? ` · refined ${r.ref[k]}` : ''}</small></b>
-                    <span>bends every tincture aimed at {TARGET[c.target]}: x{catMult(game, k).toFixed(2)}</span>
-                    <i>{c.desc}</i>
-                  </div>
-                  <div className="ring-cat-acts">
-                    {Array.from({ length: sockets(game) }, (_, i) => (
-                      <button key={i} className="secondary" disabled={slotted === i} onClick={() => run(s => socket(s, i, k))}>
-                        {slotted === i ? 'Socketed' : sockets(game) > 1 ? `Socket ${i + 1}` : 'Socket'}
-                      </button>
-                    ))}
-                    <button className="secondary" disabled={!canRefine(game, k)} onClick={() => run(s => refine(s, k))}
-                      title="Melts one spare copy into it">
-                      Refine <span className="cost">{have < 2 ? 'needs a copy' : fmt(refineCost(game, k))}</span>
-                    </button>
-                  </div>
-                </li>
+                <button key={k} className={`rg-vial${k === sel ? ' sel' : ''}${s >= 0 ? ' in' : ''}${h ? '' : ' unknown'}`} onClick={() => setPick(k)}
+                  title={h ? `${c.name}: ${h} held` : `Not yet. Something about ${TARGET[c.target]}.`} style={{ '--c': c.hex } as CSSProperties}>
+                  <Vial k={k} have={h} refined={r.ref[k]} slot={s} />
+                  <span className="rg-vial-label">{h ? TARGET[c.target] : '? ? ?'}</span>
+                  {h > 1 && <span className="rg-vial-n">×{h}</span>}
+                </button>
               );
             })}
-          </ul>
+          </div>
+          <div className={`rg-bench${have ? '' : ' unknown'}${slotted >= 0 ? ' in' : ''}`} style={{ '--c': sc.hex } as CSSProperties}>
+            {have ? <>
+              <div className="rg-bench-top">
+                <span className="rg-bench-name">{sc.name}</span>
+                <span className="rg-bench-meta">{have} held{r.ref[sel] ? ` · refined ${r.ref[sel]}` : ''}</span>
+              </div>
+              <div className="rg-bench-body">
+                <BenchVial k={sel} have={have} />
+                <div className="rg-bench-text">
+                  <div className="rg-bench-mult" title={`Bends every tincture aimed at ${TARGET[sc.target]}: stronger the more tincture is already aimed there`}>
+                    <b>x{catMult(game, sel).toFixed(2)}</b><span>{TARGET[sc.target]}{slotted < 0 ? ' when socketed' : ''}</span>
+                  </div>
+                  <p className="rg-bench-desc">“{sc.desc}”</p>
+                </div>
+              </div>
+              <div className="rg-bench-acts">
+                {Array.from({ length: sockets(game) }, (_, i) => (
+                  <button key={i} className="rg-btn" disabled={slotted === i} onClick={() => run(s => socket(s, i, sel))}>
+                    {slotted === i ? 'Socketed' : sockets(game) > 1 ? `Socket ${i + 1}` : 'Socket'}
+                  </button>
+                ))}
+                <button className="rg-btn" disabled={!canRefine(game, sel)} onClick={() => run(s => refine(s, sel))} title="Melts one spare copy into it">
+                  Refine <span className="cost">{have < 2 ? 'needs a copy' : fmt(refineCost(game, sel))}</span>
+                </button>
+              </div>
+            </> : <>
+              <div className="rg-bench-top"><span className="rg-bench-name">? ? ?</span><span className="rg-bench-meta">not found</span></div>
+              <div className="rg-bench-body">
+                <span className="rg-bench-ghost"><Vial k={sel} have={0} refined={0} slot={-1} /></span>
+                <div className="rg-bench-text">
+                  <p className="rg-bench-desc">Not yet. Something about {TARGET[sc.target]}.</p>
+                  <p className="rg-bench-hint">The deep wind sheds it, in time.</p>
+                </div>
+              </div>
+            </>}
+          </div>
         </section>
       </div>
     </ChallengeRoom>

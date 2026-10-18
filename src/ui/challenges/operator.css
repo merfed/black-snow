@@ -17,30 +17,181 @@
 .operator-moth-note { font-family: var(--font-ui); font-size: 13px; color: var(--accent); }
 .operator-caption { font-family: 'MEK Mono', monospace; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--hue); opacity: 0.8; margin: 0; text-align: center; }
 
-.operator-room-grid { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(360px, 2fr) minmax(240px, 1fr); gap: 18px; align-items: start; }
-@media (max-width: 900px) { .operator-room-grid { grid-template-columns: 1fr; } }
-.operator-col { display: grid; gap: 8px; align-content: start; }
-.operator-col .sub-head { color: var(--hue); margin: 6px 0 0; }
-.operator-files { display: grid; gap: 4px; max-height: 260px; overflow-y: auto; }
-.operator-file { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; text-align: left; }
-.operator-file.on { border-color: var(--hue); color: var(--text); box-shadow: inset 0 0 0 1px var(--hue); }
-.operator-slot-pick, .operator-bank { display: grid; grid-template-columns: 64px 1fr; gap: 8px; align-items: center; font-family: var(--font-ui); font-size: 13px; }
-.operator-bank { grid-template-columns: 56px 1fr 60px; }
+/* ---------- the room: cabinet and reader, the card on the bench, the machine ---------- */
+.challenge-room.operator-room { width: min(1400px, 97vw); }
+.op-grid { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.58fr) minmax(0, 1.12fr); gap: 22px; height: 100%; min-height: 0; }
+.op-col { display: flex; flex-direction: column; gap: 9px; min-width: 0; min-height: 0; }
+.op-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 4px; border-bottom: 1px dashed color-mix(in srgb, var(--hue) 30%, transparent); }
+.op-cap { font-family: 'MEK Mono', var(--font-ui); font-size: 13px; letter-spacing: 0.16em; color: var(--hue); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.op-head-note { font-family: var(--font-ui); font-size: 13px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.op-head-note.hot { color: var(--accent); }
+.op-cost { font-family: var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--hue); white-space: nowrap; }
+
+/* themed controls: square, double hue frame, dithered fill, bone on hover */
+.operator-room button.op-btn {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--hue) 65%, transparent); border-radius: 0;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 16%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px, #05060b;
+  box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px color-mix(in srgb, var(--hue) 30%, transparent);
+  color: var(--text); font-family: 'MEK Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; font-size: 13px; padding: 8px 12px;
+}
+.operator-room button.op-btn:hover:not(:disabled) {
+  border-color: var(--hue); color: #ece6d2;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 34%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px, #05060b;
+  box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px var(--hue), 0 0 12px color-mix(in srgb, var(--hue) 30%, transparent);
+}
+.operator-room button.op-btn:hover:not(:disabled) .op-cost { color: #ece6d2; }
+.operator-room button.op-btn:disabled { opacity: 0.4; }
+.op-wide { width: 100%; }
 .operator-room select {
-  font: inherit; font-family: var(--font-ui); font-size: 14px; background: var(--bg); color: var(--text);
-  border: 1px solid color-mix(in srgb, var(--hue) 40%, var(--line)); padding: 4px 6px; min-width: 0;
+  font: inherit; font-family: var(--font-ui); font-size: 13px; background: #05060b; color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--hue) 40%, var(--line)); border-radius: 0; padding: 3px 4px; min-width: 0;
 }
-.operator-meter { height: 8px; border: 1px solid color-mix(in srgb, var(--hue) 50%, transparent); position: relative; }
-.operator-meter span { position: absolute; inset: 0 auto 0 0; background: var(--hue); }
-.operator-big {
-  position: relative; padding: 6px; background: #05060b;
-  border: 1px solid color-mix(in srgb, var(--hue) 75%, transparent);
+
+/* a punch-card frame: the clipped corner, a double rule, a row of punched holes along the top */
+.op-punch {
+  --cut: 16px;
+  position: relative; border: 1px solid color-mix(in srgb, var(--hue) 75%, transparent);
+  background:
+    linear-gradient(135deg, transparent 0 calc(var(--cut) * 0.707 - 1px), color-mix(in srgb, var(--hue) 75%, transparent) calc(var(--cut) * 0.707 - 1px) calc(var(--cut) * 0.707), transparent calc(var(--cut) * 0.707)) 0 0 / 30px 30px no-repeat,
+    linear-gradient(135deg, transparent 0 calc(var(--cut) * 0.707 + 2.5px), color-mix(in srgb, var(--hue) 40%, transparent) calc(var(--cut) * 0.707 + 2.5px) calc(var(--cut) * 0.707 + 3.5px), transparent calc(var(--cut) * 0.707 + 3.5px)) 0 0 / 30px 30px no-repeat,
+    color-mix(in srgb, var(--hue) 4%, #05060b);
   box-shadow: inset 0 0 0 3px #05060b, inset 0 0 0 4px color-mix(in srgb, var(--hue) 40%, transparent);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--cut));
 }
-.operator-lines { display: grid; gap: 4px; max-height: 360px; overflow-y: auto; }
-.operator-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 6px; border: 1px solid var(--line); }
-.operator-ln { font-family: var(--font-ui); font-size: 13px; color: var(--hue); width: 16px; text-align: right; }
-.operator-not { padding: 3px 7px; font-size: 12px; }
-.operator-not.on { color: var(--accent); border-color: var(--accent); }
-.operator-line-tools { margin-left: auto; display: flex; gap: 4px; }
-.operator-line-tools button { padding: 2px 8px; font-size: 13px; }
+.op-punch::before {
+  content: ''; position: absolute; top: 7px; left: calc(var(--cut) + 10px); right: 10px; height: 3px; pointer-events: none;
+  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--hue) 55%, transparent) 0 5px, transparent 5px 10px);
+}
+.op-punch::after {
+  content: ''; position: absolute; right: -1px; bottom: -1px; width: 16px; height: 16px; pointer-events: none; background: var(--hue);
+  -webkit-mask: var(--knot) 0 0 / 16px 16px no-repeat; mask: var(--knot) 0 0 / 16px 16px no-repeat;
+}
+
+/* the cabinet: a drawer of small cards, three by three, with a pull */
+.op-drawer {
+  position: relative; padding: 9px 9px 24px; display: grid; gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent); border-top: 3px double color-mix(in srgb, var(--hue) 60%, transparent);
+  background: repeating-linear-gradient(90deg, transparent 0 3px, color-mix(in srgb, var(--hue) 5%, transparent) 3px 4px), #05060b;
+}
+.op-pull { position: absolute; left: 50%; bottom: 6px; width: 46px; height: 7px; transform: translateX(-50%); border: 1px solid var(--hue); border-top: 0; background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 45%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; }
+.op-files { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.operator-room button.op-file {
+  display: grid; gap: 2px; padding: 4px 5px 3px 6px; min-width: 0; text-align: left; color: var(--soft);
+  border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent); border-radius: 0;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 11%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px, #070912;
+  clip-path: polygon(9px 0, 100% 0, 100% 100%, 0 100%, 0 9px);
+}
+.operator-room button.op-file:hover:not(:disabled) { color: var(--text); border-color: var(--hue); background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 22%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px, #070912; box-shadow: none; }
+.operator-room button.op-file.on { border-color: #ece6d2; color: #ece6d2; background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 30%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px, #070912; box-shadow: inset 0 0 0 1px var(--hue); }
+.op-file-top { display: flex; align-items: center; gap: 4px; min-width: 0; padding-left: 5px; }
+.op-file-name { flex: 1; min-width: 0; font-family: 'MEK Mono', monospace; font-size: 13px; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.operator-room button.op-file.loaded { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--hue) 70%, transparent); }
+.operator-room button.op-file.loaded.on { box-shadow: inset 3px 0 0 var(--hue), inset 0 0 0 1px var(--hue); }
+.op-mini { display: block; width: 100%; height: clamp(16px, calc(100vh - 860px), 30px); }
+.op-hole { fill: #05060b; stroke: color-mix(in srgb, var(--hue) 70%, transparent); stroke-width: 0.3; }
+.op-file.on .op-hole { fill: #ece6d2; stroke: none; }
+.op-pin { fill: color-mix(in srgb, var(--hue) 45%, transparent); }
+.op-file-foot { font-family: var(--font-ui); font-size: 13px; white-space: nowrap; }
+.op-moth-dot { flex: none; font-style: normal; font-size: 12px; line-height: 1; padding: 1px 4px; color: #05060b; background: var(--accent); }
+.op-pager { position: absolute; left: 9px; right: 9px; bottom: 3px; display: flex; align-items: center; gap: 4px; font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--soft); }
+.op-pager span { order: -1; margin-right: auto; }
+.operator-room button.op-pm { width: 24px; height: 18px; padding: 0; text-align: center; font-size: 15px; line-height: 1; border-color: color-mix(in srgb, var(--hue) 50%, transparent); }
+
+/* the reader: a lamp, a number and a card for every slot */
+.op-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px; }
+.op-slot { display: grid; grid-template-columns: 8px 14px minmax(0, 1fr); gap: 6px; align-items: center; padding: 2px 3px 2px 6px; border: 1px dashed color-mix(in srgb, var(--hue) 28%, transparent); }
+.op-slot.fed { border-style: solid; border-color: color-mix(in srgb, var(--hue) 50%, transparent); }
+.op-slot-no { font-family: 'MEK Mono', monospace; font-size: 13px; color: var(--hue); text-align: right; }
+.op-slot select { border-color: transparent; }
+.op-lamp { display: inline-block; width: 8px; height: 8px; background: #11131f; border: 1px solid color-mix(in srgb, var(--hue) 40%, transparent); flex: none; }
+.op-lamp.lit { background: var(--hue); border-color: #ece6d2; box-shadow: 0 0 5px var(--hue); }
+.operator-room button.op-run { justify-content: center; align-items: center; gap: 10px; margin-top: auto; }
+.operator-room button.op-run.on { border-color: var(--hue); }
+
+/* the card on the bench: Hollerith row numbers down the side, line numbers under it */
+.op-cardframe { display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; justify-content: center; column-gap: 6px; row-gap: 2px; padding: 16px 18px 8px; }
+.op-cardframe .operator-card { height: clamp(140px, calc(100vh - 640px), 240px); width: auto; max-width: 100%; }
+.op-rows { display: flex; flex-direction: column; justify-content: space-between; padding: 4.5% 0 4.5%; }
+.op-rows i, .op-cols i { font-style: normal; font-family: 'MEK Mono', monospace; font-size: 11px; line-height: 1; color: color-mix(in srgb, var(--hue) 55%, transparent); text-align: right; }
+.op-cols { grid-column: 2; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); padding: 0 3.6% 0 8.5%; }
+.op-cols i { text-align: center; font-size: 12px; }
+.op-cols i.used { color: var(--hue); }
+.op-cols i.at { color: var(--accent); }
+
+/* the lines: always eight rows, the empty ones dashed, the first empty one adds a line */
+.op-lines { display: grid; gap: 4px; }
+.op-line { display: flex; gap: 5px; align-items: center; height: 30px; padding: 0 4px 0 0; border: 1px solid color-mix(in srgb, var(--hue) 22%, var(--line)); background: #05060b; min-width: 0; white-space: nowrap; }
+.op-line.idle { background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 7%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px, #05060b; }
+.op-line.at { border-color: var(--accent); box-shadow: inset 2px 0 0 var(--accent); }
+.op-ln { flex: none; align-self: stretch; display: grid; place-items: center; width: 22px; font-family: 'MEK Mono', monospace; font-size: 13px; color: var(--hue); border-right: 1px dashed color-mix(in srgb, var(--hue) 30%, transparent); }
+.op-line.at .op-ln { color: #05060b; background: var(--accent); border-right-color: var(--accent); }
+.op-line select { flex: 0 1 auto; }
+.op-line select.op-op { color: #ece6d2; width: 76px; flex: none; letter-spacing: 0.04em; }
+.op-line select.op-arg { max-width: 220px; }
+.op-line select.op-join { width: 56px; flex: none; }
+.operator-room button.op-not { flex: none; padding: 2px 6px; font-size: 12px; font-family: 'MEK Mono', monospace; border-color: var(--line); color: var(--soft); }
+.operator-room button.op-not.on { color: var(--accent); border-color: var(--accent); }
+.op-line-tools { margin-left: auto; display: flex; gap: 3px; flex: none; }
+.operator-room .op-line-tools button { width: 24px; height: 22px; padding: 0; text-align: center; font-size: 13px; border-color: var(--line); color: var(--soft); }
+.op-line.op-empty { border-style: dashed; border-color: color-mix(in srgb, var(--hue) 15%, transparent); background: transparent; }
+.op-line.op-empty .op-ln { color: color-mix(in srgb, var(--hue) 35%, transparent); }
+.operator-room button.op-line.op-add {
+  width: 100%; padding: 0 10px 0 0; gap: 10px; border-style: dashed; border-color: color-mix(in srgb, var(--hue) 55%, transparent); color: var(--hue);
+  font-family: 'MEK Mono', monospace; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; background: transparent;
+}
+.operator-room button.op-line.op-add:hover { color: #ece6d2; border-color: #ece6d2; background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 18%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; box-shadow: none; }
+.op-caption { margin-top: auto; }
+
+/* the machine: clock dial and stack tower side by side */
+.op-machine { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.op-inst { --cut: 12px; display: grid; justify-items: center; align-content: start; gap: 3px; padding: 15px 6px 17px; min-width: 0; }
+.op-inst-cap { font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.16em; color: var(--hue); }
+.op-inst-line { font-family: var(--font-ui); font-size: 13px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.op-inst-line b { color: var(--hue); font-weight: 500; }
+.op-inst-line.hot { color: color-mix(in srgb, var(--accent) 80%, #fff); }
+.operator-room .op-inst button.op-stack-btn { margin-top: 3px; padding: 5px 4px; display: grid; justify-items: center; gap: 1px; font-size: 12px; }
+.op-stack-btn .op-cost { font-size: 13px; white-space: normal; text-align: center; }
+.op-stack-btn .op-cost span { display: inline-block; white-space: nowrap; }
+.op-dial, .op-tower { width: clamp(78px, calc(100vh - 740px), 120px); aspect-ratio: 1; display: block; overflow: visible; }
+.op-dial-track { fill: none; stroke: color-mix(in srgb, var(--hue) 22%, transparent); stroke-width: 3; stroke-dasharray: 2 2; }
+.op-dial-arc { fill: none; stroke: var(--hue); stroke-width: 3; }
+.op-dial-face { fill: #070912; stroke: color-mix(in srgb, var(--hue) 60%, transparent); stroke-width: 1; }
+.op-dial-tick { stroke: color-mix(in srgb, var(--hue) 55%, transparent); stroke-width: 1.5; }
+.op-dial-tick.big { stroke: var(--hue); stroke-width: 2.5; }
+.op-dial-hand line { stroke: #ece6d2; stroke-width: 2; }
+.op-dial-hand rect { fill: var(--accent); }
+.op-dial.run .op-dial-hand { animation: op-tick var(--beat-dur, 6s) steps(12) infinite; }
+.op-dial-hub { fill: var(--hue); }
+.op-dial-gear { font-family: 'MEK Mono', monospace; font-size: 15px; text-anchor: middle; fill: var(--hue); }
+@keyframes op-tick { to { transform: rotate(360deg); } }
+.op-tower-base { fill: var(--hue); }
+.op-plate { fill: #070912; stroke: color-mix(in srgb, var(--hue) 50%, transparent); stroke-width: 1; stroke-dasharray: 2 2; }
+.op-plate.lit { fill: var(--hue); stroke: #ece6d2; stroke-dasharray: none; }
+.op-tower-more { font-family: 'MEK Mono', monospace; font-size: 11px; text-anchor: middle; fill: var(--soft); }
+
+/* memory banks: two by four, each a ten-step meter with a half mark, and the next one to wire */
+.op-banks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.op-bank { display: grid; gap: 4px; padding: 5px 6px; border: 1px dashed color-mix(in srgb, var(--hue) 30%, transparent); background: #05060b; min-width: 0; }
+.op-bank.wired { border-style: solid; border-color: color-mix(in srgb, var(--hue) 50%, transparent); }
+.op-bank.open { border-color: var(--hue); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue) 35%, transparent); }
+.op-bank-top { display: flex; align-items: center; gap: 6px; }
+.op-bank-name { font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.08em; color: var(--soft); }
+.op-bank.open .op-bank-name { color: #ece6d2; }
+.op-seg { position: relative; flex: 1; display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; height: 10px; }
+.op-seg i { background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 35%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; }
+.op-seg i.on { background: var(--hue); }
+.op-seg::after { content: ''; position: absolute; left: calc(50% - 0.5px); top: -3px; bottom: -3px; width: 1px; background: var(--accent); }
+.operator-room button.op-bank.op-bank-add {
+  display: grid; align-content: center; gap: 2px; text-align: left; border-style: dashed; border-color: color-mix(in srgb, var(--hue) 55%, transparent); border-radius: 0;
+  font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--hue);
+}
+.operator-room button.op-bank.op-bank-add .op-cost { font-size: 13px; }
+.operator-room button.op-bank.op-bank-add:hover:not(:disabled) { color: #ece6d2; border-color: #ece6d2; background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 18%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; box-shadow: none; }
+.operator-room button.op-bank.op-bank-add:disabled { opacity: 0.45; }
+
+@media (prefers-reduced-motion: reduce) { .op-dial.run .op-dial-hand { animation: none; } }
+@media (max-width: 1100px) {
+  .op-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .op-editor { grid-column: 1 / -1; order: -1; }
+}
