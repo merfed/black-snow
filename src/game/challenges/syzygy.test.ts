@@ -161,9 +161,12 @@ describe('syzygy', () => {
     fakeOthers(20);
     const z = s.challenges.syzygy;
     z.sun = 0;
+    z.seed = 1234567; // a fixed dream and a fixed roll, so the pace is the same on every run
+    let r = 99991;
+    const rng = () => { r = (Math.imul(r, 1103515245) + 12345) >>> 0; return r / 2 ** 32; };
     let t = 0;
     while (!z.gateOpen && t < 12 * 3600) {
-      for (let i = 0; i < 360; i++) syzygy.step(s, 5, Math.random);
+      for (let i = 0; i < 360; i++) syzygy.step(s, 5, rng);
       t += 1800;
       z.lanterns = lanterns;
       if (z.wires < 2 && z.dreams >= wireCost(z)) buyWire(s);
