@@ -177,22 +177,22 @@ export function ZonePanel({ i }: { i: number }) {
       </header>
       <div className="zone-stats">
         <div className="zstat zstat-out" title={i === 0 ? 'Ash this zone catches every second' : `New ${above}s this zone digs every second`}>
-          <span className="zstat-k">output</span>
+          <span className="zstat-k">{i === 0 ? 'Catching' : 'Digging'}</span>
           <span className="zstat-v">{out.gt(0) ? `+${fmt(out)}` : '—'}</span>
-          <span className="zstat-u">{i === 0 ? 'ash' : `${above}s`} / s</span>
-          <span className="zstat-note">x{fmt(zoneMult(game, i))} from boosts</span>
+          <span className="zstat-u">{i === 0 ? 'ash' : `${above}s`} a second</span>
+          <span className="zstat-note">boosted <b>x{fmt(zoneMult(game, i))}</b></span>
         </div>
         <div className="zstat zstat-boost" title={`${step} of 10 toward the next x${def.bonus}`}>
-          <span className="zstat-k">next boost</span>
+          <span className="zstat-k">Every 10 dug</span>
           <span className="zstat-v">x{def.bonus}</span>
-          <span className="zstat-u">in {more}</span>
+          <span className="zstat-u"><b>{more}</b> more to go</span>
           <span className="zstat-pips">{Array.from({ length: 10 }, (_, k) => <i key={k} className={k < step ? 'on' : ''} />)}</span>
         </div>
         <div className="zstat zstat-mat" title={`${def.matLore} Spent on this zone's upgrades.${below ? ` Every ${below} dug speeds it up.` : ''}`}>
           <span className="zstat-k">{def.mat}</span>
           <span className="zstat-v">{fmt(matOf(game, i))}</span>
-          <span className="zstat-u">{mRate > 0 ? `+${fmt(mRate)} / s` : 'dig to gather'}</span>
-          {below && <span className="zstat-note">x{fmt(boost)} from {below}s</span>}
+          <span className="zstat-u">{mRate > 0 ? `+${fmt(mRate)} a second` : 'dig to gather'}</span>
+          {below && <span className="zstat-note"><b>x{fmt(boost)}</b> from {below}s</span>}
         </div>
       </div>
 

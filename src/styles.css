@@ -1224,24 +1224,22 @@ body:has(.warm-flake.rarity-4) .crt { background: radial-gradient(circle at cent
 .zone-panel .zone-count small { font-size: 12px; letter-spacing: 0.06em; color: var(--soft); margin-top: 5px; }
 .zone-panel .zone-count small b { font-weight: 500; color: var(--hue); }
 
-.zone-stats { display: grid; grid-template-columns: 1.15fr 1fr 1.15fr; gap: 6px; margin: 0 0 14px; }
+.zone-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 0 0 16px; }
 .zstat {
-  display: grid; align-content: start; gap: 2px; min-width: 0; padding: 7px 9px 8px; background: color-mix(in srgb, var(--hue) 5%, #05060b);
-  border: 1px solid color-mix(in srgb, var(--hue) 50%, transparent);
-  box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px color-mix(in srgb, var(--hue) 18%, transparent);
+  display: grid; align-content: start; gap: 4px; min-width: 0; padding: 10px 12px 11px; background: color-mix(in srgb, var(--hue) 6%, #05060b);
+  border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent);
+  box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px color-mix(in srgb, var(--hue) 20%, transparent);
 }
-.zstat-k { font-family: 'MEK Mono', var(--font-ui); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: color-mix(in srgb, var(--hue) 80%, var(--soft)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.zstat-v { font-family: var(--font-ui); font-weight: 500; font-size: 20px; line-height: 1.15; color: var(--text); white-space: nowrap; }
-.zstat-u { font-family: var(--font-ui); font-size: 12px; color: var(--soft); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.zstat-out .zstat-k::before { content: '▲ '; color: var(--accent); }
-.zstat-boost .zstat-k::before { content: '× '; color: var(--accent); }
-.zstat-mat .zstat-k::before { content: '◆ '; color: var(--accent); }
+.zstat-k { font-family: var(--font-ui); font-size: 14px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--hue); line-height: 1.2; }
+.zstat-v { font-family: var(--font-ui); font-weight: 500; font-size: 26px; line-height: 1.1; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 2px 0; }
+.zstat-u { font-family: var(--font-body); font-size: 15px; line-height: 1.25; color: color-mix(in srgb, var(--text) 80%, var(--soft)); min-width: 0; overflow-wrap: anywhere; }
+.zstat-u b, .zstat-note b { font-family: var(--font-ui); font-weight: 500; color: var(--hue); }
 .zstat-boost .zstat-v { color: var(--hue); }
-.zstat-pips { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; margin-top: 4px; }
-.zstat-pips i { height: 5px; background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 40%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; }
-.zstat-pips i.on { background: var(--hue); box-shadow: 0 0 5px color-mix(in srgb, var(--hue) 55%, transparent); }
-.zstat-mat .zstat-v { color: color-mix(in srgb, var(--hue) 45%, #fff); }
-.zstat-note { font-family: var(--font-ui); font-size: 11px; color: color-mix(in srgb, var(--hue) 60%, var(--dim)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zstat-pips { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; margin-top: 6px; }
+.zstat-pips i { height: 9px; background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 35%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; outline: 1px solid color-mix(in srgb, var(--hue) 25%, transparent); }
+.zstat-pips i.on { background: var(--hue); box-shadow: 0 0 6px color-mix(in srgb, var(--hue) 55%, transparent); }
+.zstat-mat .zstat-v { color: color-mix(in srgb, var(--hue) 40%, #fff); }
+.zstat-note { font-family: var(--font-body); font-size: 14px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 4px; border-top: 1px dashed color-mix(in srgb, var(--hue) 25%, transparent); }
 
 .zone-panel .zone-art { margin: 0 0 12px; }
 /* The description, then a dashed rule between what the zone is and what it does. */
