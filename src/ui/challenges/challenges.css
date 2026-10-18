@@ -31,3 +31,50 @@
   .challenge.ch-reveal, .ch-reveal-banner { animation: none; }
   .challenge.ch-reveal { box-shadow: 0 0 0 1px var(--hue); }
 }
+
+/* ---------- a room's status bar (RoomStatus): stats left, the major buy right, pinned at the foot ---------- */
+.challenge-room.has-status { grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+.challenge-room.has-status > .room-body { min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.challenge-room.has-status > .room-body::-webkit-scrollbar { display: none; }
+.room-status {
+  display: flex; align-items: center; gap: 18px; padding: 10px 12px 10px 16px; min-width: 0;
+  border: 1px solid var(--hue); background: color-mix(in srgb, var(--hue) 6%, #05060b);
+  box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px color-mix(in srgb, var(--hue) 30%, transparent);
+  position: relative;
+}
+/* a dithered rule along the top edge, in the zone's ink */
+.room-status::before {
+  content: ''; position: absolute; left: 0; right: 0; top: -6px; height: 3px;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 55%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+}
+.rs-stats { display: flex; flex: 1; min-width: 0; margin: 0; gap: 0; flex-wrap: wrap; row-gap: 8px; }
+.rs-stat { display: grid; gap: 2px; padding: 0 18px; min-width: 0; border-left: 1px dashed color-mix(in srgb, var(--hue) 35%, transparent); }
+.rs-stat:first-child { padding-left: 0; border-left: 0; }
+.rs-stat dt { font-family: 'MEK Mono', var(--font-ui); font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--soft); white-space: nowrap; }
+.rs-stat dd { margin: 0; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+.rs-stat dd b { font-family: var(--font-ui); font-weight: 500; font-size: 22px; line-height: 1.1; color: var(--hue); font-variant-numeric: tabular-nums; }
+.rs-stat dd small { font-family: var(--font-ui); font-size: 14px; color: color-mix(in srgb, var(--accent) 75%, #fff); }
+.rs-buy-wrap { display: grid; justify-items: end; gap: 3px; flex: none; }
+.room-status button.rs-buy {
+  display: grid; justify-items: center; gap: 2px; min-width: 220px; padding: 10px 20px 9px; text-align: center;
+  color: var(--hue); background: color-mix(in srgb, var(--hue) 12%, #05060b);
+  border: 1px solid var(--hue); box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px color-mix(in srgb, var(--hue) 45%, transparent);
+}
+.room-status button.rs-buy .btn-label { font-size: 18px; text-transform: uppercase; letter-spacing: 0.08em; }
+.room-status button.rs-buy .btn-cost { font-size: 15px; color: color-mix(in srgb, var(--accent) 70%, #d8d6cf); }
+.room-status button.rs-buy:hover:not(:disabled) {
+  color: #fff; box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px var(--hue), 0 0 16px color-mix(in srgb, var(--hue) 35%, transparent);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 30%, #05060b) 0 25%, #05060b 0 50%) 0 0 / 2px 2px;
+}
+.room-status button.rs-buy.pressed { color: #05060b; background: var(--hue); box-shadow: inset 0 0 0 2px #05060b; }
+.room-status button.rs-buy.pressed .btn-cost { color: #05060b; }
+.room-status button.rs-buy:disabled {
+  opacity: 1; cursor: not-allowed; color: #6a6964; border: 1px dashed #3a3a40; box-shadow: none; filter: none; animation: none;
+  background: repeating-linear-gradient(135deg, rgba(232, 230, 223, 0.07) 0 2px, transparent 2px 7px), #07080b;
+}
+.room-status button.rs-buy:disabled .btn-cost { color: color-mix(in srgb, var(--accent) 55%, #555); }
+.rs-buy-wrap .ch-save { font-size: 13px; color: color-mix(in srgb, var(--accent) 65%, #bbb); }
+@media (max-width: 760px) {
+  .room-status { flex-wrap: wrap; }
+  .rs-buy-wrap { width: 100%; justify-items: stretch; }
+}

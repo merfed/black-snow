@@ -1,43 +1,146 @@
 /* ---------- The Survey (zone 1 challenge) ---------- */
 .survey-inline { display: grid; gap: 12px; }
 .survey-fig { margin: 0; display: grid; gap: 6px; justify-items: center; }
-.survey-side { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+.survey-side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 14px; }
+.survey-side .sv-block { padding-left: 10px; border-left: 1px dashed color-mix(in srgb, var(--hue) 40%, transparent); }
 .survey-side > button { grid-column: 1 / -1; justify-self: stretch; }
 .survey-side .max-all, .survey-side button { margin-top: 4px; }
 .survey-frame { padding: 3px; border: 1px solid color-mix(in srgb, var(--hue) 70%, transparent); outline: 1px solid color-mix(in srgb, var(--hue) 35%, transparent); outline-offset: 2px; line-height: 0; width: fit-content; }
 .survey-fig .survey-frame { width: 100%; box-sizing: border-box; }
 .survey-map { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; image-rendering: pixelated; cursor: default; }
-.survey-side .ch-stat { white-space: nowrap; }
-.survey-cap { font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--soft); }
+.survey-cap { font-family: 'MEK Mono', monospace; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--soft); }
 .survey-note { font-size: 14px; line-height: 1.45; color: var(--soft); margin: 0; }
-.challenge-room.survey-room::-webkit-scrollbar, .survey-lore::-webkit-scrollbar { display: none; }
-.survey-lore { scrollbar-width: none; }
-.survey-bench, .survey-field { display: grid; gap: 10px; align-content: start; }
-.survey-core-wrap { display: flex; gap: 14px; align-items: flex-start; }
-.survey-core { display: block; height: clamp(162px, calc(100vh - 640px), 234px); width: auto; aspect-ratio: 40 / 72; image-rendering: pixelated; cursor: pointer; flex: none; border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent); }
-.survey-core-empty { background: color-mix(in srgb, var(--hue) 5%, var(--bg)); cursor: default; }
-.survey-core-side { display: grid; gap: 8px; align-content: start; }
-.survey-core-side button { justify-self: start; }
-.survey-tally { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; font-family: var(--font-ui); font-size: 14px; }
-.survey-tally li { display: flex; align-items: center; gap: 8px; }
-.survey-tally i { width: 10px; height: 10px; flex: none; border: 1px solid var(--line); }
-.survey-tally span { margin-left: auto; color: var(--hue); }
-.survey-lore { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 200px; overflow-y: auto; }
-.survey-lore li { font-size: 14px; line-height: 1.4; padding-left: 10px; border-left: 2px solid; color: var(--text); }
+.survey-core { display: block; height: clamp(200px, calc(100vh - 556px), 300px); width: auto; aspect-ratio: 40 / 72; image-rendering: pixelated; cursor: pointer; flex: none; border: 1px solid var(--hue); box-shadow: 0 0 0 2px #05060b, 0 0 0 3px color-mix(in srgb, var(--hue) 35%, transparent); }
+.survey-core-empty {
+  cursor: default; display: grid; place-items: center; box-sizing: border-box;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 10%, transparent) 0 25%, transparent 0 50%) 0 0 / 4px 4px, #05060b;
+}
+.survey-core-empty span { font-family: 'MEK Mono', var(--font-ui); font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--soft); writing-mode: vertical-rl; }
 
-/* the room: the map takes the dominant column, as tall as the screen allows; controls and the core beside it */
-.challenge-room.survey-room { width: min(1400px, 97vw); scrollbar-width: none; }
-.survey-room-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 22px; align-items: start; }
-.survey-field .survey-frame { width: min(100%, calc((100vh - 183px) * 1.5)); box-sizing: border-box; margin: 0 auto; transition: border-color 0.2s, outline-color 0.2s; }
+/* ---------- the room: map and what it read on the left, the core bench on the right, status at the foot ---------- */
+.challenge-room.survey-room { width: min(1400px, 97vw); }
+.survey-room-grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 22px; align-items: stretch; min-height: 0; height: 100%; }
+
+/* small shared bits */
+.sv-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 4px; border-bottom: 1px dashed color-mix(in srgb, var(--hue) 30%, transparent); }
+.sv-head-note { font-family: var(--font-ui); font-size: 13px; color: var(--soft); white-space: nowrap; }
+.sv-block { display: grid; gap: 3px; min-width: 0; }
+.sv-k { font-family: 'MEK Mono', var(--font-ui); font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--soft); }
+.sv-v { display: flex; align-items: baseline; gap: 6px; font-family: var(--font-ui); white-space: nowrap; }
+.sv-v b { font-weight: 500; font-size: 23px; line-height: 1.05; color: var(--hue); font-variant-numeric: tabular-nums; }
+.sv-v.sm, .sv-v.sm b { font-size: 20px; line-height: 1.1; color: var(--hue); }
+.sv-v > span { font-size: 14px; color: var(--soft); }
+.sv-v .sv-wait { font-size: 14px; color: color-mix(in srgb, var(--accent) 80%, #fff); }
+.sv-v .sv-dim { font-size: 22px; color: var(--dim); }
+.sv-sub { font-family: var(--font-ui); font-size: 13px; color: var(--soft); line-height: 1.3; }
+.sv-sub.wrap { white-space: normal; }
+.sv-sub em, .sv-find-next em { font-style: normal; color: color-mix(in srgb, var(--accent) 75%, #fff); }
+.sv-bar {
+  display: block; position: relative; height: 8px; overflow: hidden; min-width: 30px;
+  border: 1px solid color-mix(in srgb, var(--hue) 50%, transparent);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 22%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+}
+.sv-bar i {
+  display: block; height: 100%; transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  background: repeating-linear-gradient(-45deg, var(--hue) 0 4px, color-mix(in srgb, var(--hue) 55%, #05060b) 4px 8px) 0 0 / 11.3px 100%;
+  animation: zup-crawl 1.2s linear infinite;
+}
+.sv-bar.red { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.sv-bar.red i { background: color-mix(in srgb, var(--accent) 70%, #05060b); animation: none; }
+@media (prefers-reduced-motion: reduce) { .sv-bar i { animation: none; } }
+.sv-name { display: flex; align-items: center; gap: 8px; min-width: 0; font-family: var(--font-ui); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sv-name i { width: 11px; height: 11px; flex: none; border: 1px solid var(--line); box-shadow: 0 0 0 1px #05060b; }
+
+/* the left column: the map with its readout beside it, then strata and finds under it */
+.survey-fieldcol { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 14px; min-width: 0; min-height: 0; }
+.survey-field-top { display: grid; grid-template-columns: min(calc((100vh - 496px) * 1.5), calc(min(1400px, 97vw) - 660px)) minmax(200px, 1fr); gap: 20px; align-items: start; min-width: 0; }
+.survey-field { min-width: 0; }
+/* the map is as big as the screen allows once the header, the under row and the status bar have their room */
+.survey-field .survey-frame { width: 100%; box-sizing: border-box; transition: border-color 0.2s, outline-color 0.2s; }
 .survey-field .survey-frame.survey-picking { border-color: var(--hue); outline-color: color-mix(in srgb, var(--hue) 70%, transparent); }
 .survey-map.big { width: 100%; height: auto; aspect-ratio: 3 / 2; cursor: crosshair; }
-/* the aside never grows past the screen: the lore list gives way and scrolls */
-.survey-aside { display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 152px); min-height: 0; }
-.survey-aside > *, .survey-aside .survey-bench > * { flex-shrink: 0; }
-.survey-aside > .survey-bench { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
-.survey-aside .survey-bench > .survey-lore { flex: 0 1 auto; min-height: 40px; }
-.survey-aside .survey-lore { max-height: none; }
-.survey-controls { display: grid; gap: 6px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent); outline: 1px solid color-mix(in srgb, var(--hue) 20%, transparent); outline-offset: 2px; }
-.survey-controls .ch-row { gap: 6px 14px; }
-.survey-tile-note { min-height: 2.9em; }
-@media (max-width: 960px) { .survey-room-grid { grid-template-columns: 1fr; } .survey-aside { max-height: none; } .survey-aside .survey-lore { max-height: 200px; } .survey-field .survey-frame { width: 100%; } }
+.sv-readout { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.sv-readout .survey-note { min-height: 4.4em; }
+.sv-ramp { display: flex; align-items: center; gap: 8px; font-family: var(--font-ui); font-size: 13px; color: var(--soft); }
+.sv-ramp i {
+  flex: 1; height: 10px; border: 1px solid color-mix(in srgb, var(--hue) 50%, transparent);
+  background:
+    repeating-conic-gradient(rgba(5, 6, 11, 0.55) 0 25%, transparent 0 50%) 0 0 / 2px 2px,
+    linear-gradient(90deg, color-mix(in srgb, var(--hue) 10%, #05060b), var(--hue), color-mix(in srgb, var(--hue) 45%, #fff));
+}
+
+.survey-under { display: grid; grid-template-columns: minmax(0, 1.22fr) minmax(0, 1fr); gap: 20px; min-height: 0; }
+.sv-strata, .sv-finds { display: flex; flex-direction: column; gap: 6px; min-height: 0; min-width: 0; overflow: hidden; }
+.sv-strata ul, .sv-finds ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; align-content: start; }
+.sv-strata li {
+  display: grid; grid-template-columns: 112px 46px minmax(0, 1fr) 150px; align-items: center; gap: 8px;
+  padding: 2px 0; border-bottom: 1px dotted color-mix(in srgb, var(--hue) 18%, transparent);
+}
+.sv-lv { font-family: var(--font-ui); font-size: 13px; padding: 0 6px; text-align: center; color: var(--hue); border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent); background: color-mix(in srgb, var(--hue) 12%, transparent); white-space: nowrap; }
+.sv-prog { display: grid; grid-template-columns: minmax(30px, 1fr) auto; align-items: center; gap: 8px; min-width: 0; }
+.sv-prog small { font-family: var(--font-ui); font-size: 13px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sv-gives { display: flex; align-items: baseline; justify-content: flex-end; gap: 8px; font-family: var(--font-ui); white-space: nowrap; }
+.sv-gives b { font-weight: 500; font-size: 15px; color: var(--hue); }
+.sv-gives small { font-size: 13px; color: color-mix(in srgb, var(--accent) 70%, #ccc); }
+
+.sv-finds ul { overflow-y: auto; min-height: 0; padding: 0 4px 14px 0; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent); scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--hue) 55%, transparent) transparent; }
+.sv-find { display: grid; gap: 1px; padding: 2px 0 3px 10px; border-left: 2px solid var(--ink, var(--line)); }
+.sv-find.whole { background: linear-gradient(90deg, color-mix(in srgb, var(--hue) 10%, transparent), transparent 70%); }
+.sv-find.unknown { border-left-style: dashed; color: var(--dim); }
+.sv-find.unknown .sv-name { color: var(--dim); }
+.sv-find-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sv-find-top .sv-name { flex: 1 1 auto; }
+.sv-find-top .sv-find-next { flex: 0 4 auto; min-width: 0; }
+.sv-find-top .sv-dots { margin-left: auto; }
+.sv-dots { display: flex; gap: 3px; flex: none; }
+.sv-dots i { width: 9px; height: 9px; border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent); }
+.sv-dots i.on { background: var(--ink, var(--hue)); border-color: var(--ink, var(--hue)); }
+.sv-find-now { font-family: var(--font-ui); font-weight: 500; font-size: 14px; color: var(--hue); white-space: nowrap; }
+.sv-line { margin: 0; font-size: 14px; line-height: 1.35; color: var(--text); font-style: italic; line-height: 1.3; }
+.sv-find-next { font-family: var(--font-ui); font-size: 13px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* the core bench: the core big on the left, its numbers in blocks beside it, the buys together under */
+.survey-bench {
+  display: flex; flex-direction: column; gap: 10px; min-height: 0; padding: 10px 14px 12px;
+  border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent);
+  box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px color-mix(in srgb, var(--hue) 18%, transparent);
+  background: color-mix(in srgb, var(--hue) 4%, #05060b);
+}
+.survey-core-wrap { display: flex; gap: 16px; align-items: flex-start; }
+.sv-core-col { display: grid; gap: 6px; flex: none; padding: 3px; }
+.sv-blocks { display: grid; gap: 8px; align-content: start; flex: 1; min-width: 0; }
+.sv-pips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
+.sv-pips i { width: 8px; height: 8px; border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent); }
+.sv-pips i.on { background: var(--hue); border-color: var(--hue); }
+.sv-act { display: grid; gap: 6px; align-content: center; }
+.survey-room button.sv-take {
+  justify-self: stretch; padding: 9px 12px; font-family: var(--font-ui); font-size: 16px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--hue); background: color-mix(in srgb, var(--hue) 10%, #05060b); border: 1px solid var(--hue);
+  box-shadow: inset 0 0 0 2px #05060b, inset 0 0 0 3px color-mix(in srgb, var(--hue) 40%, transparent);
+}
+.survey-room button.sv-take:hover:not(:disabled) { color: #fff; background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 30%, #05060b) 0 25%, #05060b 0 50%) 0 0 / 2px 2px; }
+.sv-buys { display: grid; gap: 8px; margin-top: auto; padding-top: 10px; border-top: 1px dashed color-mix(in srgb, var(--hue) 30%, transparent); }
+.sv-buy-wrap { display: grid; gap: 2px; }
+.sv-buy-bot { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.sv-buy-bot .ch-save { font-size: 13px; color: color-mix(in srgb, var(--accent) 60%, #aaa); }
+.survey-room button.sv-buy {
+  display: grid; gap: 2px; padding: 7px 10px; text-align: left; color: var(--text);
+  background: color-mix(in srgb, var(--hue) 5%, #05060b); border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent);
+}
+.sv-buy-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.sv-buy .btn-label { font-size: 15px; }
+.sv-buy-gives { font-family: var(--font-ui); font-size: 13px; color: var(--hue); white-space: nowrap; }
+.survey-room button.sv-buy .btn-cost { font-size: 13px; color: color-mix(in srgb, var(--accent) 65%, #bbb); }
+.survey-room button.sv-buy:hover:not(:disabled) { border-color: var(--hue); background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 18%, #05060b) 0 25%, #05060b 0 50%) 0 0 / 2px 2px; }
+.survey-room button.sv-buy:disabled, .survey-room button.sv-take:disabled {
+  opacity: 1; cursor: not-allowed; color: #6a6964; border: 1px dashed #3a3a40; box-shadow: none; filter: none;
+  background: repeating-linear-gradient(135deg, rgba(232, 230, 223, 0.07) 0 2px, transparent 2px 7px), #07080b;
+}
+.survey-room button.sv-buy:disabled .sv-buy-gives { color: color-mix(in srgb, var(--hue) 40%, #555); }
+.survey-room button.sv-buy:disabled .btn-cost { color: color-mix(in srgb, var(--accent) 55%, #555); }
+
+@media (max-width: 1100px) {
+  .survey-room-grid { grid-template-columns: 1fr; }
+  .survey-field .survey-frame { width: 100%; max-width: none; }
+  .survey-field-top, .survey-under { grid-template-columns: 1fr; }
+}

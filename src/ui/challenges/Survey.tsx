@@ -1,15 +1,17 @@
 // The Survey: the panel inside the zone 1 box. A small snow map and the rack inline; the core puzzle and
 // the full map in a room.
-import { memo, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { memo, useEffect, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from 'react';
+import type Decimal from 'break_eternity.js';
 import {
-  AUTO_SHARE, buyRack, buyReader, CORE_EVERY, coreMult, density, headCost, KINDS_PER, loreText, MAP_H, MAP_W, moveHead, openCore,
-  placeHead, rackCost, rackSize, readerCost, readerRate, RUN, STRATA, stratum, surveyRate, swapBands, tileDensity, zoneBonus,
+  autoShare, buyRack, buyReader, coreEvery, coreMult, density, FINDS, found, headCost, headYield, KINDS_PER, LORE_AT, MAP_H, MAP_W,
+  moveHead, openCore, placeHead, RACK_STEP, rackCost, rackSize, READ_EVERY, readerBoost, readerCost, readerRate, RUN, seamAt, SEAMS,
+  seamLevel, setDone, stratum, surveyRate, swapBands, tallyTotal, tileDensity, zoneBonus,
 } from '../../game/challenges/survey';
 import { fmt, fmtTime } from '../../game/format';
 import { useGame } from '../../game/store';
 import { ZONE_COLORS } from '../colors';
 import { hex, threshold } from '../dither';
-import { ChallengeRoom, SaveHint } from './ChallengeSlot';
+import { ChallengeRoom, RoomStatus, SaveHint } from './ChallengeSlot';
 import './survey.css';
 
 type RGB = [number, number, number];
@@ -237,6 +239,24 @@ function CoreStrip({ core, sel, onBand }: { core: string[]; sel: number; onBand:
   );
 }
 
+/** A thin dithered bar in the zone's ink: how far along something is. */
+const Bar = ({ k, red }: { k: number; red?: boolean }) => (
+  <span className={`sv-bar${red ? ' red' : ''}`}><i style={{ width: `${Math.max(0, Math.min(1, k)) * 100}%` }} /></span>
+);
+
+/** A side-column buy: the verb and what it does, with the price in a second ink under it. */
+function BenchBuy({ label, gives, cost, onClick, title }: { label: string; gives: string; cost: Decimal; onClick: () => void; title?: string }) {
+  const game = useGame(st => st.game);
+  return (
+    <div className="sv-buy-wrap">
+      <button className="sv-buy" disabled={game.ash.lt(cost)} onClick={onClick} title={title}>
+        <span className="sv-buy-top"><span className="btn-label">{label}</span><span className="sv-buy-gives">{gives}</span></span>
+        <span className="sv-buy-bot"><span className="btn-cost">{fmt(cost)} ash</span><SaveHint game={game} cost={cost} /></span>
+      </button>
+    </div>
+  );
+}
+
 function CoreBench() {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
@@ -250,70 +270,137 @@ function CoreBench() {
     setSel(-1);
   };
   const cap = rackSize(game);
+  const full = v.rack >= cap;
+  const every = coreEvery(game);
+  const rr = readerRate(game);
+  const nextRead = v.rack > 0 ? fmtTime(Math.max(0, (1 - v.readProg) / rr)) : 'waits for a core';
+  const nextLv = v.reader + 1;
+  const nextEvery = (1 + 0.5 * (nextLv - 1)) * readerBoost(v) / READ_EVERY;
   return (
-    <section className="survey-bench">
-      <div className="survey-cap">"THE CORE"</div>
+    <aside className="survey-bench">
+      <div className="sv-head"><span className="survey-cap">"THE CORE"</span><span className="sv-head-note">{core ? 'on the bench' : `${v.rack} racked`}</span></div>
       <div className="survey-core-wrap">
-        {core ? <CoreStrip core={core} sel={sel} onBand={pick} /> : <div className="survey-core survey-core-empty" />}
-        <div className="survey-core-side">
-          {core ? (
-            <p className="survey-note">Pick a band, then the band above or below it to swap. Three of a kind together are read.</p>
-          ) : (
-            <>
-              <button className="max-all" disabled={v.rack < 1} onClick={() => { setSel(-1); run(s => openCore(s)); }}>
-                {v.rack < 1 ? 'Rack is empty' : 'Take a core'}
-              </button>
-              {v.last.length > 0 && <p className="survey-note">Last core: {v.last.map(id => stratum(id).name.toLowerCase()).join(', ')}.</p>}
-            </>
-          )}
-          <div className="ch-stat">Rack <b>{v.rack}/{cap}</b></div>
-          <div className="ch-stat dim">{v.rack >= cap ? 'Full. The bore waits.' : `Next core in ${fmtTime((1 - v.coreProg) * CORE_EVERY)}`}</div>
-          <div className="ch-stat">Read <b>{v.read}</b></div>
-          <button className="secondary" disabled={game.ash.lt(rackCost(game))} onClick={() => run(buyRack)}>
-            Widen the rack ({fmt(rackCost(game))} ash)
-          </button>
-          <SaveHint game={game} cost={rackCost(game)} />
-          <div className="ch-stat">{v.reader
-            ? <>Reader <b>lv {v.reader}</b> <span className="dim">· a core every {fmtTime(1 / readerRate(game))}</span></>
-            : <span className="dim">No reader. Cores wait for you.</span>}</div>
-          <button className="secondary" disabled={game.ash.lt(readerCost(game))} onClick={() => run(buyReader)}
-            title={`Reads racked cores on its own, slowly, keeping ${Math.round(AUTO_SHARE * 100)}% of what reading by hand would.`}>
-            {v.reader ? 'A faster reader' : 'Hire a reader'} ({fmt(readerCost(game))} ash)
-          </button>
-          <SaveHint game={game} cost={readerCost(game)} />
+        <div className="sv-core-col">
+          {core ? <CoreStrip core={core} sel={sel} onBand={pick} /> : <div className="survey-core survey-core-empty"><span>{v.rack ? 'take a core' : 'the rack is empty'}</span></div>}
+        </div>
+        <div className="sv-blocks">
+          <div className="sv-block">
+            <div className="sv-k">Rack</div>
+            <div className="sv-v"><b>{v.rack}</b><span>/ {cap}</span></div>
+            <div className="sv-pips" aria-hidden>{Array.from({ length: cap }, (_, i) => <i key={i} className={i < v.rack ? 'on' : ''} />)}</div>
+          </div>
+          <div className="sv-block">
+            <div className="sv-k">Next core</div>
+            <div className="sv-v sm">{full ? <span className="sv-wait">full · the bore waits</span> : fmtTime((1 - v.coreProg) * every)}</div>
+            <Bar k={full ? 1 : v.coreProg} red={full} />
+            <div className="sv-sub">one every {fmtTime(every)}</div>
+          </div>
+          <div className="sv-block">
+            <div className="sv-k">Cores read</div>
+            <div className="sv-v"><b>{v.read}</b></div>
+            <div className="sv-sub">tally {fmt(tallyTotal(v))} · <em>x{coreMult(v).toFixed(2)} ash</em></div>
+          </div>
+          <div className="sv-block">
+            <div className="sv-k">Reader</div>
+            {v.reader ? <>
+              <div className="sv-v sm"><b>lv {v.reader}</b> <span>next {nextRead}</span></div>
+              <Bar k={v.rack > 0 ? v.readProg : 0} />
+              <div className="sv-sub">one every {fmtTime(1 / rr)} · keeps {Math.round(autoShare(v) * 100)}%</div>
+            </> : <div className="sv-sub wrap">none yet. Cores wait for you.</div>}
+          </div>
         </div>
       </div>
-      <div className="survey-cap">"STRATA"</div>
-      <ul className="survey-tally">
-        {STRATA.filter(k => !k.rare || v.tally[k.id]).map(k => (
-          <li key={k.id}><i style={{ background: k.hex }} />{k.name}<span>{fmt(v.tally[k.id] ?? 0)}</span></li>
-        ))}
-        {STRATA.some(k => k.rare && !v.tally[k.id]) && <li className="dim"><i />Something else, further down</li>}
+      <div className="sv-act">
+        {core
+          ? <p className="survey-note">Pick a band, then the one above or below it to swap. Three of a kind together are read.</p>
+          : <>
+            <button className="sv-take" disabled={v.rack < 1} onClick={() => { setSel(-1); run(s => openCore(s)); }}>
+              {v.rack < 1 ? 'Rack is empty' : 'Take a core'}
+            </button>
+            {v.last.length > 0 && <p className="survey-note">Last core: {v.last.map(id => stratum(id).name.toLowerCase()).join(', ')}.</p>}
+          </>}
+      </div>
+      <div className="sv-buys">
+        <BenchBuy label="Widen the rack" gives={`${cap} → ${cap + RACK_STEP}`} cost={rackCost(game)} onClick={() => run(buyRack)} />
+        <BenchBuy label={v.reader ? 'A faster reader' : 'Hire a reader'}
+          gives={v.reader ? `lv ${nextLv} · every ${fmtTime(1 / nextEvery)}` : `every ${fmtTime(1 / nextEvery)}`}
+          cost={readerCost(game)} onClick={() => run(buyReader)}
+          title={`Reads racked cores on its own, slowly, keeping ${Math.round(autoShare(v) * 100)}% of what reading by hand would.`} />
+      </div>
+    </aside>
+  );
+}
+
+/* ---------- strata and finds, under the map ---------- */
+
+function Strata() {
+  const game = useGame(st => st.game);
+  const v = game.challenges.survey;
+  return (
+    <section className="sv-strata">
+      <div className="sv-head"><span className="survey-cap">"STRATA"</span><span className="sv-head-note">each seam tunes the survey</span></div>
+      <ul>
+        {SEAMS.map(sm => {
+          const k = stratum(sm.id), t = v.tally[sm.id] ?? 0, L = seamLevel(v, sm.id);
+          const lo = L ? seamAt(L - 1) : 0, hi = seamAt(L);
+          return (
+            <li key={sm.id} title={`${k.name}: ${sm.what}. Level ${L + 1} at ${fmt(hi)} tally.`}>
+              <span className="sv-name"><i style={{ background: k.hex }} />{k.name}</span>
+              <span className="sv-lv">lv {L}</span>
+              <span className="sv-prog"><Bar k={(t - lo) / (hi - lo)} /><small>{fmt(t)}/{fmt(hi)}</small></span>
+              <span className="sv-gives"><b>{L ? `${sm.num(sm.per * L)} ${sm.unit}` : `— ${sm.unit}`}</b><small>→ {sm.num(sm.per * (L + 1))}</small></span>
+            </li>
+          );
+        })}
       </ul>
-      {v.lore.length > 0 && (
-        <>
-          <div className="survey-cap">"FOUND IN THE CORES"</div>
-          <ul className="survey-lore" data-scroll>
-            {v.lore.map(key => <li key={key} style={{ borderColor: stratum(key.split(':')[0]).hex }}>{loreText(key)}</li>)}
-          </ul>
-        </>
-      )}
+    </section>
+  );
+}
+
+function Finds() {
+  const game = useGame(st => st.game);
+  const v = game.challenges.survey;
+  return (
+    <section className="sv-finds">
+      <div className="sv-head"><span className="survey-cap">"FOUND IN THE CORES"</span><span className="sv-head-note">{v.lore.length} / {FINDS.length * LORE_AT.length}</span></div>
+      <ul data-scroll>
+        {FINDS.map(f => {
+          const k = stratum(f.id), n = found(v, f.id), runs = v.runs?.[f.id] ?? 0, whole = setDone(v, f.id);
+          if (!runs && !n) return f.id === FINDS.find(x => !v.runs?.[x.id] && !found(v, x.id))!.id
+            ? <li key={f.id} className="sv-find unknown"><span className="sv-name"><i />Something else, further down</span></li> : null;
+          const latest = n ? k.lore![n - 1] : null;
+          return (
+            <li key={f.id} className={`sv-find${whole ? ' whole' : ''}`} style={{ '--ink': k.hex } as CSSProperties}
+              title={whole ? k.lore!.join('\n') : undefined}>
+              <div className="sv-find-top">
+                <span className="sv-name" title={k.name}><i style={{ background: k.hex }} />{k.name}</span>
+                {whole && <span className="sv-find-next"><b className="sv-find-now">{f.fmt(f.per * n)}</b> · {f.setFmt}</span>}
+                <span className="sv-dots">{k.lore!.map((line, i) => <i key={i} className={i < n ? 'on' : ''} title={i < n ? line : `${LORE_AT[i]} runs`} />)}</span>
+              </div>
+              {!whole && <>
+                {latest && <p className="sv-line" title={latest}>{latest}</p>}
+                <div className="sv-find-next" title={`Each line: ${f.what}. All five: ${f.set}.`}>
+                  <b className="sv-find-now">{n ? f.fmt(f.per * n) : 'nothing yet'}</b>{' · '}
+                  next {f.fmt(f.per * (n + 1))} in {LORE_AT[n] - runs} run{LORE_AT[n] - runs === 1 ? '' : 's'} · <em>all five</em> {f.setFmt}
+                </div>
+              </>}
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }
 
 /* ---------- the field ---------- */
 
-function Field() {
+function Field({ sel, setSel, placing, setPlacing }: { sel: number; setSel: (t: number) => void; placing: boolean; setPlacing: (p: boolean) => void }) {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
   const run = useGame(st => st.run);
   const v = game.challenges.survey;
-  const [sel, setSel] = useState(-1);
-  const [placing, setPlacing] = useState(v.heads.length === 0);
   const [hover, setHover] = useState(-1);
-  const cost = headCost(game);
-  const afford = game.ash.gte(cost);
+  const afford = game.ash.gte(headCost(game));
   const onTile = (t: number) => {
     if (v.heads.includes(t)) { setSel(t === sel ? -1 : t); setPlacing(false); return; }
     if (sel >= 0) { run(s => moveHead(s, sel, t)); setSel(-1); return; }
@@ -321,42 +408,44 @@ function Field() {
   };
   const info = hover >= 0 ? hover : sel;
   const picking = sel >= 0 || (placing && afford);
+  const best = v.heads.length ? Math.max(...v.heads.map(t => tileDensity(game, t))) : 0;
   return (
-    <div className="survey-room-grid">
-      <section className="survey-field">
-        <div className="survey-cap">"WHERE IT FALLS THICKEST"</div>
-        <div className={`survey-frame${picking ? ' survey-picking' : ''}`}>
-          <SnowMap className="big" cell={16} selected={sel} hover={hover} grid={picking} ghost={placing && afford && sel < 0}
-            onTile={onTile} onHover={setHover} />
+    <section className="survey-fieldcol">
+      <div className="survey-field-top">
+        <div className="survey-field">
+          <div className={`survey-frame${picking ? ' survey-picking' : ''}`}>
+            <SnowMap className="big" cell={16} selected={sel} hover={hover} grid={picking} ghost={placing && afford && sel < 0}
+              onTile={onTile} onHover={setHover} />
+          </div>
         </div>
-      </section>
-      <aside className="survey-aside">
-        <section className="survey-controls">
-          <div className="ch-row">
-            <button className={placing ? '' : 'secondary'} disabled={!afford} onClick={() => { setPlacing(!placing); setSel(-1); }}>
-              {placing ? 'Pick a tile' : 'Buy a bore head'} ({fmt(cost)} ash)
-            </button>
-            <SaveHint game={game} cost={cost} />
+        <div className="sv-readout">
+          <div className="survey-cap">"WHERE IT FALLS THICKEST"</div>
+          <div className="sv-block">
+            <div className="sv-k">{info >= 0 ? `Tile ${info % MAP_W + 1}, ${Math.floor(info / MAP_W) + 1}` : 'Tile'}</div>
+            <div className="sv-v">{info >= 0 ? <b>{(tileDensity(game, info) * headYield(v)).toFixed(2)}</b> : <span className="sv-dim">—</span>}<span>survey/s a head</span></div>
           </div>
-          <div className="ch-row">
-            <span className="ch-stat">Heads <b>{v.heads.length}</b></span>
-            <span className="ch-stat">Survey <b>+{fmt(surveyRate(game))}/s</b></span>
-          </div>
-          <p className="survey-note survey-tile-note">
-            {info >= 0
-              ? `Tile ${info % MAP_W + 1},${Math.floor(info / MAP_W) + 1}: the snow falls ${tileDensity(game, info).toFixed(2)} thick here.`
-              : sel >= 0 ? 'Pick an empty tile to move the head.'
+          <p className="survey-note">
+            {sel >= 0 ? 'Pick an empty tile to move the head.'
               : placing && afford ? 'Pick a tile for the head.'
               : 'Heads pay by how thick it falls on their tile. The drifts wander. Moving a head is free.'}
           </p>
-          <div className="ch-row">
-            <span className="ch-stat">Surveyed <b>{fmt(v.surveyed)}</b></span>
-            <span className="ch-stat">Bores <b>x{zoneBonus(v).toFixed(2)}</b></span>
+          <div className="sv-ramp" aria-hidden><span>thin</span><i /><span>thick</span></div>
+          <div className="sv-block">
+            <div className="sv-k">Best head</div>
+            <div className="sv-v sm">{v.heads.length ? best.toFixed(2) : '—'}</div>
           </div>
-        </section>
-        <CoreBench />
-      </aside>
-    </div>
+          <div className="sv-block">
+            <div className="sv-k">Surveyed</div>
+            <div className="sv-v sm">{fmt(v.surveyed)}</div>
+            <div className="sv-sub"><em>x{zoneBonus(v).toFixed(2)} Shallow Bores</em></div>
+          </div>
+        </div>
+      </div>
+      <div className="survey-under">
+        <Strata />
+        <Finds />
+      </div>
+    </section>
   );
 }
 
@@ -364,10 +453,33 @@ function SurveyRoom({ onClose }: { onClose: () => void }) {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
   const v = game.challenges.survey;
+  const [sel, setSel] = useState(-1);
+  const [placing, setPlacing] = useState(v.heads.length === 0);
+  const cost = headCost(game);
+  const afford = game.ash.gte(cost);
+  const status = (
+    <RoomStatus
+      stats={[
+        { label: 'Bore heads', value: v.heads.length, rate: `+${fmt(surveyRate(game))} survey/s` },
+        { label: 'Cores read', value: v.read, rate: `${v.rack}/${rackSize(game)} racked` },
+        { label: 'All ash', value: `x${coreMult(v).toFixed(2)}`, rate: 'from the cores', title: 'The core bonus: grows with the tally of every run read' },
+        { label: 'Shallow Bores', value: `x${zoneBonus(v).toFixed(2)}`, rate: 'from survey', title: 'Grows with survey ever gathered, by log' },
+        { label: 'Found', value: `${v.lore.length}/${FINDS.length * LORE_AT.length}`, rate: 'lines' },
+      ]}
+      buy={{
+        label: placing && afford ? 'Pick a tile' : 'Buy a bore head', cost, pressed: placing && afford,
+        onClick: () => { setPlacing(!placing); setSel(-1); },
+        title: 'Buy a head, then pick a tile on the map for it',
+      }}
+    />
+  );
   return (
     <ChallengeRoom zone={ZONE} title="The Survey" note="a hole in the snow, and what it catches" onClose={onClose}
-      stat={<>cores x{coreMult(v).toFixed(2)} ash · bores x{zoneBonus(v).toFixed(2)}</>} className="survey-room">
-      <Field />
+      className="survey-room" status={status}>
+      <div className="survey-room-grid">
+        <Field sel={sel} setSel={setSel} placing={placing} setPlacing={setPlacing} />
+        <CoreBench />
+      </div>
     </ChallengeRoom>
   );
 }
@@ -386,10 +498,14 @@ export function SurveyPanel() {
         <figcaption className="survey-cap">"ONE LAMP. IT CATCHES WHAT FALLS"</figcaption>
       </figure>
       <div className="survey-side">
-        <div className="ch-stat">Rack <b>{v.rack}/{cap}</b>{v.core && <span className="dim"> · one open</span>}{v.reader > 0 && <span className="dim"> · reader lv {v.reader}</span>}</div>
-        <div className="ch-stat">Cores read <b>{v.read}</b> <span className="dim">x{coreMult(v).toFixed(2)} ash</span></div>
-        <div className="ch-stat">Heads <b>{v.heads.length}</b> <span className="dim">+{fmt(surveyRate(game))}/s</span></div>
-        <div className="ch-stat">Shallow Bores <b>x{zoneBonus(v).toFixed(2)}</b></div>
+        <div className="sv-block"><div className="sv-k">Rack</div><div className="sv-v sm">{v.rack}/{cap}</div>
+          <div className="sv-sub">{v.core ? 'one on the bench' : v.reader ? `reader lv ${v.reader}` : 'no reader'}</div></div>
+        <div className="sv-block"><div className="sv-k">Cores read</div><div className="sv-v sm">{v.read}</div>
+          <div className="sv-sub"><em>x{coreMult(v).toFixed(2)} all ash</em></div></div>
+        <div className="sv-block"><div className="sv-k">Bore heads</div><div className="sv-v sm">{v.heads.length}</div>
+          <div className="sv-sub">+{fmt(surveyRate(game))} survey/s</div></div>
+        <div className="sv-block"><div className="sv-k">Found</div><div className="sv-v sm">{v.lore.length}/{FINDS.length * LORE_AT.length}</div>
+          <div className="sv-sub"><em>x{zoneBonus(v).toFixed(2)} Shallow Bores</em></div></div>
         <button className={toRead ? 'max-all' : 'secondary'} onClick={() => setOpen(true)}>{toRead ? 'Read a core' : 'Open the survey'}</button>
       </div>
       {open && <SurveyRoom onClose={() => setOpen(false)} />}

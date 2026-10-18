@@ -657,10 +657,11 @@ const surveySections: GuideSection[] = [
       return (
         <>
           {chIntro('survey', s)}
-          <P>Two halves: cores, which the bore pulls up on its own for you (or a core reader) to read, and bore heads on the snow map, which gather survey.</P>
+          <P>Two halves: cores, which the bore pulls up on its own for you (or a core reader) to read, and bore heads on the snow map, which gather survey. What the cores read also tunes the Survey itself: see Strata and finds.</P>
+          <P>The room keeps its numbers in the status bar along the bottom, with the bore head purchase at its right end.</P>
           <H>What it pays</H>
           <T head={['Bonus', 'formula', 'now']} rows={[
-            ['All ash, from cores read', '1 + 0.12 × (tally total)^0.45', x(SV.coreMult(v), 3)],
+            ['All ash, from cores read', `1 + ${SV.CORE_K} × (tally total)^0.45, x1.1 once the wrong band is whole`, x(SV.coreMult(v), 3)],
             ['Shallow Bores, from survey', '1 + 0.25 × log10(1 + survey ever gathered)', x(SV.zoneBonus(v), 3)],
           ]} />
           <H>Prices</H>
@@ -680,8 +681,9 @@ const surveySections: GuideSection[] = [
       return (
         <>
           <P>
-            The bore pulls up one core every {SV.CORE_EVERY / 60} minutes of the Survey's clock and racks it. The rack holds {SV.RACK_BASE},
-            plus {SV.RACK_STEP} for each widening; cores stop coming while it is full. It starts with one core waiting.
+            The bore pulls up one core every {SV.CORE_EVERY / 60} minutes of the Survey's clock (faster with the ash seam and the whole old
+            road) and racks it. The rack holds {SV.RACK_BASE}, plus {SV.RACK_STEP} for each widening and one per black peat seam level; cores
+            stop coming while it is full. It starts with one core waiting.
           </P>
           <P>
             Open a core to read it. A core is {SV.KINDS_PER * SV.RUN} bands: {SV.KINDS_PER} strata, {SV.RUN} bands of each, shuffled so no
@@ -690,17 +692,17 @@ const surveySections: GuideSection[] = [
             is finished and counts as read.
           </P>
           <T head={['Stratum', 'how often (weight)', 'value per run']} rows={SV.STRATA.map(k => [
-            <>{k.name}{k.rare ? <span className="g-sub">rare: {k.lore?.length} lore lines, one per run read</span> : null}</>,
+            <>{k.name}{k.rare ? <span className="g-sub">rare: {k.lore?.length} lore lines, found as its runs are read</span> : null}</>,
             `${n2(k.weight)} (${pct(k.weight / w)})`, String(k.value),
           ])} note="Strata are drawn by weight, three different ones per core." />
           <P>Each run read adds its value to that stratum's tally. The tally total drives the core bonus on all ash, tapering: about x2 at the milestone.</P>
           <H>The core reader</H>
           <P>
             Bought with ash, the reader takes racked cores and reads them whole by itself: one every {hours(SV.READ_EVERY)} at level 1,
-            half again as fast each level after. It is slow and careless: a core it reads keeps only {pct(SV.AUTO_SHARE)} of its tally.
-            Reading by hand keeps it all.
+            half again as fast each level after. It is slow and careless: a core it reads keeps only {pct(SV.AUTO_SHARE)} of its tally
+            (more with the salt seam). Reading by hand keeps it all.
           </P>
-          <F>cores / s = (1 + 0.5 × (level − 1)) ÷ {SV.READ_EVERY}</F>
+          <F>cores / s = (1 + 0.5 × (level − 1)) × glass seam × second snow ÷ {SV.READ_EVERY}</F>
           <H>Prices</H>
           <T head={['Buy', 'slow income', 'now']} rows={[
             ['Widen the rack', '5 min × 2.5 ^ widenings', `${fmt(SV.rackCost(s))} ash`],
@@ -708,8 +710,39 @@ const surveySections: GuideSection[] = [
           ]} />
           <Now>
             Rack {v.rack}/{SV.rackSize(s)}, next core in {fmtTime((1 - v.coreProg) * SV.CORE_EVERY)}.
-            Cores read <B>{v.read}</B>. Tally total {n2(SV.tallyTotal(v))}. Lore found {v.lore.length}.
+            Cores read <B>{v.read}</B>. Tally total {n2(SV.tallyTotal(v))}. Lore found {v.lore.length}. The reader keeps {pct(SV.autoShare(v))}.
             Reader level {v.reader}{v.reader ? `, a core every ${hours(1 / SV.readerRate(s))}` : ''}.
+          </Now>
+        </>
+      );
+    },
+  },
+  {
+    id: 'ch-survey-strata', group: 'The Survey', title: 'Strata and finds', unlocked: chOpen('survey'),
+    body: s => {
+      const v = s.challenges.survey;
+      return (
+        <>
+          <P>
+            Every common stratum builds a seam as its tally grows. The first level needs {SV.SEAM_BASE} tally; each level after needs
+            {' '}{SV.SEAM_STEP} times the last, so a seam keeps growing but slowly, about like a log. Each level tunes one part of the Survey.
+          </P>
+          <T head={['Seam', 'each level', 'level now', 'gives now', 'next level at']} rows={SV.SEAMS.map(k => {
+            const L = SV.seamLevel(v, k.id);
+            return [SV.stratum(k.id).name, `${k.num(k.per)} ${k.unit}: ${k.what}`, String(L), L ? `${k.num(k.per * L)} ${k.unit}` : '–', `${+SV.seamAt(L).toFixed(1)} tally`];
+          })} note="Seam bonuses add up within a seam: level 3 of the ash seam is +18% cores." />
+          <H>Found in the cores</H>
+          <P>
+            The rare strata carry lore. Each line turns up once enough runs of that stratum have been read: the first at once, then
+            after {SV.LORE_AT.slice(1).join(', ')} runs in all. Each line found is a small permanent perk, and the fifth line of a stratum
+            adds a larger one for the whole set.
+          </P>
+          <T head={['Stratum', 'each line', 'all five', 'found']} rows={SV.FINDS.map(f => [
+            SV.stratum(f.id).name, `${f.fmt(f.per)}: ${f.what}`, f.set, `${SV.found(v, f.id)} / ${SV.LORE_AT.length}`,
+          ])} />
+          <Now>
+            Cores come every {fmtTime(SV.coreEvery(s))}. Heads gather x{n2(SV.headYield(v))}, the snow lies +{n2(SV.findGives(v, 'snow'))} thicker,
+            runs tally x{n2(SV.tallyBoost(v))}, heads cost {pct(1 - SV.findGives(v, 'road'))} of their price.
           </Now>
         </>
       );
@@ -723,7 +756,8 @@ const surveySections: GuideSection[] = [
         <>
           <P>
             The map is {SV.MAP_W} × {SV.MAP_H} tiles of snowfield. Each tile has a density: how thickly the ash falls there right now.
-            Every bore head gathers survey at its tile's density, per second.
+            Every bore head gathers survey at its tile's density, per second, raised by the rust seam; each second snow line adds
+            {' '}{SV.FINDS.find(f => f.id === 'snow')!.per} to every tile.
           </P>
           <F>density = 0.3 + three drifts, each a soft round patch</F>
           <UL items={[
@@ -732,7 +766,7 @@ const surveySections: GuideSection[] = [
             'The paths are fixed by your save, so the same moment always looks the same.',
           ]} />
           <P>Buy a head and set it on an empty tile. Moving a head is free and instant, so follow the drifts. Two heads cannot share a tile.</P>
-          <F>head price = slow income × 60 s × 1.6 ^ heads, up to the sixth; then × 3 for each head past six</F>
+          <F>head price = slow income × 60 s × 1.6 ^ heads, up to the sixth; then × 3 for each head past six; less {pct(SV.FINDS.find(f => f.id === 'road')!.per)} per old road line</F>
           <P>The milestone asks for six heads; past those, each one costs three times the last.</P>
           <Now>
             {v.heads.length} heads gathering <B>{n2(SV.surveyRate(s))}</B> survey / s. Survey ever gathered {fmt(v.surveyed)}.

@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import type Decimal from 'break_eternity.js';
 import { challengesBegin, chByZone, chNeeds, chUnlocked, CHALLENGES } from '../../game/challenges';
 import { passiveRate } from '../../game/engine';
-import { fmtTime } from '../../game/format';
+import { fmt, fmtTime } from '../../game/format';
 import type { GameState } from '../../game/state';
 import { useGame } from '../../game/store';
 import { ZONE_COLORS } from '../colors';
@@ -83,20 +83,59 @@ export function ChallengeSlot({ zone }: { zone: number }) {
   );
 }
 
-/** A full-screen room for a challenge, in the same shape as the Exchange and the spiral. */
-export function ChallengeRoom({ zone, title, note, stat, onClose, children, className }: {
-  zone: number; title: string; note?: string; stat?: ReactNode; onClose: () => void; children: ReactNode; className?: string;
+/** One stat in a room's status bar: a small label, a big number, and an optional rate or note under it. */
+export interface RoomStat { label: ReactNode; value: ReactNode; rate?: ReactNode; title?: string }
+/** A room's major buy: the verb, its price, and whether it is the mode the room is in now. */
+export interface RoomBuy { label: ReactNode; cost: Decimal; unit?: string; onClick: () => void; disabled?: boolean; pressed?: boolean; title?: string }
+
+/**
+ * The bar pinned at the foot of every challenge room: the numbers that matter on the left, the room's major
+ * buy on the right, so each room has the same place to look. Pass it to ChallengeRoom as `status`.
+ */
+export function RoomStatus({ stats, buy, children }: { stats: RoomStat[]; buy?: RoomBuy; children?: ReactNode }) {
+  const game = useGame(st => st.game);
+  useGame(st => st.rev);
+  const short = buy ? game.ash.lt(buy.cost) : false;
+  return (
+    <footer className="room-status" aria-label="Status">
+      <dl className="rs-stats">
+        {stats.map((x, i) => (
+          <div key={i} className="rs-stat" title={x.title}>
+            <dt>{x.label}</dt>
+            <dd><b>{x.value}</b>{x.rate != null && <small>{x.rate}</small>}</dd>
+          </div>
+        ))}
+      </dl>
+      {children}
+      {buy && (
+        <div className="rs-buy-wrap">
+          <button className={`rs-buy${buy.pressed ? ' pressed' : ''}`} disabled={buy.disabled ?? short} onClick={buy.onClick}
+            aria-pressed={buy.pressed} title={buy.title}>
+            <span className="btn-label">{buy.label}</span>
+            <span className="btn-cost">{fmt(buy.cost)} {buy.unit ?? 'ash'}</span>
+          </button>
+          {short && <SaveHint game={game} cost={buy.cost} />}
+        </div>
+      )}
+    </footer>
+  );
+}
+
+/** A full-screen room for a challenge, in the same shape as the Exchange and the spiral. With `status`, the
+ *  room's body takes the space between the header and a RoomStatus bar pinned at the bottom. */
+export function ChallengeRoom({ zone, title, note, stat, status, onClose, children, className }: {
+  zone: number; title: string; note?: string; stat?: ReactNode; status?: ReactNode; onClose: () => void; children: ReactNode; className?: string;
 }) {
   return createPortal(
     <div className="dialog-backdrop wiring-backdrop" data-nodrag onClick={onClose}>
-      <div className={`challenge-room panel framed ${className ?? ''}`} role="dialog" aria-label={title} onClick={e => e.stopPropagation()}
+      <div className={`challenge-room panel framed${status ? ' has-status' : ''} ${className ?? ''}`} role="dialog" aria-label={title} onClick={e => e.stopPropagation()}
         style={{ '--hue': ZONE_COLORS[zone] } as CSSProperties}>
         <header className="we-head">
           <h2>{title}{note && <span className="h2-note">{note}</span>}</h2>
           {stat && <span className="we-cycles">{stat}</span>}
           <div className="we-actions"><button className="secondary" onClick={onClose}>Close</button></div>
         </header>
-        {children}
+        {status ? <><div className="room-body">{children}</div>{status}</> : children}
       </div>
     </div>,
     document.body,

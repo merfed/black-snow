@@ -2,7 +2,7 @@ import Decimal from 'break_eternity.js';
 import { describe, expect, it } from 'vitest';
 import { newGame, type GameState } from '../state';
 import {
-  AUTO_SHARE, buyReader, coreMult, CORE_EVERY, buyRack, density, READ_EVERY, readerCost, tallyTotal, zoneBonus, headCost, makeCore, moveHead, openCore, placeHead, rackSize, RUN, survey, swapBands,
+  AUTO_SHARE, autoShare, coreEvery, findGives, found, LORE_AT, readerRate, seamAt, seamGives, seamLevel, setDone, surveyRate, buyReader, coreMult, CORE_EVERY, buyRack, density, READ_EVERY, readerCost, tallyTotal, zoneBonus, headCost, makeCore, moveHead, openCore, placeHead, rackSize, RUN, survey, swapBands,
 } from './survey';
 
 const late = (): GameState => {
@@ -155,5 +155,72 @@ describe('the survey', () => {
     expect(s.challenges.survey.read).toBe(25);
     expect(survey.milestone.done(s)).toBe(true);
     expect(survey.level(s)).toBe(31);
+  });
+
+  it('each common stratum builds a seam that tunes the Survey, tapering by level', () => {
+    const s = late();
+    const v = s.challenges.survey;
+    expect(seamLevel(v, 'ash')).toBe(0);
+    const every = coreEvery(s), rack = rackSize(s), share = autoShare(v);
+    v.tally = { ash: seamAt(0), peat: seamAt(2), salt: seamAt(1) };
+    expect(seamLevel(v, 'ash')).toBe(1);
+    expect(seamLevel(v, 'peat')).toBe(3);
+    expect(coreEvery(s)).toBeLessThan(every);
+    expect(rackSize(s)).toBe(rack + 3);
+    expect(autoShare(v)).toBeCloseTo(share + 2 * 0.04);
+    // each level needs SEAM_STEP times the tally of the last: a week of reading is only a few more levels
+    v.tally = { glass: 1000 };
+    expect(seamLevel(v, 'glass')).toBe(7);
+    v.tally = { glass: 10000 };
+    expect(seamLevel(v, 'glass')).toBeLessThanOrEqual(9);
+    expect(seamGives(v, 'glass')).toBeGreaterThan(0);
+    // rust: heads gather more
+    placeHead(s, 20);
+    const r0 = surveyRate(s);
+    v.tally.rust = seamAt(3);
+    expect(surveyRate(s)).toBeCloseTo(r0 * 1.2);
+  });
+
+  it('lore lines turn up as runs of a rare stratum pile up, each a small perk, the whole set a larger one', () => {
+    const s = late();
+    const v = s.challenges.survey;
+    const run = (id: string, n: number) => {
+      for (let k = 0; k < n; k++) { v.core = [id, 'ash', id, id, 'ash', 'ash']; swapBands(s, 0); swapBands(s, 0); v.core = null; }
+    };
+    // the core [a, x, a, a, ...] reads the run of a after one swap
+    v.core = ['road', 'ash', 'road', 'road']; swapBands(s, 0);
+    expect(found(v, 'road')).toBe(1);
+    const c1 = headCost(s);
+    run('road', LORE_AT[1] - 2);
+    expect(found(v, 'road')).toBe(1);
+    run('road', 1);
+    expect(found(v, 'road')).toBe(2);
+    expect(headCost(s).lt(c1)).toBe(true);
+    expect(findGives(v, 'road')).toBeCloseTo(0.16);
+    const every = coreEvery(s);
+    run('road', LORE_AT[4]);
+    expect(found(v, 'road')).toBe(5);
+    expect(setDone(v, 'road')).toBe(true);
+    expect(coreEvery(s)).toBeLessThan(every);
+    // the snow raises every tile; the reader reads faster once its set is whole
+    placeHead(s, 30);
+    const r0 = surveyRate(s);
+    run('snow', 1);
+    expect(surveyRate(s)).toBeGreaterThan(r0);
+    buyReader(s);
+    const rr = readerRate(s);
+    run('snow', LORE_AT[4]);
+    expect(readerRate(s)).toBeCloseTo(rr * 1.25);
+  });
+
+  it('an old save without run counts still loads and finds its next line', () => {
+    const s = late();
+    const v = s.challenges.survey as Partial<typeof s.challenges.survey>;
+    delete v.runs;
+    v.lore = ['wrong:0'];
+    s.challenges.survey.core = ['wrong', 'ash', 'wrong', 'wrong'];
+    expect(() => swapBands(s, 0)).not.toThrow();
+    expect(s.challenges.survey.runs.wrong).toBe(1);
+    expect(found(s.challenges.survey, 'wrong')).toBe(1);
   });
 });
