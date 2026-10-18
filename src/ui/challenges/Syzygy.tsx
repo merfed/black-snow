@@ -336,11 +336,87 @@ export function SyzygyPanel() {
   );
 }
 
+const KIND_HEAD: Record<string, string> = { syzygy: 'Syzygies', current: 'Currents', gate: 'Gates' };
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+
+/** One route on the wire board: its pair and name, lit by state, with + and − keys. */
+function EdgeTile({ k, sel }: { k: string; sel: number | null }) {
+  const game = useGame(st => st.game);
+  const run = useGame(st => st.run);
+  const z = game.challenges.syzygy;
+  const e = EDGES.find(x => edgeKey(x) === k)!;
+  const t = z.links[k] ?? 0, wgt = edgeWeight(z, e);
+  const cand = sel !== null && (e.a === sel || e.b === sel);
+  const tip = `${e.name}, ${e.kind} ${e.a}·${e.b}. ${t ? (wgt > 0 ? `Live: x${(1 + 0.35 * wgt).toFixed(2)} ash` : 'Wired, but one end is dark') : 'Not wired'}${t > 1 ? `, braided ${t}` : ''}.`;
+  return (
+    <div className={`sz-edge${t ? ' on' : ''}${wgt > 0 ? ' live' : ''}${cand ? ' cand' : ''}`} title={tip}>
+      <span className="sz-edge-pair">{e.a}·{e.b}</span>
+      <span className="sz-edge-name">{e.name}{t > 1 ? <b> ×{t}</b> : ''}</span>
+      <button className="syzygy-pm add" disabled={wiresFree(z) <= 0} onClick={() => run(s => routeEdge(s, k))} title="Lay a wire here (another braids it)" aria-label={`Lay a wire on ${e.name} ${e.a}·${e.b}`}>+</button>
+      <button className="syzygy-pm cut" disabled={!t} onClick={() => run(s => cut(s, k))} title="Take a wire back" aria-label={`Take a wire back from ${e.name} ${e.a}·${e.b}`}>−</button>
+    </div>
+  );
+}
+
+/** The black sun on a dial: the ring fills toward totality, then drains while it lasts. */
+function SunDial({ z }: { z: SyzygyState }) {
+  const tot = totality(z);
+  const k = tot ? totalityLeft(z) / totalityLen(z) : 1 - untilTotality(z) / darkLen(z);
+  const R = 46, C = 2 * Math.PI * R;
+  return (
+    <div className={`sz-dial${tot ? ' tot' : ''}`}>
+      <SunCanvas />
+      <svg viewBox="0 0 110 110" aria-hidden>
+        <circle cx="55" cy="55" r={R} className="sz-dial-track" />
+        <circle cx="55" cy="55" r={R} className="sz-dial-arc" strokeDasharray={`${C * Math.max(0, Math.min(1, k))} ${C}`} transform="rotate(-90 55 55)" />
+        {Array.from({ length: 24 }, (_, i) => {
+          const a = (i / 24) * Math.PI * 2, r1 = R + 5, r2 = R + (i % 6 === 0 ? 10 : 7);
+          return <line key={i} x1={55 + Math.sin(a) * r1} y1={55 - Math.cos(a) * r1} x2={55 + Math.sin(a) * r2} y2={55 - Math.cos(a) * r2} className="sz-dial-tick" />;
+        })}
+      </svg>
+    </div>
+  );
+}
+
+/** The gate: an arch with a sigil for every zone's offering, three lamps for the currents, the door in the middle. */
+function GateArch({ z, offs, live }: { z: SyzygyState; offs: ReturnType<typeof offerings>; live: number }) {
+  const n = offs.length;
+  return (
+    <svg className={`sz-arch${z.gateOpen ? ' open' : ''}`} viewBox="0 0 300 190" role="img" aria-label="The gate">
+      <defs>
+        <pattern id="sz-dith" width="2" height="2" patternUnits="userSpaceOnUse"><rect width="1" height="1" className="sz-dith-ink" /><rect x="1" y="1" width="1" height="1" className="sz-dith-ink" /></pattern>
+        <pattern id="sz-dith-sparse" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="1" height="1" className="sz-dith-ink" /></pattern>
+      </defs>
+      {/* the arch: two pillars and a round head, double ruled */}
+      <path d="M60 182 V96 A90 90 0 0 1 240 96 V182" className="sz-arch-outer" />
+      <path d="M78 182 V98 A72 72 0 0 1 222 98 V182" className="sz-arch-inner" />
+      <path d="M102 182 V112 A48 48 0 0 1 198 112 V182 Z" className="sz-door" fill={z.gateOpen ? 'url(#sz-dith)' : 'url(#sz-dith-sparse)'} />
+      {z.gateOpen && <path d="M102 182 V112 A48 48 0 0 1 198 112 V182 Z" className="sz-door-glow" />}
+      <text x="150" y="160" className="sz-door-num">{z.gateOpen ? '0' : '9'}</text>
+      <line x1="40" y1="183" x2="260" y2="183" className="sz-arch-sill" />
+      {offs.map((o, i) => {
+        const a = Math.PI * (1 - (i + 0.5) / n), cx = 150 + Math.cos(a) * 81, cy = 98 - Math.sin(a) * 81;
+        return (
+          <g key={o.zone} className={`sz-sigil${o.ok ? ' ok' : ''}`} style={{ color: ZONE_COLORS[o.zone] }}>
+            <title>{`${o.name}: ${o.ok ? 'given' : o.done ? `level ${Math.floor(o.level)}/${GATE_LEVEL}` : 'not yet'}`}</title>
+            <rect x={cx - 9} y={cy - 9} width="18" height="18" transform={`rotate(45 ${cx} ${cy})`} />
+            <text x={cx} y={cy + 4}>{o.zone + 1}</text>
+          </g>
+        );
+      })}
+      {Array.from({ length: GATE_CURRENTS }, (_, i) => (
+        <circle key={i} cx={130 + i * 20} cy="172" r="4.5" className={`sz-lamp${i < live ? ' lit' : ''}`}><title>{`Live currents ${Math.min(live, GATE_CURRENTS)}/${GATE_CURRENTS}`}</title></circle>
+      ))}
+    </svg>
+  );
+}
+
 function SyzygyRoom({ onClose }: { onClose: () => void }) {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
   const run = useGame(st => st.run);
   const { sel, pick, note } = usePicker();
+  const [page, setPage] = useState(-1); // -1 follows the newest page
   useEffect(() => {
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', esc);
@@ -352,10 +428,10 @@ function SyzygyRoom({ onClose }: { onClose: () => void }) {
   const gc = gateCost(game);
   const ready = offs.every(o => o.ok) && liveCurrents(z) >= GATE_CURRENTS;
   const ch = chapters(z);
-  const pagesShown = Math.min(z.pages, 60);
   const lc = lanternCost(game), lens = lensCost(game);
   const live = liveCurrents(z), given = offs.filter(o => o.ok).length;
   const ashX = ashPay(EDGES.reduce((n, e) => n + edgeWeight(z, e), 0));
+  const pg = z.pages === 0 ? -1 : page < 0 || page >= z.pages ? z.pages - 1 : page;
   const status = (
     <RoomStatus
       stats={[
@@ -376,100 +452,85 @@ function SyzygyRoom({ onClose }: { onClose: () => void }) {
   return (
     <ChallengeRoom zone={ZONE} title="The Syzygy" note="the bottom, where the iron is dreaming" onClose={onClose}
       className={`syzygy-room ${z.gateOpen ? 'syzygy-opened' : ''}`} status={status}>
-      <div className="syzygy-cols">
-        <section className="syzygy-col">
-          <h3 className="sub-head">The Numogram</h3>
-          <div className="artwork-frame knots syzygy-frame"><Numogram w={240} h={150} selected={sel} onPick={pick} /></div>
-          <p className={`small-note ${sel === null && !note ? 'dim' : 'syzygy-picking'}`}>{note || (sel === null ? 'Touch a node, then a ringed one, to lay a wire. Touch the pair again to take it back.' : `${sel}: ${nodeName(sel)}. Touch a ringed node.`)}</p>
-          <div className="ch-row">
-            <button className="syzygy-btn" onClick={() => run(buyWire)} disabled={z.dreams < wireCost(z)}>A wire <span className="syzygy-cost">{fmt(wireCost(z))} dreams</span></button>
+      <div className="sz-grid">
+        {/* ---- the plate and its wire board ---- */}
+        <section className="sz-col sz-plate-col" aria-label="The Numogram">
+          <div className="sz-head"><span className="sz-cap">"THE NUMOGRAM"</span><span className="sz-head-note">{wiresFree(z)} of {wiresTotal(z)} wires free</span></div>
+          <div className="artwork-frame knots syzygy-frame sz-plate"><Numogram w={240} h={150} selected={sel} onPick={pick} /></div>
+          <div className="sz-pick-row">
+            <p className={`sz-pick ${sel === null && !note ? '' : 'on'}`}>{note || (sel === null ? 'Touch a node, then a ringed one, to lay a wire.' : `${sel}: ${nodeName(sel)}. Touch a ringed node.`)}</p>
+            <button className="syzygy-btn" onClick={() => run(buyWire)} disabled={z.dreams < wireCost(z)} title="Twist another wire from dreams">A wire <span className="syzygy-cost">{fmt(wireCost(z))} dreams</span></button>
           </div>
-          <div className="syzygy-edges" data-scroll>
-            {EDGES.map(e => {
-              const k = edgeKey(e), t = z.links[k] ?? 0, wgt = edgeWeight(z, e);
+          <div className="sz-board">
+            {(['syzygy', 'current', 'gate'] as const).map(kind => (
+              <div key={kind} className="sz-board-col">
+                <span className="sz-board-head">{KIND_HEAD[kind]}</span>
+                {EDGES.filter(e => e.kind === kind).map(e => <EdgeTile key={edgeKey(e)} k={edgeKey(e)} sel={sel} />)}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ---- the dream and the black sun ---- */}
+        <section className="sz-col" aria-label="The dream">
+          <div className="sz-head"><span className="sz-cap">"THE DREAM"</span><span className="sz-head-note">night {z.night + 1} · new map in {hm((z.night + 1) * NIGHT - z.clock)}</span></div>
+          <div className="artwork-frame knots syzygy-frame sz-map"><DreamMap /></div>
+          <div className="sz-readouts">
+            <span><b>{Math.min(ROOMS, Math.floor(z.explored))}<i>/{ROOMS}</i></b><small>rooms walked</small></span>
+            <span><b>{(pilgrimSpeed(z) * 60).toFixed(2)}</b><small>rooms a minute</small></span>
+            <span><b>{z.finds}</b><small>finds kept</small></span>
+          </div>
+          <p className="syzygy-quote sz-quote">“The pilgrim goes down by themselves. What they bring back stays.”</p>
+
+          <div className="sz-head"><span className="sz-cap">"THE BLACK SUN"</span><span className={`sz-head-note${totality(z) ? ' syzygy-hot' : ''}`}>{eclipseText(z)}</span></div>
+          <div className="sz-sun">
+            <SunDial z={z} />
+            <div className="sz-sun-side">
+              <p className="sz-sun-line">Totality: every zone <b>x{totalityMult(z).toFixed(2)}</b> for {hm(totalityLen(z))}, dreams x2.</p>
+              <button className="syzygy-btn" onClick={() => run(buyShade)} disabled={z.dreams < shadeCost(z)} title="Shades hold totality longer">A shade <span className="syzygy-cost">{fmt(shadeCost(z))} dreams</span></button>
+              <button className="syzygy-btn" onClick={() => run(buyLens)} disabled={game.ash.lt(lens)} title="Lenses bring the next totality sooner">A lens <span className="syzygy-cost">{fmt(lens)} ash</span></button>
+            </div>
+          </div>
+        </section>
+
+        {/* ---- the gate and the dream log ---- */}
+        <section className="sz-col" aria-label="The gate">
+          <div className="sz-head"><span className="sz-cap">"THE GATE"</span><span className="sz-head-note">{z.gateOpen ? 'open' : `${given} of ${offs.length} offerings`}</span></div>
+          <GateArch z={z} offs={offs} live={live} />
+          {z.gateOpen ? <p className="syzygy-quote sz-quote">“Open. Nine touches zero.”</p>
+            : <button className="max-all syzygy-btn syzygy-gate" disabled={!ready || z.dreams < gc.dreams || game.ash.lt(gc.ash)} onClick={() => run(openGate)}
+              title={ready ? 'Every offering is given and the currents are live' : 'The gate wants an offering from every zone and three live currents'}>
+              Open the gate <span className="syzygy-cost">{fmt(gc.dreams)} dreams + {fmt(gc.ash)} ash</span>
+            </button>}
+
+          <div className="sz-head"><span className="sz-cap">"THE DREAM LOG"</span><span className="sz-head-note">{z.pages} {z.pages === 1 ? 'page' : 'pages'}</span></div>
+          <div className="sz-chapters">
+            {CHAPTERS.map((c, i) => {
+              const have = Math.max(0, Math.min(PAGES_PER_CHAPTER, z.pages - i * PAGES_PER_CHAPTER));
               return (
-                <div key={k} className={`syzygy-edge ${t ? 'on' : ''} ${wgt > 0 ? 'live' : ''} ${sel !== null && (e.a === sel || e.b === sel) ? 'cand' : ''}`}>
-                  <span className="syzygy-pair">{e.a}·{e.b}</span>
-                  <span className="syzygy-ename">{e.name} <small>{e.kind}</small></span>
-                  <span className="syzygy-w">{t ? (wgt > 0 ? `x${(1 + 0.35 * wgt).toFixed(2)} ash` : 'dark end') : ''}{t > 1 ? ` ·${t}` : ''}</span>
-                  <button className="syzygy-pm add" disabled={wiresFree(z) <= 0} onClick={() => run(s => routeEdge(s, k))} title="Lay a wire here (another braids it)" aria-label="Lay a wire">+</button>
-                  <button className="syzygy-pm cut" disabled={!t} onClick={() => run(s => cut(s, k))} title="Take a wire back" aria-label="Take a wire back">−</button>
+                <div key={i} className={`sz-chapter${i < ch ? ' done' : i === ch ? ' now' : ''}`}
+                  title={i <= ch ? `${c.title}${i < ch ? `: ${c.perk}` : `. ${PAGES_PER_CHAPTER - have} more pages.`}` : 'Not yet'}>
+                  <b>{ROMAN[i]}</b>
+                  <span className="syzygy-pips">{Array.from({ length: PAGES_PER_CHAPTER }, (_, k) => <i key={k} className={k < have ? 'on' : ''} />)}</span>
                 </div>
               );
             })}
           </div>
-          <h3 className="sub-head">Nodes</h3>
-          <div className="syzygy-nodes">
-            {z.nodes.map((v, n) => <span key={n} className={v > 0 ? 'lit' : ''}><b>{n}</b> {nodeName(n)} <i>{v.toFixed(1)}</i></span>)}
-          </div>
-        </section>
-
-        <section className="syzygy-col">
-          <h3 className="sub-head">The dream · night {z.night + 1}</h3>
-          <div className="syzygy-dream">
-            <div className="artwork-frame knots syzygy-frame"><DreamMap /></div>
-            <div className="syzygy-dream-side">
-              <span className="ch-stat"><b>{z.finds}</b> finds kept</span>
-              <span className="ch-stat"><b>{(pilgrimSpeed(z) * 60).toFixed(2)}</b> rooms a minute</span>
-              <span className="ch-stat dim">The map changes in {hm((z.night + 1) * NIGHT - z.clock)}</span>
-            </div>
-          </div>
-          <p className="syzygy-quote">“The pilgrim goes down by themselves. What they bring back stays.”</p>
-
-          <h3 className="sub-head">The black sun</h3>
-          <div className="syzygy-dream">
-            <div className="artwork-frame knots syzygy-frame"><SunCanvas /></div>
-            <div className="syzygy-dream-side">
-              <span className="ch-stat">Totality: every zone <b>x{totalityMult(z).toFixed(2)}</b> for {hm(totalityLen(z))}, dreams x2</span>
-              <div className="ch-row">
-                <button className="syzygy-btn" onClick={() => run(buyShade)} disabled={z.dreams < shadeCost(z)}>A shade <span className="syzygy-cost">{fmt(shadeCost(z))} dreams</span></button>
-                <button className="syzygy-btn" onClick={() => run(buyLens)} disabled={game.ash.lt(lens)}>A lens <span className="syzygy-cost">{fmt(lens)} ash</span></button>
+          <p className="sz-perk">{ch >= CHAPTERS.length ? 'The pages go on. Each chapter past the sixth: dreams +10%.'
+            : ch > 0 ? <>Last opened: <b>{CHAPTERS[ch - 1].title}</b>. {CHAPTERS[ch - 1].perk}</>
+            : <>Next: <b>{CHAPTERS[0].title}</b>, {PAGES_PER_CHAPTER - z.pages} more pages.</>}</p>
+          <div className="sz-page">
+            {pg < 0 ? <p className="sz-page-text dim">One page a night, if the pilgrim gets far enough.</p> : <>
+              <span className="sz-page-no">page {pg + 1}</span>
+              <p className="sz-page-text">{fragment(z.seed, pg)}</p>
+              <div className="sz-page-turn">
+                <button className="syzygy-pm" disabled={pg <= 0} onClick={() => setPage(pg - 1)} aria-label="Earlier page">‹</button>
+                <button className="syzygy-pm" disabled={pg >= z.pages - 1} onClick={() => setPage(pg + 1 >= z.pages - 1 ? -1 : pg + 1)} aria-label="Later page">›</button>
               </div>
-              <span className="small-note dim">Shades hold totality longer. Lenses bring the next one sooner.</span>
-            </div>
+            </>}
           </div>
-
-          <h3 className="sub-head">The gate</h3>
-          {z.gateOpen ? <p className="syzygy-quote">“Open. Nine touches zero.”</p> : <>
-            <div className="syzygy-offerings">
-              {offs.map(o => (
-                <span key={o.zone} className={o.ok ? 'ok' : ''} style={{ color: o.ok ? ZONE_COLORS[o.zone] : undefined }}>
-                  {o.ok ? '◆' : '◇'} {o.name} <i>{o.done ? `${Math.floor(o.level)}/${GATE_LEVEL}` : 'not yet'}</i>
-                </span>
-              ))}
-              <span className={liveCurrents(z) >= GATE_CURRENTS ? 'ok' : ''}>{liveCurrents(z) >= GATE_CURRENTS ? '◆' : '◇'} Live currents <i>{liveCurrents(z)}/{GATE_CURRENTS}</i></span>
-            </div>
-            <button className="max-all syzygy-btn syzygy-gate" disabled={!ready || z.dreams < gc.dreams || game.ash.lt(gc.ash)} onClick={() => run(openGate)}>
-              Open the gate · {fmt(gc.dreams)} dreams + {fmt(gc.ash)} ash
-            </button>
-            {z.dreams < gc.dreams && <p className="small-note dim">The pilgrim brings the dreams. Lanterns hurry the pilgrim; a few are cheap.</p>}
-          </>}
         </section>
       </div>
-
-      <section>
-        <h3 className="sub-head">The dream log · {z.pages} {z.pages === 1 ? 'page' : 'pages'}</h3>
-        <div className="syzygy-book" data-scroll>
-          {CHAPTERS.map((c, i) => {
-            const have = Math.max(0, Math.min(PAGES_PER_CHAPTER, z.pages - i * PAGES_PER_CHAPTER));
-            if (i > ch + 1) return null;
-            return (
-              <div key={i} className={`syzygy-chapter ${i < ch ? 'done' : ''}`}>
-                <div className="syzygy-chapter-head">
-                  <b>{['I', 'II', 'III', 'IV', 'V', 'VI'][i]}. {i <= ch ? c.title : '· · ·'}</b>
-                  <span className="syzygy-pips">{Array.from({ length: PAGES_PER_CHAPTER }, (_, k) => <i key={k} className={k < have ? 'on' : ''} />)}</span>
-                </div>
-                <span className={i < ch ? '' : 'dim'}>{i < ch ? c.perk : i === ch ? `${PAGES_PER_CHAPTER - have} more pages.` : ''}</span>
-              </div>
-            );
-          })}
-          {ch >= CHAPTERS.length && <div className="syzygy-chapter done"><b>The pages go on.</b><span>Each chapter past the sixth: dreams +10%.</span></div>}
-          <ol className="syzygy-pages" reversed>
-            {Array.from({ length: pagesShown }, (_, k) => z.pages - 1 - k).map(n => <li key={n}>{fragment(z.seed, n)}</li>)}
-          </ol>
-          {z.pages === 0 && <p className="small-note dim">One page a night, if the pilgrim gets far enough.</p>}
-        </div>
-      </section>
     </ChallengeRoom>
   );
 }
