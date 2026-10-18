@@ -26,13 +26,13 @@
 .sv-head-note { font-family: var(--font-ui); font-size: 13px; color: var(--soft); white-space: nowrap; }
 .sv-block { display: grid; gap: 3px; min-width: 0; }
 .sv-k { font-family: 'MEK Mono', var(--font-ui); font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--soft); }
-.sv-v { display: flex; align-items: baseline; gap: 6px; font-family: var(--font-ui); white-space: nowrap; }
+.sv-v { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; font-family: var(--font-ui); white-space: nowrap; min-width: 0; }
 .sv-v b { font-weight: 500; font-size: 23px; line-height: 1.05; color: var(--hue); font-variant-numeric: tabular-nums; }
 .sv-v.sm, .sv-v.sm b { font-size: 20px; line-height: 1.1; color: var(--hue); }
 .sv-v > span { font-size: 14px; color: var(--soft); }
-.sv-v .sv-wait { font-size: 14px; color: color-mix(in srgb, var(--accent) 80%, #fff); }
+.sv-v .sv-wait { white-space: normal; font-size: 14px; color: color-mix(in srgb, var(--accent) 80%, #fff); }
 .sv-v .sv-dim { font-size: 22px; color: var(--dim); }
-.sv-sub { font-family: var(--font-ui); font-size: 13px; color: var(--soft); line-height: 1.3; }
+.sv-sub { font-family: var(--font-ui); font-size: 13px; color: var(--soft); line-height: 1.3; overflow-wrap: anywhere; }
 .sv-sub.wrap { white-space: normal; }
 .sv-sub em, .sv-find-next em { font-style: normal; color: color-mix(in srgb, var(--accent) 75%, #fff); }
 .sv-bar {
@@ -111,6 +111,10 @@
 .sv-blocks { display: grid; gap: 8px; align-content: start; flex: 1; min-width: 0; }
 .sv-pips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
 .sv-pips i { width: 8px; height: 8px; border: 1px solid color-mix(in srgb, var(--hue) 45%, transparent); }
+.sv-pips.dense { gap: 2px; }
+.sv-pips.dense i { width: 5px; height: 5px; }
+.sv-sub .nw { white-space: nowrap; }
+.sv-maxed { padding: 10px 12px; font-family: var(--font-ui); font-size: 15px; color: var(--soft); border: 1px dashed color-mix(in srgb, var(--hue) 40%, transparent); }
 .sv-pips i.on { background: var(--hue); border-color: var(--hue); }
 .sv-act { display: grid; gap: 6px; align-content: center; }
 .survey-room button.sv-take {
@@ -143,4 +147,10 @@
   .survey-room-grid { grid-template-columns: 1fr; }
   .survey-field .survey-frame { width: 100%; max-width: none; }
   .survey-field-top, .survey-under { grid-template-columns: 1fr; }
+}
+/* short screens: pack the bench's readouts tighter so it fits without scrolling */
+@media (max-height: 860px) {
+  .sv-blocks { gap: 4px; }
+  .sv-block { gap: 1px; }
+  .sv-buys { gap: 6px; padding-top: 8px; }
 }

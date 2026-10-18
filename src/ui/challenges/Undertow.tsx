@@ -4,13 +4,13 @@ import {
   APPROACHES, approach, BINS, binCost, binLevel, BORE_BUDGET, deliveryTime, depth, efficiency, emberYield, figureHere, gaugeMult,
   gaugeNow, hiss, keepMult, lengths, LORE, luckTilt, luckYield, nearness, nextShift, objDef, OBJECTS, patch, patchMult, PERKS,
   PIPE_CELLS, RARITY_NAMES, rarityOdds, setBore, setMult, setRule, SETS, setsKept, sightWait, sortByRules, sortObj, trayCap,
-  upgradeBin, walkTime, zoneBonus, LEAK_CAP, type Bin,
+  upgradeBin, walkTime, zoneBonus, LEAK_CAP, MILESTONE_KEPT, type Bin,
 } from '../../game/challenges/undertow';
 import { fmt, fmtTime } from '../../game/format';
 import { useGame } from '../../game/store';
 import { ZONE_COLORS } from '../colors';
 import { hex, threshold } from '../dither';
-import { ChallengeRoom, SaveHint } from './ChallengeSlot';
+import { ChallengeRoom, RoomStatus, SaveHint } from './ChallengeSlot';
 import './undertow.css';
 
 const ZONE = 1;
@@ -180,10 +180,31 @@ export function UndertowPanel() {
 function UndertowRoom({ onClose }: { onClose: () => void }) {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
+  const run = useGame(st => st.run);
   const u = game.challenges.undertow;
+  const full = u.tray.length >= trayCap(game);
+  const here = figureHere(game);
+  // The bar's buy: the bin with the fewest levels (the cheapest), so one press always teaches or deepens one.
+  const bin = BINS.reduce((m, b) => (binLevel(game, b) < binLevel(game, m) ? b : m), BINS[0]);
+  const bl = binLevel(game, bin);
+  const status = (
+    <RoomStatus
+      stats={[
+        { label: 'Tray', value: `${u.tray.length}/${trayCap(game)}`, rate: full ? 'pipe waiting' : `next in ${fmtTime((1 - u.pull) * deliveryTime(game))}` },
+        { label: 'Kept', value: u.keptTotal < MILESTONE_KEPT ? `${u.keptTotal}/${MILESTONE_KEPT}` : u.keptTotal, rate: `x${keepMult(game).toFixed(2)} keep`, title: 'Objects kept, ever' },
+        { label: 'Approached', value: `${u.approaches}/${APPROACHES}`,
+          rate: here ? 'they are there' : u.walk > 0 ? `walking ${fmtTime(u.walk)}` : u.approaches >= APPROACHES ? 'only them' : 'pipe empty' },
+        { label: 'Leaks', value: `${u.leaks.length}/${LEAK_CAP}`, rate: `${u.patched} patched` },
+        { label: 'Conduit', value: `x${zoneBonus(game).toFixed(2)}`, rate: `luck ${fmt(u.luck)}`, title: 'What the Undertow pays the Conduit' },
+      ]}
+      buy={{
+        label: `${bl ? 'Deepen' : 'Teach'} ${BIN_NAMES[bin]}`, cost: binCost(game, bin), onClick: () => run(s => upgradeBin(s, bin)),
+        title: bl ? `${BIN_NAMES[bin]} bin, level ${bl + 1}. ${BIN_DESC[bin](bl + 1)}` : `Teach the ${BIN_NAMES[bin]} bin to sort by itself`,
+      }}
+    />
+  );
   return (
-    <ChallengeRoom zone={ZONE} title="The Undertow" note="what comes up" onClose={onClose} className="undertow-room"
-      stat={<>Conduit <b>x{zoneBonus(game).toFixed(2)}</b> · {u.leaks.length} leak{u.leaks.length === 1 ? '' : 's'} · luck {fmt(u.luck)}</>}>
+    <ChallengeRoom zone={ZONE} title="The Undertow" note="what comes up" onClose={onClose} className="undertow-room" status={status}>
       <div className="undertow-cols">
         <Bins />
         <div className="undertow-side">
@@ -249,7 +270,7 @@ function Bins() {
   const binCount: Record<Bin, number> = { keep: u.keptTotal, burn: u.burned, down: u.sentDown };
   return (
     <section className="undertow-sec">
-      <h3 className="sub-head">The tray · {u.tray.length}/{trayCap(game)}</h3>
+      <h3 className="sub-head">The tray</h3>
       <div className="undertow-tray" data-scroll>
         {u.tray.length === 0 && <p className="dim small-note">Empty.</p>}
         {u.tray.map((id, i) => ({ id, i })).reverse().map(({ id, i }) => {
@@ -308,7 +329,7 @@ function Bins() {
         ))}
       </div>
       <p className="dim small-note">
-        Kept {u.keptTotal} (x{keepMult(game).toFixed(2)}) · sets x{setMult(game).toFixed(2)} · burned {u.burned} · sent down {u.sentDown}
+        Sets x{setMult(game).toFixed(2)} · burned {u.burned} · sent down {u.sentDown}
         {' '}(+{luckYield(game, 'key').toFixed(0)} luck a common, tilt {luckTilt(u.luck).toFixed(2)})
       </p>
     </section>
@@ -327,7 +348,6 @@ function Leaks() {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
   const run = useGame(st => st.run);
-  const u = game.challenges.undertow;
   const [taps, setTaps] = useState<{ n: number; v: number }[]>([]);
   const [last, setLast] = useState<{ v: number; found: boolean } | null>(null);
   const tap = (n: number) => {
@@ -341,7 +361,7 @@ function Leaks() {
   const CELL = 22;
   return (
     <section className="undertow-sec">
-      <h3 className="sub-head">Leak hunt · {u.leaks.length}/{LEAK_CAP} open · {u.patched} patched</h3>
+      <h3 className="sub-head">Leak hunt</h3>
       <svg className="undertow-schem" data-nodrag viewBox={`0 0 ${SC * CELL} ${SR * CELL}`} width="100%">
         {Array.from({ length: PIPE_CELLS - 1 }, (_, n) => {
           const a = cellPos(n), b = cellPos(n + 1);
@@ -429,7 +449,7 @@ function Figure() {
   const u = game.challenges.undertow;
   return (
     <section className="undertow-sec">
-      <h3 className="sub-head">The figure · {u.approaches}/{APPROACHES}</h3>
+      <h3 className="sub-head">The figure</h3>
       <ol className="undertow-perks" data-scroll>
         {PERKS.map((p, i) => (
           <li key={i} className={i < u.approaches ? 'on' : ''}>

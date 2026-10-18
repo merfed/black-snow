@@ -7,11 +7,12 @@ import {
   kindsFound, MAX_RINGS, newSpirals, openSocket2, pigmentBonus, pour, pourCost, reading, refine, refineCost, ringCost, rings, setSpan,
   sock2Cost, SOCK2_FOUND, socket, sockets, spanOf, spiralBonus,
 } from '../../game/challenges/ring';
+import { pigmentRate } from '../../game/engine';
 import { fmt } from '../../game/format';
 import { useGame } from '../../game/store';
 import { ZONE_COLORS } from '../colors';
 import { hex, threshold } from '../dither';
-import { ChallengeRoom } from './ChallengeSlot';
+import { ChallengeRoom, RoomStatus } from './ChallengeSlot';
 import './ring.css';
 
 const HUE = ZONE_COLORS[SPIRAL];
@@ -178,16 +179,27 @@ function CatalystRoom({ onClose }: { onClose: () => void }) {
     window.addEventListener('keydown', esc);
     return () => window.removeEventListener('keydown', esc);
   }, [onClose]);
+  const pc = pourCost(game);
+  const n = spanOf(game);
+  const status = (
+    <RoomStatus
+      stats={[
+        { label: 'Pigment', value: fmt(pig), rate: `+${fmt(pigmentRate(game))}/s` },
+        { label: 'Code', value: rd.barker ? `${n} held` : `${n} loose`, rate: rd.barker ? `held x${holdMult(game).toFixed(2)}` : `sidelobe ${rd.psl} · best ${r.best || '—'}`, title: 'The rings read now. A Barker code holds; holding grows its power.' },
+        { label: 'Pigment bonus', value: `x${pigmentBonus(game).toFixed(2)}`, rate: `ash x${ashBonus(game).toFixed(2)} · Spirals x${spiralBonus(game).toFixed(2)}`, title: 'What the code pays' },
+        { label: 'Catalysts', value: `${kindsFound(game)}/${CATALYSTS.length}`, rate: `${r.found} drops`, title: 'Kinds found, of all there are' },
+        { label: 'Next drop', value: `${Math.floor(Math.min(100, r.dust / need * 100))}%`, rate: rate > 0 ? `~${dur(Math.max(0, need - r.dust) / rate)}` : 'no colour yet', title: `${r.dust.toFixed(1)} / ${need} silt in the deep wind` },
+      ]}
+      buy={{ label: 'Pour pigment', cost: pc, unit: 'pigment', afford: pig >= pc, onClick: () => run(pour), title: 'Pour into the deep wind: +1 silt toward the next catalyst' }}
+    />
+  );
   return (
-    <ChallengeRoom zone={SPIRAL} title="The fourth slot" note="it is never used up" onClose={onClose} className="ring-room"
-      stat={<><b>{fmt(pig)}</b> pigment</>}>
+    <ChallengeRoom zone={SPIRAL} title="The fourth slot" note="it is never used up" onClose={onClose} className="ring-room" status={status}>
       <div className="ring-room-cols">
         <section className="ring-room-left">
           <div className="ring-frame knots big">
-            <RingCanvas pol={r.pol} n={rings(game)} span={spanOf(game)} locked={rd.barker} size={160} onFlip={i => run(s => flip(s, i))} />
+            <RingCanvas pol={r.pol} n={rings(game)} span={n} locked={rd.barker} size={160} onFlip={i => run(s => flip(s, i))} />
           </div>
-          <div className="ch-stat">pigment <b>x{pigmentBonus(game).toFixed(2)}</b> · ash <b>x{ashBonus(game).toFixed(2)}</b> · Spirals <b>x{spiralBonus(game).toFixed(2)}</b></div>
-          <div className="ch-stat">held <b>x{holdMult(game).toFixed(2)}</b> <span className="dim">(grows while a code holds)</span></div>
 
           <h3 className="sub-head">Sockets</h3>
           <div className="ring-sockets">
@@ -211,11 +223,8 @@ function CatalystRoom({ onClose }: { onClose: () => void }) {
           <h3 className="sub-head">Deep wind</h3>
           <div className="wind-bar ring-dust"><span style={{ width: `${Math.min(100, r.dust / need * 100)}%` }} /><b>{r.dust.toFixed(1)} / {need} silt</b></div>
           <p className="dim small-note">
-            {rate > 0 ? `About ${dur(Math.max(0, need - r.dust) / rate)} to the next drop. Deeper with every tincture level; quicker while a code holds.` : 'The spiral is not taking colour yet.'}
+            {rate > 0 ? `About ${dur(Math.max(0, need - r.dust) / rate)} to the next drop. Deeper with every tincture level; quicker while a code holds. Pour pigment to hurry it.` : 'The spiral is not taking colour yet.'}
           </p>
-          <button className="secondary" disabled={pig < pourCost(game)} onClick={() => run(pour)}>
-            Pour pigment into the deep wind <span className="cost">{fmt(pourCost(game))} → 1 silt</span>
-          </button>
         </section>
 
         <section className="ring-room-right">

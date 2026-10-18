@@ -4,7 +4,7 @@ import {
   ashDropCost, BOON_TEXT, breedRate, candleCost, canChoose, canRope, choiceWeight, choose, descentSpeed, drawRate, dropAsh,
   dropEmbers, EMBER_DROP, haul, HUES, ITEMS, landingTime, lanterns, lowTide, net, netCost, pour, QUEUE_MAX, REFL_H, REFL_W,
   reflection, reflLeft, ropeCost, ropeWater, roomText, send, sightPow, spot, still, stillCost, TANK_MAX, tankMult, tide, tideTurn,
-  WATERS, WISH_KINDS, wishNeed, wishProgress, buyRope, bandOpen, type Item, type Lantern, type PerkId, type StairState,
+  WATERS, WISH_KINDS, wishNeed, wishProgress, buyRope, bandOpen, stairMult, type Item, type Lantern, type PerkId, type StairState,
 } from '../../game/challenges/stair';
 import { fmt } from '../../game/format';
 import { useGame } from '../../game/store';
@@ -12,7 +12,7 @@ import type { GameState } from '../../game/state';
 import { Artwork } from '../Artwork';
 import { ZONE_COLORS } from '../colors';
 import type { Scene } from '../scenes';
-import { ChallengeRoom } from './ChallengeSlot';
+import { ChallengeRoom, RoomStatus } from './ChallengeSlot';
 import './stair.css';
 
 const ZONE = 3;
@@ -210,10 +210,28 @@ const tapUi = (w: number) => (w <= 16 ? w : 16 * Math.sqrt(w / 16));
 function StairRoom({ onClose }: { onClose: () => void }) {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
+  const run = useGame(st => st.run);
   const st = game.challenges.stair;
+  const wc = ropeWater(st.rope), next = WATERS.find(w => w.at > st.rope);
+  const status = (
+    <RoomStatus
+      stats={[
+        { label: 'Warm water', value: num(st.water[0]), rate: `+${(drawRate(game, 0) * 60).toFixed(1)}/m`, title: WATERS[0].desc },
+        { label: 'Rope', value: `${st.rope} m`, rate: next ? `${next.name} at ${next.at} m` : 'all bands open' },
+        { label: 'Landing', value: st.landing >= 12 ? st.landing : `${st.landing}/12`,
+          rate: !st.sent ? 'nobody sent' : st.queue.length ? `${st.queue.length} waiting` : 'walking down' },
+        { label: 'Wishes', value: st.wishes >= 3 ? st.wishes : `${st.wishes}/3`, rate: 'granted' },
+        { label: 'Rampant Wells', value: `x${stairMult(st, 'zone3').toFixed(2)}`, rate: 'from the stair', title: 'Perks, wishes, the tank and the reflections together' },
+      ]}
+      buy={{
+        label: 'Lengthen rope', cost: ropeCost(game), unit: `ash · ${wc} warm`, afford: canRope(game), onClick: () => run(buyRope),
+        title: `Also takes ${wc} warm water (you have ${Math.floor(st.water[0])}). Deeper draws more.`,
+      }}
+    />
+  );
   return (
     <ChallengeRoom zone={ZONE} title="The Drowned Stair" note="It turns left, forever." onClose={onClose}
-      stat={<>landing <b>{st.landing}</b> · wishes <b>{st.wishes}</b> · lanterns <b>{st.tank.length}</b></>} className="stair-room">
+      className="stair-room" status={status}>
       <div className="stair-grid">
         <section className="stair-sec">
           <h3 className="sub-head">The stair</h3>

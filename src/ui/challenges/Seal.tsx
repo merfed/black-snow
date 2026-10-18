@@ -15,7 +15,7 @@ import type { GameState } from '../../game/state';
 import { useGame } from '../../game/store';
 import { ZONE_COLORS } from '../colors';
 import { hex, threshold } from '../dither';
-import { ChallengeRoom } from './ChallengeSlot';
+import { ChallengeRoom, RoomStatus } from './ChallengeSlot';
 import './seal.css';
 
 type RGB = [number, number, number];
@@ -288,15 +288,8 @@ function AirlockSection({ game, run }: { game: GameState; run: (fn: (s: GameStat
           </button>
         ))}
       </div>
-      <div className="seal-stats">
-        <span className="ch-stat">Void ash <b>+{fmt(voidRate(c))}</b>/s</span>
-        <span className="ch-stat">Rime <b>+{fmt(c.frost > 0 ? fi * RIME_PER_FROST : 0)}</b>/s{fi > 0 && c.frost <= 0 && <span className="dim"> · no frost to feed</span>}</span>
-        <span className="ch-stat">Frost waiting <b>{fmt(c.frost)}</b></span>
-      </div>
+      {fi > 0 && c.frost <= 0 && <p className="dim small-note">No frost to feed it. Harvest the walls.</p>}
       <div className="seal-ups">
-        <button disabled={c.rime < pumpCost(c)} onClick={() => run(buyPump)}>
-          <span>Prime a pump <small>lv {c.pumps} · speed x{airlockSpeed(c).toFixed(2)}</small></span><span className="cost">{fmt(pumpCost(c))} rime</span>
-        </button>
         <button disabled={c.voidAsh < earCost(c)} onClick={() => run(buyEar)}>
           <span>Stethoscope <small>lv {c.ear} · the twitch reaches {earReach(game).toFixed(1)} marks · a miss costs {fmt(restCost(game))}</small></span><span className="cost">{fmt(earCost(c))} void</span>
         </button>
@@ -379,14 +372,30 @@ function SealRoom({ onClose }: { onClose: () => void }) {
   useGame(st => st.rev);
   const run = useGame(st => st.run);
   const c = game.challenges.seal;
+  const fi = frostIntake(c), pc = pumpCost(c);
+  const status = (
+    <RoomStatus
+      stats={[
+        { label: 'Void ash', value: fmt(c.voidAsh), rate: `+${fmt(voidRate(c))}/s` },
+        { label: 'Rime', value: fmt(c.rime), rate: c.frost > 0 || !fi ? `+${fmt(c.frost > 0 ? fi * RIME_PER_FROST : 0)}/s` : 'no frost to feed' },
+        { label: 'Frost', value: fmt(c.frost), rate: `${fmt(c.crystals)} on the walls`, title: 'Frost waiting for the airlock; crystals ready to harvest' },
+        { label: 'Tier', value: c.tier >= 3 ? c.tier : `${c.tier}/3`, rate: `${c.seals.length} seals${sealsPending(game) ? ` · ${sealsPending(game)} waiting` : ''}` },
+        { label: 'All ash', value: `x${(tierAshMult(c.tier) * sealMult(c, 'ash')).toFixed(2)}`, rate: `locks x${(tierZoneMult(c.tier) * sealMult(c, 'zone4')).toFixed(2)}`,
+          title: 'From opened tiers and seals. Locks: the Vacuum Locks' },
+      ]}
+      buy={{
+        label: 'Prime a pump', cost: pc, unit: 'rime', afford: c.rime >= pc, onClick: () => run(buyPump),
+        title: `Pumps lv ${c.pumps}: the airlock runs x${airlockSpeed(c).toFixed(2)}, one cycle every ${Math.round(cycleLen(c))}s`,
+      }}
+    />
+  );
   useEffect(() => {
     const esc = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', esc);
     return () => window.removeEventListener('keydown', esc);
   }, [onClose]);
   return (
-    <ChallengeRoom zone={SEAL_ZONE} title="Below the hatch" note="the lock holds, and lets go" onClose={onClose} className="seal-room"
-      stat={<><b>{fmt(c.voidAsh)}</b> void ash <small>{fmt(c.rime)} rime · {fmt(c.frost)} frost</small></>}>
+    <ChallengeRoom zone={SEAL_ZONE} title="Below the hatch" note="the lock holds, and lets go" onClose={onClose} className="seal-room" status={status}>
       <div className="seal-cols">
         <SealsSection game={game} run={run} />
         <AirlockSection game={game} run={run} />

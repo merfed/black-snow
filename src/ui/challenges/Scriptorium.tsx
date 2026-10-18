@@ -1,8 +1,8 @@
 // The Scriptorium: the panel inside the zone 8 box, and the room behind it.
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  answer, askWalls, assign, buyUp, foremanMult, foremanStrength, foremen, giveRate, glyphMult, glyphsSolved, heardGlyphs, HINT_CAP, HINT_SECS,
-  hush, lay, leaning, loudCap, loudMult, POOL, QUESTIONS, retire, retireSilence, rosterCap, seat, TRAIT_TEXT, TRAITS, unseat, upCost,
+  answer, askWalls, GREEDY_K, assign, buyUp, foremanMult, foremanStrength, foremen, giveRate, glyphMult, glyphsSolved, heardGlyphs, HINT_CAP, HINT_SECS,
+  hush, lay, leaning, loudCap, loudMult, POOL, QUESTIONS, retire, retireSilence, rosterCap, seat, TRAIT_TEXT, TRAITS, traitMult, unseat, upCost,
   UPGRADES, upLevel, wordsHeard, WORD_SECS, GW, GH, type Trait,
 } from '../../game/challenges/scriptorium';
 import { ZONES } from '../../game/data';
@@ -11,7 +11,7 @@ import { useGame } from '../../game/store';
 import type { GameState } from '../../game/state';
 import { ZONE_COLORS } from '../colors';
 import { hex, threshold } from '../dither';
-import { ChallengeRoom } from './ChallengeSlot';
+import { ChallengeRoom, RoomStatus } from './ChallengeSlot';
 import './scriptorium.css';
 
 const ZONE = 7;
@@ -314,7 +314,6 @@ function Silence() {
   return (
     <section className="scriptorium-col">
       <h3 className="sub-head">Silence <small>{fmt(c.silence)}</small></h3>
-      <LoudBar />
       <div className="scriptorium-ups">
         {UPGRADES.map(u => (
           <button key={u.id} disabled={c.silence < upCost(game, u.id)} onClick={() => run(s => buyUp(s, u.id))} title={u.desc}>
@@ -342,10 +341,27 @@ function ScriptoriumRoom({ onClose }: { onClose: () => void }) {
     window.addEventListener('keydown', esc);
     return () => window.removeEventListener('keydown', esc);
   }, [onClose]);
+  const run = useGame(st => st.run);
   const c = game.challenges.scriptorium;
+  const ashX = glyphMult(game) * loudMult(game) * traitMult(game, 'greedy', GREEDY_K);
+  const status = (
+    <RoomStatus
+      stats={[
+        { label: 'Glyphs', value: glyphsSolved(game), rate: `${c.sentences} sentences`, title: `Right guesses raise ash x${glyphMult(game).toFixed(2)}` },
+        { label: 'Loudness', value: `${Math.floor(c.loud)}/${Math.floor(loudCap(game))}`, rate: `ash x${loudMult(game).toFixed(2)}`, title: 'Louder walls, more ash. Hush to bank it as silence.' },
+        { label: 'Silence', value: fmt(c.silence), rate: `${c.hushes} hushes` },
+        { label: 'Foremen', value: `${foremen(game)}/9`, rate: `x${foremanStrength(game).toFixed(2)} strength` },
+        { label: 'All ash', value: `x${ashX.toFixed(2)}`, rate: 'glyphs, loud, greed', title: 'Glyphs, loudness and a greedy heart, together' },
+      ]}
+      buy={{
+        label: 'Hush', cost: Math.floor(c.loud), unit: 'loud', afford: c.loud >= 1, onClick: () => run(hush),
+        title: 'Bank the loudness as silence. It grows back.',
+      }}
+    />
+  );
   return (
     <ChallengeRoom zone={ZONE} title="The Scriptorium" note="the walls speak in the voice of whoever dug them" onClose={onClose}
-      stat={<><b>{glyphsSolved(game)}</b> glyphs · <b>{fmt(c.silence)}</b> silence</>}>
+      status={status}>
       <div className="scriptorium-cols">
         <Cipher />
         <Voices />

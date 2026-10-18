@@ -11,7 +11,7 @@ import {
 } from '../../game/challenges/operator';
 import { ZONE_COLORS } from '../colors';
 import { hex, threshold } from '../dither';
-import { ChallengeRoom } from './ChallengeSlot';
+import { ChallengeRoom, RoomStatus } from './ChallengeSlot';
 import './operator.css';
 
 const ZONE = 6;
@@ -248,22 +248,24 @@ function OperatorRoom({ onClose }: { onClose: () => void }) {
   const memo = new Map<number, number>();
   const live = activeSlots(game).length;
   const mothsHere = st.moths.filter(m => m.c === c).length;
+  const ck = clockCost(st), cn = clockNeed(st);
+  const status = (
+    <RoomStatus
+      stats={[
+        { label: 'Lines', value: fmt(Math.floor(st.lines)), rate: st.lines < GOAL_LINES ? `of ${fmt(GOAL_LINES)}` : `x${basePay(st).toFixed(2)} pay`, title: 'Lines the reader has executed' },
+        { label: 'Beat', value: `${beatRate(st).toFixed(2)}/s`, rate: `x ${live} card${live === 1 ? '' : 's'}` },
+        { label: 'Cycles', value: fmt(cyc), rate: <>−{fmt(st.burn)}/s{st.moths.length > 0 && ` (moths +${Math.round((mothTax(st) - 1) * 100)}%)`}</>, title: 'Cycles on hand, and what the reader burns' },
+        { label: ZONES[ZONE].name, value: `x${operator.mult(game, 'zone6').toFixed(2)}`, rate: `ash x${operator.mult(game, 'ash').toFixed(2)} · cyc x${operator.mult(game, 'cycles').toFixed(2)}` },
+        { label: 'Stack', value: `${st.depth}/${st.stack}`, rate: `signal ${st.sig.toFixed(2)} · ${st.parts} part${st.parts === 1 ? '' : 's'}`, title: 'Deepest CALL reached, of the stack limit' },
+      ]}
+      buy={{
+        label: 'Faster clock', cost: ck, unit: 'cycles', afford: cyc >= ck && st.lines >= cn, onClick: () => run(buyClock),
+        title: st.lines < cn ? `The clock only learns from work: it wants ${fmt(cn)} lines run first.` : `Beat ${beatRate(st).toFixed(2)}/s → ${(beatRate(st) * 1.2).toFixed(2)}/s`,
+      }}
+    />
+  );
   return (
-    <ChallengeRoom zone={ZONE} title="The Operator" note="cards, stack, memory" onClose={onClose} className="operator-room"
-      stat={<>{fmt(cyc)} cycles · {st.parts} part{st.parts === 1 ? '' : 's'}</>}>
-      <div className="ch-row operator-stats">
-        <span className="ch-stat">Lines <b>{fmt(Math.floor(st.lines))}</b></span>
-        <span className="ch-stat">Beat <b>{beatRate(st).toFixed(2)}</b>/s × {live} card{live === 1 ? '' : 's'}</span>
-        <span className="ch-stat">Burn <b>{fmt(st.burn)}</b> cyc/s{st.moths.length > 0 && <span className="dim"> (moths +{Math.round((mothTax(st) - 1) * 100)}%)</span>}</span>
-        <span className="ch-stat">Stack depth <b>{st.depth}</b></span>
-        <span className="ch-stat">Signal <b>{st.sig.toFixed(2)}</b></span>
-      </div>
-      <div className="ch-row operator-stats">
-        <span className="ch-stat">{ZONES[ZONE].name} <b>×{operator.mult(game, 'zone6').toFixed(2)}</b></span>
-        <span className="ch-stat">Cycles <b>×{operator.mult(game, 'cycles').toFixed(2)}</b></span>
-        <span className="ch-stat">All ash <b>×{operator.mult(game, 'ash').toFixed(2)}</b></span>
-        <span className="ch-stat dim">lines ×{basePay(st).toFixed(2)}</span>
-      </div>
+    <ChallengeRoom zone={ZONE} title="The Operator" note="cards, stack, memory" onClose={onClose} className="operator-room" status={status}>
       <div className="operator-room-grid">
         <section className="operator-col">
           <h3 className="sub-head">Cabinet</h3>
@@ -306,12 +308,9 @@ function OperatorRoom({ onClose }: { onClose: () => void }) {
 
         <section className="operator-col">
           <h3 className="sub-head">Machine</h3>
-          <button disabled={cyc < clockCost(st) || st.lines < clockNeed(st)} onClick={() => run(buyClock)}>
-            Faster clock <span className="cost">{fmt(clockCost(st))} cyc</span>
-          </button>
           <p className="small-note dim">
-            Beat {beatRate(st).toFixed(2)}/s → {(beatRate(st) * 1.2).toFixed(2)}/s.
-            {st.lines < clockNeed(st) && <> The clock only learns from work: it wants {fmt(clockNeed(st))} lines run first.</>}
+            Clock: beat {beatRate(st).toFixed(2)}/s, {(beatRate(st) * 1.2).toFixed(2)}/s with the next.
+            {st.lines < cn && <> It only learns from work: it wants {fmt(cn)} lines run first.</>}
           </p>
           <button disabled={cyc < sc.cycles || st.parts < sc.parts} onClick={() => run(buyStack)}>
             Deeper stack <span className="cost">{fmt(sc.cycles)} cyc · {sc.parts} part{sc.parts > 1 ? 's' : ''}</span>

@@ -1,7 +1,7 @@
 // The challenge box inside each zone panel: a sealed teaser until it opens, then the challenge's own panel.
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import type Decimal from 'break_eternity.js';
+import Decimal from 'break_eternity.js';
 import { challengesBegin, chByZone, chNeeds, chUnlocked, CHALLENGES } from '../../game/challenges';
 import { passiveRate } from '../../game/engine';
 import { fmt, fmtTime } from '../../game/format';
@@ -86,7 +86,11 @@ export function ChallengeSlot({ zone }: { zone: number }) {
 /** One stat in a room's status bar: a small label, a big number, and an optional rate or note under it. */
 export interface RoomStat { label: ReactNode; value: ReactNode; rate?: ReactNode; title?: string }
 /** A room's major buy: the verb, its price, and whether it is the mode the room is in now. */
-export interface RoomBuy { label: ReactNode; cost: Decimal; unit?: string; onClick: () => void; disabled?: boolean; pressed?: boolean; title?: string }
+export interface RoomBuy {
+  label: ReactNode; cost: Decimal | number; unit?: string; onClick: () => void; disabled?: boolean; pressed?: boolean; title?: string;
+  /** For a buy paid in something other than ash: whether it can be paid now. Ash buys work this out themselves. */
+  afford?: boolean;
+}
 
 /**
  * The bar pinned at the foot of every challenge room: the numbers that matter on the left, the room's major
@@ -95,7 +99,8 @@ export interface RoomBuy { label: ReactNode; cost: Decimal; unit?: string; onCli
 export function RoomStatus({ stats, buy, children }: { stats: RoomStat[]; buy?: RoomBuy; children?: ReactNode }) {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
-  const short = buy ? game.ash.lt(buy.cost) : false;
+  const short = buy ? (buy.afford != null ? !buy.afford : game.ash.lt(buy.cost)) : false;
+  const ashBuy = buy ? buy.afford == null : false;
   return (
     <footer className="room-status" aria-label="Status">
       <dl className="rs-stats">
@@ -114,7 +119,7 @@ export function RoomStatus({ stats, buy, children }: { stats: RoomStat[]; buy?: 
             <span className="btn-label">{buy.label}</span>
             <span className="btn-cost">{fmt(buy.cost)} {buy.unit ?? 'ash'}</span>
           </button>
-          {short && <SaveHint game={game} cost={buy.cost} />}
+          {short && ashBuy && <SaveHint game={game} cost={new Decimal(buy.cost)} />}
         </div>
       )}
     </footer>

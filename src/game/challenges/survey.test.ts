@@ -2,7 +2,7 @@ import Decimal from 'break_eternity.js';
 import { describe, expect, it } from 'vitest';
 import { newGame, type GameState } from '../state';
 import {
-  AUTO_SHARE, autoShare, coreEvery, findGives, found, LORE_AT, readerRate, seamAt, seamGives, seamLevel, setDone, surveyRate, buyReader, coreMult, CORE_EVERY, buyRack, density, READ_EVERY, readerCost, tallyTotal, zoneBonus, headCost, makeCore, moveHead, openCore, placeHead, rackSize, RUN, survey, swapBands,
+  AUTO_SHARE, autoShare, coreEvery, findGives, found, LORE_AT, readerRate, seamAt, seamGives, seamLevel, setDone, surveyRate, buyReader, coreMult, CORE_EVERY, buyRack, density, READ_EVERY, readerCost, tallyTotal, zoneBonus, headCost, makeCore, moveHead, openCore, placeHead, RACK_MAX, rackSize, RUN, survey, swapBands,
 } from './survey';
 
 const late = (): GameState => {
@@ -26,6 +26,17 @@ function solve(s: GameState) {
 }
 
 describe('the survey', () => {
+  it('stops widening the rack at its cap', () => {
+    const s = late();
+    s.challenges.survey.priceRef = 1;
+    s.ash = new Decimal('1e300');
+    for (let i = 0; i < 200; i++) buyRack(s);
+    expect(rackSize(s)).toBe(RACK_MAX);
+    const lv = s.challenges.survey.rackLv;
+    expect(buyRack(s)).toBe(false);
+    expect(s.challenges.survey.rackLv).toBe(lv);
+  });
+
   it('starts untouched, one core in the rack', () => {
     const s = late();
     const v = s.challenges.survey;

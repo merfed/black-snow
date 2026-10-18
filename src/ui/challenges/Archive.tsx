@@ -11,7 +11,7 @@ import { useGame } from '../../game/store';
 import { ZONE_COLORS } from '../colors';
 import { hex, threshold } from '../dither';
 import { hash } from '../scenes';
-import { ChallengeRoom, SaveHint } from './ChallengeSlot';
+import { ChallengeRoom, RoomStatus, SaveHint } from './ChallengeSlot';
 import './archive.css';
 
 type Shade = (x: number, y: number, t: number, w: number, h: number) => number;
@@ -323,10 +323,27 @@ function ArchiveRoom({ onClose }: { onClose: () => void }) {
     return m;
   }, [a.recent]);
   const shown = view && a.channels.includes(view) ? view : (a.channels[0] as PatternTarget | undefined) ?? null;
+  const shelfAt = shelfFull(game);
+  const status = (
+    <RoomStatus
+      stats={[
+        { label: 'Shelf', value: `${a.shelf.length}/${size}`, rate: `pays ${Math.round(tapeShare(game) * 100)}%`, title: 'Tapes on the shelf, and the share of a live lock each keeps paying' },
+        { label: 'Blank reels', value: a.blanks, rate: a.blanks < BLANK_CAP ? `next ${fmtTime((1 - a.blankProg) * BLANK_EVERY)}` : 'full',
+          title: `A blank reel comes every ${BLANK_EVERY / 60} minutes, up to ${BLANK_CAP}. Each tape uses one.` },
+        { label: 'Frames', value: fmt(a.frames), rate: `~${fmt(perHour)}/h` },
+        { label: 'Sets', value: sets, rate: `x${fmt(albumMult(game))} buffer`, title: 'Full album rows: each pays the Pattern Buffer' },
+        { label: 'Channels', value: `${a.channels.length}/${PATTERN_TARGETS.length}`, rate: a.freshLeft > 0 ? `fresh ${Math.ceil(a.freshLeft / 60)}m` : 'no fresh lock' },
+      ]}
+      buy={{
+        label: shelfAt ? 'Shelf full' : 'More shelf', cost: shelfCost(game), disabled: shelfAt || game.ash.lt(shelfCost(game)),
+        onClick: () => run(buyShelf), title: shelfAt ? `The shelf holds ${SHELF_MAX} at most` : 'Room for one more tape',
+      }}
+    />
+  );
 
   return (
     <ChallengeRoom zone={BUFFER} title="The Archive" note="records the shaft, plays it back wrong" onClose={onClose}
-      stat={<>Shelf <b>{a.shelf.length}/{size}</b> · Sets <b>{sets}</b> · Channels <b>{a.channels.length}/7</b></>} className="archive-room">
+      status={status} className="archive-room">
       <div className="archive-grid" data-scroll>
         <section className="archive-sec">
           <span className="sub-head">The shelf</span>
@@ -366,7 +383,7 @@ function ArchiveRoom({ onClose }: { onClose: () => void }) {
 
         <section className="archive-sec">
           <span className="sub-head">Wrong frames</span>
-          <p className="dim small-note">Every glitch on the plate leaves a frame. About {fmt(perHour)} an hour; more buffers, more glitches. Each full row of four is a set: x{fmt(albumMult(game))} Pattern Buffer.</p>
+          <p className="dim small-note">Every glitch on the plate leaves a frame; more buffers, more glitches. Each full row of four is a set, and each set pays the Pattern Buffer.</p>
           <div className="archive-album" data-scroll>
             {Array.from({ length: SITTERS }, (_, k) => {
               const row = a.album.slice(k * WRONGS, k * WRONGS + WRONGS);

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { CHALLENGES } from '../../game/challenges';
 import {
-  buyLantern, buyLens, buyShade, buyWire, chapters, CHAPTERS, COLS, cut, darkLen, dreamMap, EDGES, edgeKey, edgeWeight, fragment,
+  ashPay, buyLantern, buyLens, buyShade, buyWire, chapters, CHAPTERS, COLS, cut, darkLen, dreamMap, EDGES, edgeKey, edgeWeight, fragment,
   gateCost, GATE_CURRENTS, GATE_LEVEL, lanternCost, lensCost, liveCurrents, neighbours, offerings, openGate, PAGES_PER_CHAPTER, pilgrimSpeed,
   NIGHT, ROOMS, ROWS, routeEdge, shadeCost, totality, totalityLeft, totalityLen, totalityMult, toggle, untilTotality, wireCost, wiresFree,
   wiresTotal, ZONE, type SyzygyState,
@@ -12,7 +12,7 @@ import { fmt } from '../../game/format';
 import { useGame } from '../../game/store';
 import { ZONE_COLORS } from '../colors';
 import { hex, threshold } from '../dither';
-import { ChallengeRoom } from './ChallengeSlot';
+import { ChallengeRoom, RoomStatus } from './ChallengeSlot';
 import './syzygy.css';
 
 type RGB = [number, number, number];
@@ -354,18 +354,34 @@ function SyzygyRoom({ onClose }: { onClose: () => void }) {
   const ch = chapters(z);
   const pagesShown = Math.min(z.pages, 60);
   const lc = lanternCost(game), lens = lensCost(game);
+  const live = liveCurrents(z), given = offs.filter(o => o.ok).length;
+  const ashX = ashPay(EDGES.reduce((n, e) => n + edgeWeight(z, e), 0));
+  const status = (
+    <RoomStatus
+      stats={[
+        { label: 'Dreams', value: fmt(z.dreams), rate: `${Math.min(ROOMS, Math.floor(z.explored))}/${ROOMS} rooms tonight` },
+        { label: 'Currents', value: live, rate: `${wiresFree(z)}/${wiresTotal(z)} wires free`, title: 'Live currents: wired routes with power at both ends' },
+        { label: 'All ash', value: `x${ashX.toFixed(2)}`, rate: 'from the currents' },
+        totality(z)
+          ? { label: 'Totality', value: `x${totalityMult(z).toFixed(2)}`, rate: `${hm(totalityLeft(z))} left`, title: 'Every zone is multiplied while the sun is out' }
+          : { label: 'Black sun', value: hm(untilTotality(z)), rate: 'to totality', title: `Totality: every zone x${totalityMult(z).toFixed(2)}` },
+        z.gateOpen
+          ? { label: 'Gate', value: 'open', rate: 'nine touches zero' }
+          : { label: 'Gate', value: `${given}/${offs.length}`, rate: `${Math.min(live, GATE_CURRENTS)}/${GATE_CURRENTS} currents`, title: 'Offerings given, and live currents the gate wants' },
+      ]}
+      buy={{ label: 'A lantern', cost: lc, onClick: () => run(buyLantern), title: 'Hurries the pilgrim through the dream' }}
+    />
+  );
 
   return (
     <ChallengeRoom zone={ZONE} title="The Syzygy" note="the bottom, where the iron is dreaming" onClose={onClose}
-      className={`syzygy-room ${z.gateOpen ? 'syzygy-opened' : ''}`}
-      stat={<><b>{fmt(z.dreams)}</b> dreams</>}>
+      className={`syzygy-room ${z.gateOpen ? 'syzygy-opened' : ''}`} status={status}>
       <div className="syzygy-cols">
         <section className="syzygy-col">
           <h3 className="sub-head">The Numogram</h3>
           <div className="artwork-frame knots syzygy-frame"><Numogram w={240} h={150} selected={sel} onPick={pick} /></div>
           <p className={`small-note ${sel === null && !note ? 'dim' : 'syzygy-picking'}`}>{note || (sel === null ? 'Touch a node, then a ringed one, to lay a wire. Touch the pair again to take it back.' : `${sel}: ${nodeName(sel)}. Touch a ringed node.`)}</p>
           <div className="ch-row">
-            <span className="ch-stat"><b>{wiresFree(z)}</b> of {wiresTotal(z)} wires free</span>
             <button className="syzygy-btn" onClick={() => run(buyWire)} disabled={z.dreams < wireCost(z)}>A wire <span className="syzygy-cost">{fmt(wireCost(z))} dreams</span></button>
           </div>
           <div className="syzygy-edges" data-scroll>
@@ -393,11 +409,9 @@ function SyzygyRoom({ onClose }: { onClose: () => void }) {
           <div className="syzygy-dream">
             <div className="artwork-frame knots syzygy-frame"><DreamMap /></div>
             <div className="syzygy-dream-side">
-              <span className="ch-stat"><b>{Math.min(ROOMS, Math.floor(z.explored))}</b>/{ROOMS} rooms tonight</span>
               <span className="ch-stat"><b>{z.finds}</b> finds kept</span>
               <span className="ch-stat"><b>{(pilgrimSpeed(z) * 60).toFixed(2)}</b> rooms a minute</span>
               <span className="ch-stat dim">The map changes in {hm((z.night + 1) * NIGHT - z.clock)}</span>
-              <button className="syzygy-btn" onClick={() => run(buyLantern)} disabled={game.ash.lt(lc)}>A lantern for the pilgrim <span className="syzygy-cost">{fmt(lc)} ash</span></button>
             </div>
           </div>
           <p className="syzygy-quote">“The pilgrim goes down by themselves. What they bring back stays.”</p>
@@ -406,7 +420,6 @@ function SyzygyRoom({ onClose }: { onClose: () => void }) {
           <div className="syzygy-dream">
             <div className="artwork-frame knots syzygy-frame"><SunCanvas /></div>
             <div className="syzygy-dream-side">
-              <span className={`ch-stat ${totality(z) ? 'syzygy-hot' : ''}`}>{eclipseText(z)}</span>
               <span className="ch-stat">Totality: every zone <b>x{totalityMult(z).toFixed(2)}</b> for {hm(totalityLen(z))}, dreams x2</span>
               <div className="ch-row">
                 <button className="syzygy-btn" onClick={() => run(buyShade)} disabled={z.dreams < shadeCost(z)}>A shade <span className="syzygy-cost">{fmt(shadeCost(z))} dreams</span></button>

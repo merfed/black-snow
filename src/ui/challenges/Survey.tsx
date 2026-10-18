@@ -3,7 +3,7 @@
 import { memo, useEffect, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from 'react';
 import type Decimal from 'break_eternity.js';
 import {
-  autoShare, buyRack, buyReader, coreEvery, coreMult, density, FINDS, found, headCost, headYield, KINDS_PER, LORE_AT, MAP_H, MAP_W,
+  autoShare, buyRack, RACK_MAX, rackMaxed, buyReader, coreEvery, coreMult, density, FINDS, found, headCost, headYield, KINDS_PER, LORE_AT, MAP_H, MAP_W,
   moveHead, openCore, placeHead, RACK_STEP, rackCost, rackSize, READ_EVERY, readerBoost, readerCost, readerRate, RUN, seamAt, SEAMS,
   seamLevel, setDone, stratum, surveyRate, swapBands, tallyTotal, tileDensity, zoneBonus,
 } from '../../game/challenges/survey';
@@ -273,7 +273,7 @@ function CoreBench() {
   const full = v.rack >= cap;
   const every = coreEvery(game);
   const rr = readerRate(game);
-  const nextRead = v.rack > 0 ? fmtTime(Math.max(0, (1 - v.readProg) / rr)) : 'waits for a core';
+  const nextRead = v.rack > 0 ? `next in ${fmtTime(Math.max(0, (1 - v.readProg) / rr))}` : 'waits for a core';
   const nextLv = v.reader + 1;
   const nextEvery = (1 + 0.5 * (nextLv - 1)) * readerBoost(v) / READ_EVERY;
   return (
@@ -286,8 +286,8 @@ function CoreBench() {
         <div className="sv-blocks">
           <div className="sv-block">
             <div className="sv-k">Rack</div>
-            <div className="sv-v"><b>{v.rack}</b><span>/ {cap}</span></div>
-            <div className="sv-pips" aria-hidden>{Array.from({ length: cap }, (_, i) => <i key={i} className={i < v.rack ? 'on' : ''} />)}</div>
+            <div className="sv-v"><b>{v.rack}</b><span>/ {cap}{cap >= RACK_MAX ? ' · full width' : ''}</span></div>
+            <div className={`sv-pips${cap > 48 ? ' dense' : ''}`} aria-hidden>{Array.from({ length: cap }, (_, i) => <i key={i} className={i < v.rack ? 'on' : ''} />)}</div>
           </div>
           <div className="sv-block">
             <div className="sv-k">Next core</div>
@@ -303,9 +303,10 @@ function CoreBench() {
           <div className="sv-block">
             <div className="sv-k">Reader</div>
             {v.reader ? <>
-              <div className="sv-v sm"><b>lv {v.reader}</b> <span>next {nextRead}</span></div>
+              <div className="sv-v sm"><b>lv {v.reader}</b></div>
               <Bar k={v.rack > 0 ? v.readProg : 0} />
-              <div className="sv-sub">one every {fmtTime(1 / rr)} · keeps {Math.round(autoShare(v) * 100)}%</div>
+              <div className="sv-sub">{nextRead}</div>
+              <div className="sv-sub">one every {fmtTime(1 / rr)} · keeps <span className="nw">{Math.round(autoShare(v) * 100)}%</span></div>
             </> : <div className="sv-sub wrap">none yet. Cores wait for you.</div>}
           </div>
         </div>
@@ -321,7 +322,7 @@ function CoreBench() {
           </>}
       </div>
       <div className="sv-buys">
-        <BenchBuy label="Widen the rack" gives={`${cap} → ${cap + RACK_STEP}`} cost={rackCost(game)} onClick={() => run(buyRack)} />
+        {!rackMaxed(game) && <BenchBuy label="Widen the rack" gives={`${cap} → ${Math.min(RACK_MAX, cap + RACK_STEP)}`} cost={rackCost(game)} onClick={() => run(buyRack)} />}
         <BenchBuy label={v.reader ? 'A faster reader' : 'Hire a reader'}
           gives={v.reader ? `lv ${nextLv} · every ${fmtTime(1 / nextEvery)}` : `every ${fmtTime(1 / nextEvery)}`}
           cost={readerCost(game)} onClick={() => run(buyReader)}

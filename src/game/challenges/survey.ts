@@ -14,6 +14,8 @@ export const MAP_W = 12, MAP_H = 8;
 /** Seconds of the Survey's clock per core pulled up. */
 export const CORE_EVERY = 240;
 export const RACK_BASE = 6, RACK_STEP = 2;
+/** The most cores the rack can ever hold, seams included. */
+export const RACK_MAX = 128;
 /** Bands of each kind in a core, and kinds per core. A core is always KINDS_PER * RUN bands. */
 export const RUN = 3, KINDS_PER = 3;
 /** Seconds per core the reader takes at level 1; each level after reads half again as fast. */
@@ -184,7 +186,9 @@ export const zoneBonus = (v: SurveyState) => 1 + 0.25 * Math.log10(1 + v.surveye
 /** Retired: the Survey's ash now comes from the cores alone. Always 1; kept so old readers still work. */
 export const surveyAsh = (v: SurveyState) => (v ? 1 : 1);
 
-export const rackSize = (s: GameState) => RACK_BASE + RACK_STEP * st(s).rackLv + seamGives(st(s), 'peat');
+export const rackSize = (s: GameState) => Math.min(RACK_MAX, RACK_BASE + RACK_STEP * st(s).rackLv + seamGives(st(s), 'peat'));
+/** Whether the rack can still be widened. */
+export const rackMaxed = (s: GameState) => rackSize(s) >= RACK_MAX;
 const liveLog = (s: GameState) => passiveRate(s).log10().toNumber();
 /** sec seconds of the Survey's slow income: what an item costs. */
 const income = (s: GameState, sec: number) => {
@@ -217,7 +221,7 @@ export function buyReader(s: GameState): boolean {
 
 export function buyRack(s: GameState): boolean {
   const cost = rackCost(s);
-  if (s.ash.lt(cost)) return false;
+  if (rackMaxed(s) || s.ash.lt(cost)) return false;
   s.ash = s.ash.sub(cost);
   st(s).rackLv++;
   return true;
