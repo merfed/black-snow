@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from 'react';
-import { createPortal } from 'react-dom';
 import {
   brew, brewCost, colorCost, COLORS, hasIngredient, hintCost, hintTarget, ingredientHex, ingredientName, maxSlots, mixKey,
   nextColor, QUICK_MAX, quickCost, RECIPES, recipeFor, researchColor, researchHint, researchQuick, researchSlot, SLOT3_COST,
@@ -8,8 +7,9 @@ import {
 import { pigmentRate } from '../game/engine';
 import { fmt } from '../game/format';
 import { useGame } from '../game/store';
-import { ZONE_COLORS } from './colors';
+import { ChallengeRoom, RoomStatus, type RoomBuy } from './challenges/ChallengeSlot';
 import { hex, threshold } from './dither';
+import './spiral.css';
 
 type RGB = [number, number, number];
 const mixRgb = (cs: RGB[]): RGB => cs.length ? [0, 1, 2].map(k => cs.reduce((n, c) => n + c[k], 0) / cs.length) as RGB : [70, 40, 60];
@@ -105,13 +105,44 @@ export function SpiralPreview() {
   );
 }
 
-/** The whole room: colours on the left, the spiral in the middle, the grimoire on the right. */
+/** The palette as a rosary round the spiral: sixteen beads, lit for the colours you hold, ringed when they are in the mix.
+ *  While it winds, an arc fills round the inside of the beads. */
+function Rosary({ owned, inMix, progress, winding, onBead }: { owned: number[]; inMix: string[]; progress: number; winding: boolean; onBead: (id: string) => void }) {
+  const R = 91, T = 80, C = 2 * Math.PI * T;
+  return (
+    <svg className={`sp-rosary${winding ? ' winding' : ''}`} viewBox="0 0 200 200" aria-hidden={false} role="group" aria-label="The palette, as beads">
+      <circle cx="100" cy="100" r={R} className="sp-ros-cord" />
+      <circle cx="100" cy="100" r={T} className="sp-ros-track" />
+      {winding && <circle cx="100" cy="100" r={T} className="sp-ros-arc" strokeDasharray={`${C * progress} ${C}`} transform="rotate(-90 100 100)" />}
+      {Array.from({ length: 48 }, (_, i) => {
+        const a = (i / 48) * Math.PI * 2, r1 = T - 3, r2 = T - (i % 4 === 0 ? 8 : 5);
+        return <line key={i} x1={100 + Math.sin(a) * r1} y1={100 - Math.cos(a) * r1} x2={100 + Math.sin(a) * r2} y2={100 - Math.cos(a) * r2} className="sp-ros-tick" />;
+      })}
+      <g className="sp-ros-beads">
+        {COLORS.map((c, n) => {
+          const a = (n / COLORS.length) * Math.PI * 2, x = 100 + Math.sin(a) * R, y = 100 - Math.cos(a) * R;
+          const have = owned.includes(n), on = inMix.includes(`c${n}`);
+          return (
+            <g key={n} className={`sp-bead${have ? ' have' : ''}${on ? ' on' : ''}`} onClick={have ? () => onBead(`c${n}`) : undefined}
+              style={{ '--c': c.hex } as CSSProperties}>
+              <title>{have ? `${c.name}: ${c.desc}` : 'A colour not found yet'}</title>
+              <circle cx={x} cy={y} r={on ? 7.5 : 5.5} />
+            </g>
+          );
+        })}
+      </g>
+    </svg>
+  );
+}
+
+/** The whole room: the palette and research on the left, the spiral on its rosary in the middle, the grimoire on the right. */
 function SpiralRoom({ onClose }: { onClose: () => void }) {
   const game = useGame(st => st.game);
   useGame(st => st.rev);
   const run = useGame(st => st.run);
   const [mix, setMix] = useState<string[]>([]);
   const [over, setOver] = useState(false);
+  const [pick, setPick] = useState<string | null>(null);
   const { w, progress } = useWinding();
   const a = game.alchemy;
   const slots = maxSlots(game);
@@ -131,115 +162,159 @@ function SpiralRoom({ onClose }: { onClose: () => void }) {
   const lastRecipe = a.last && a.last !== 'mud' ? RECIPES.find(r => r.id === a.last) : null;
   const hint = hintTarget(game);
   const next = nextColor(game);
-  const chip = (id: string) => (
-    <button key={id} className={`pigment-chip ${mix.includes(id) ? 'in' : ''}`} draggable onDragStart={e => e.dataTransfer.setData('text/plain', id)}
-      onClick={() => add(id)} style={{ '--c': ingredientHex(id) } as CSSProperties} title={/^c\d+$/.test(id) ? COLORS[Number(id.slice(1))].desc : 'A tincture. Used as an ingredient, it is not used up.'}>
-      <span className="swatch" /><span>{ingredientName(id)}</span>
-    </button>
+  const found = Object.keys(a.found).length;
+  const cc = colorCost(game), hc = hintCost(game), qc = quickCost(game);
+  const shown = w ? w.mix : mix;
+
+  // The room's one repeat buy goes in the status bar: a new colour while there are any, then reading the stains.
+  const main: 'color' | 'hint' | null = next !== null ? 'color' : hint ? 'hint' : null;
+  const buy: RoomBuy | undefined = main === 'color'
+    ? { label: 'Find a colour', cost: cc, unit: 'pigment', afford: a.pigment >= cc, onClick: () => run(researchColor), title: `Research the next colour (${a.colors.length} of 16 found)` }
+    : main === 'hint'
+      ? { label: 'Read the stains', cost: hc, unit: 'pigment', afford: a.pigment >= hc, onClick: () => run(researchHint), title: 'Reveals one ingredient of a tincture you could make' }
+      : undefined;
+  const status = (
+    <RoomStatus
+      stats={[
+        { label: 'Pigment', value: fmt(a.pigment), rate: `+${fmt(pigmentRate(game))}/s`, title: 'The Spirals make pigment' },
+        { label: 'Colours', value: `${a.colors.length}/16`, rate: next === null ? 'all found' : undefined },
+        { label: 'Tinctures', value: `${found}/${RECIPES.length}`, rate: `${a.tried.length} mud`, title: 'Tinctures found, and mixes that made mud' },
+        { label: 'Wind', value: `${windTime(game).toFixed(1)}s`, rate: `${slots} slots`, title: 'How long a winding takes, and how many ingredients it holds' },
+      ]}
+      buy={buy}
+    />
   );
 
-  return createPortal(
-    <div className="dialog-backdrop wiring-backdrop" data-nodrag onClick={onClose}>
-      <div className="spiral-room panel framed" role="dialog" aria-label="The Barker Spiral" onClick={e => e.stopPropagation()} style={{ '--hue': ZONE_COLORS[SPIRAL] } as CSSProperties}>
-        <header className="we-head">
-          <h2>The spiral <span className="h2-note">it turns left forever and arrives above itself</span></h2>
-          <span className="we-cycles"><b>{fmt(a.pigment)}</b> pigment <small>+{fmt(pigmentRate(game))}/s</small></span>
-          <div className="we-actions"><button className="secondary" onClick={onClose}>Close</button></div>
-        </header>
+  // The grimoire card: the picked tincture, else the last one found, else the first known.
+  const selId = pick ?? lastRecipe?.id ?? RECIPES.find(r => a.found[r.id])?.id ?? RECIPES[0].id;
+  const sel = RECIPES.find(r => r.id === selId)!;
+  const selLvl = a.found[sel.id] ?? 0;
+  const selShown = a.hints[sel.id] ?? 0;
+  const selCost = brewCost(game, sel);
 
-        <div className="spiral-cols">
-          <section className="spiral-side">
-            <h3 className="sub-head">Colours</h3>
-            <div className="pigment-grid">{a.colors.slice().sort((x, y) => x - y).map(n => chip(`c${n}`))}</div>
-            {Object.keys(a.found).length > 0 && <>
-              <h3 className="sub-head">Tinctures</h3>
-              <div className="pigment-grid">{RECIPES.filter(r => a.found[r.id]).map(r => chip(r.id))}</div>
-            </>}
-            <h3 className="sub-head">Research</h3>
-            <div className="research">
-              {next !== null && (
-                <button disabled={a.pigment < colorCost(game)} onClick={() => run(researchColor)}>
-                  <span>Find a colour <small>{a.colors.length}/16</small></span><span className="cost">{fmt(colorCost(game))}</span>
-                </button>
-              )}
-              {!a.slots3 && (
-                <button disabled={a.pigment < SLOT3_COST} onClick={() => run(researchSlot)}>
-                  <span>A third slot <small>for three-part recipes</small></span><span className="cost">{fmt(SLOT3_COST)}</span>
-                </button>
-              )}
-              {hint && (
-                <button disabled={a.pigment < hintCost(game)} onClick={() => run(researchHint)}>
-                  <span>Read the stains <small>reveals one ingredient</small></span><span className="cost">{fmt(hintCost(game))}</span>
-                </button>
-              )}
-              {a.quick < QUICK_MAX && (
-                <button disabled={a.pigment < quickCost(game)} onClick={() => run(researchQuick)}>
-                  <span>Oil the stair <small>wind in {windTime(game).toFixed(1)}s → {(windTime(game) * 0.7).toFixed(1)}s</small></span><span className="cost">{fmt(quickCost(game))}</span>
-                </button>
-              )}
-            </div>
-          </section>
+  const research = [
+    main !== 'color' && next !== null && { key: 'color', name: 'Find a colour', note: `${a.colors.length}/16`, cost: cc, fn: researchColor, tip: 'Research the next colour' },
+    !a.slots3 && { key: 'slot', name: 'A third slot', note: 'three-part recipes', cost: SLOT3_COST, fn: researchSlot, tip: 'A third slot in the spiral, for three-part recipes' },
+    main !== 'hint' && hint && { key: 'hint', name: 'Read the stains', note: 'one ingredient', cost: hc, fn: researchHint, tip: 'Reveals one ingredient of a tincture you could make' },
+    a.quick < QUICK_MAX && { key: 'quick', name: 'Oil the stair', note: `${windTime(game).toFixed(1)}s → ${(windTime(game) * 0.7).toFixed(1)}s`, cost: qc, fn: researchQuick, tip: `Winding goes faster (${a.quick}/${QUICK_MAX})` },
+  ].filter(Boolean) as { key: string; name: string; note: string; cost: number; fn: (s: typeof game) => boolean; tip: string }[];
 
-          <section className="spiral-centre">
-            <div className={`spiral-stage ${over ? 'over' : ''}`} onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={drop}>
-              <SpiralCanvas colors={w ? w.mix.map(ingredientHex) : mix.map(ingredientHex)} progress={progress} result={!w && !mix.length && lastRecipe ? lastRecipe.hex : null} size={128} className="big" />
-              {!w && !mix.length && a.last && (
-                <div className={`spiral-result ${a.last === 'mud' ? 'mud' : ''}`}>
-                  {lastRecipe ? <><b>{lastRecipe.name}</b><span>{effectText(lastRecipe, a.found[lastRecipe.id])}</span></> : <><b>Mud</b><span>Nothing came of it. The spiral will remember.</span></>}
+  const note = known && a.found[known.id] ? `You know this one: ${known.name}. Brew it from the grimoire.`
+    : isMud ? 'You have wound this before. It made mud.'
+      : w ? `Winding ${w.mix.map(ingredientName).join(' and ')}…`
+        : 'Drop two colours in and wind them.';
+
+  return (
+    <ChallengeRoom zone={SPIRAL} title="The Barker Spiral" note="it turns left forever and arrives above itself" onClose={onClose} className="sp-room" status={status}>
+      <div className="sp-grid">
+        {/* ---- the palette and research ---- */}
+        <section className="sp-col" aria-label="Colours">
+          <div className="sp-head"><span className="sp-cap">"THE PALETTE"</span><span className="sp-head-note">click or drag into the spiral</span></div>
+          <div className="sp-wells">
+            {COLORS.map((c, n) => {
+              const id = `c${n}`, have = a.colors.includes(n), on = shown.includes(id);
+              if (!have) return (
+                <div key={n} className={`sp-well sealed${n === next ? ' next' : ''}`} title={n === next ? 'The next colour research finds' : 'Not found yet'}>
+                  <span className="sp-jar" /><span className="sp-well-name">{n === next ? 'next' : 'sealed'}</span>
                 </div>
-              )}
-            </div>
-            <div className="spiral-slots">
-              {Array.from({ length: slots }, (_, k) => {
-                const id = (w ? w.mix : mix)[k];
-                return (
-                  <button key={k} className={`spiral-slot ${id ? 'full' : ''}`} disabled={!!w || !id} onClick={() => setMix(m => m.filter((_, j) => j !== k))}
-                    style={{ '--c': id ? ingredientHex(id) : 'transparent' } as CSSProperties} title={id ? 'Take it back out' : 'Drop a colour here'}>
-                    {id ? ingredientName(id) : 'empty'}
-                  </button>
-                );
-              })}
-            </div>
-            {w ? (
-              <div className="wind-bar"><span style={{ width: `${progress * 100}%` }} /><b>Winding… {Math.ceil(w.left)}s</b></div>
-            ) : (
-              <button className="dig wind-button" disabled={mix.length < 2 || a.pigment < cost} onClick={doWind}>
-                Wind it <span className="cost">{mix.length ? `${fmt(cost)} pigment` : '10 pigment a colour'}</span>
-              </button>
-            )}
-            <p className="dim small-note">
-              {known && a.found[known.id] ? `You know this one: ${known.name}. Brew it from the grimoire to level it.`
-                : isMud ? 'You have wound this before. It made mud.'
-                  : 'Drop two colours in (three, with the third slot) and wind them. Some mixes find a tincture; the rest make mud.'}
-            </p>
-          </section>
+              );
+              return (
+                <button key={n} className={`sp-well${on ? ' in' : ''}`} draggable onDragStart={e => e.dataTransfer.setData('text/plain', id)}
+                  onClick={() => add(id)} disabled={!!w} style={{ '--c': c.hex } as CSSProperties} title={`${c.name}: ${c.desc}`}>
+                  <span className="sp-jar" /><span className="sp-well-name">{c.name}</span>
+                </button>
+              );
+            })}
+          </div>
 
-          <section className="spiral-side grimoire">
-            <h3 className="sub-head">Grimoire <small>{Object.keys(a.found).length}/{RECIPES.length} · {a.tried.length} mud</small></h3>
-            <ul>
-              {RECIPES.map(r => {
-                const lvl = a.found[r.id] ?? 0;
-                const shown = a.hints[r.id] ?? 0;
-                if (!lvl) return (
-                  <li key={r.id} className="unknown">
-                    <span className="swatch" style={{ '--c': '#2a2430' } as CSSProperties} />
-                    <div><b>? ? ?</b><span>{r.mix.map((id, k) => (k < shown ? ingredientName(id) : '?')).join(' + ')}{r.mix.length === 3 ? ' · three parts' : ''}</span></div>
-                  </li>
-                );
-                const bc = brewCost(game, r);
-                return (
-                  <li key={r.id}>
-                    <span className="swatch" style={{ '--c': r.hex } as CSSProperties} />
-                    <div><b>{r.name} <small>lv {lvl}</small></b><span>{effectText(r, lvl)}</span><i>{r.mix.map(ingredientName).join(' + ')}</i></div>
-                    <button className="secondary" disabled={a.pigment < bc} onClick={() => run(s => brew(s, r.id))}>Brew <span className="cost">{fmt(bc)}</span></button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        </div>
+          <div className="sp-head"><span className="sp-cap">"RESEARCH"</span><span className="sp-head-note">paid in pigment</span></div>
+          {research.length ? (
+            <div className="sp-research">
+              {research.map(r => (
+                <button key={r.key} className="sp-res" disabled={a.pigment < r.cost} onClick={() => run(r.fn)} title={r.tip}>
+                  <span className="sp-res-name">{r.name}</span>
+                  <span className="sp-res-note">{r.note}</span>
+                  <span className="sp-res-cost">{fmt(r.cost)}</span>
+                </button>
+              ))}
+            </div>
+          ) : <p className="sp-quiet">“Nothing left to learn here but the recipes.”</p>}
+        </section>
+
+        {/* ---- the spiral on its rosary ---- */}
+        <section className="sp-col sp-centre" aria-label="The spiral">
+          <div className="sp-head"><span className="sp-cap">"THE SPIRAL"</span><span className={`sp-head-note${w ? ' hot' : ''}`}>{w ? `winding… ${Math.ceil(w.left)}s` : `${shown.length} of ${slots} slots`}</span></div>
+          <div className={`sp-stage${over ? ' over' : ''}${w ? ' winding' : ''}`} onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={drop}>
+            <Rosary owned={a.colors} inMix={shown} progress={progress} winding={!!w} onBead={id => !w && add(id)} />
+            <SpiralCanvas colors={shown.map(ingredientHex)} progress={progress} result={!w && !mix.length && lastRecipe ? lastRecipe.hex : null} size={128} className="sp-canvas" />
+            {!w && !mix.length && a.last && (
+              <div className={`sp-result${a.last === 'mud' ? ' mud' : ''}`}>
+                {lastRecipe ? <><b>{lastRecipe.name}</b><span>{effectText(lastRecipe, a.found[lastRecipe.id])}</span></> : <><b>Mud</b><span>Nothing came of it. The spiral will remember.</span></>}
+              </div>
+            )}
+          </div>
+          <div className="sp-slots">
+            {Array.from({ length: slots }, (_, k) => {
+              const id = shown[k];
+              return (
+                <button key={k} className={`sp-slot${id ? ' full' : ''}`} disabled={!!w || !id} onClick={() => setMix(m => m.filter((_, j) => j !== k))}
+                  style={{ '--c': id ? ingredientHex(id) : 'transparent' } as CSSProperties} title={id ? 'Take it back out' : 'Drop a colour here'}>
+                  <span className="sp-slot-vial" /><span className="sp-slot-name">{id ? ingredientName(id) : 'empty'}</span>
+                </button>
+              );
+            })}
+          </div>
+          {w ? (
+            <div className="sp-windbar"><span style={{ width: `${progress * 100}%` }} /><b>Winding… {Math.ceil(w.left)}s</b></div>
+          ) : (
+            <button className="sp-wind" disabled={mix.length < 2 || a.pigment < cost} onClick={doWind}>
+              Wind it <span className="sp-wind-cost">{mix.length ? `${fmt(cost)} pigment` : '10 pigment a colour'}</span>
+            </button>
+          )}
+          <p className={`sp-note${known || isMud ? ' on' : ''}`} title="Drop two colours in (three, with the third slot) and wind them. Some mixes find a tincture; the rest make mud. A tincture used as an ingredient is not used up.">{note}</p>
+        </section>
+
+        {/* ---- the grimoire ---- */}
+        <section className="sp-col" aria-label="The grimoire">
+          <div className="sp-head"><span className="sp-cap">"THE GRIMOIRE"</span><span className="sp-head-note">{found}/{RECIPES.length} found · {a.tried.length} mud</span></div>
+          <div className="sp-book">
+            {RECIPES.map(r => {
+              const lvl = a.found[r.id] ?? 0;
+              const ready = lvl > 0 && a.pigment >= brewCost(game, r);
+              const hs = a.hints[r.id] ?? 0;
+              return (
+                <button key={r.id} className={`sp-tile${lvl ? ' known' : ''}${ready ? ' ready' : ''}${r.id === selId ? ' sel' : ''}${shown.includes(r.id) ? ' in' : ''}${hint?.id === r.id ? ' stained' : ''}`}
+                  style={{ '--c': lvl ? r.hex : '#2a2430' } as CSSProperties} onClick={() => setPick(r.id)}
+                  draggable={lvl > 0} onDragStart={lvl ? e => e.dataTransfer.setData('text/plain', r.id) : undefined}
+                  title={lvl ? `${r.name}, lv ${lvl}. ${effectText(r, lvl)}` : `Not found yet${hs ? `: ${r.mix.map((id, k) => (k < hs ? ingredientName(id) : '?')).join(' + ')}` : ''}`}>
+                  <span className="sp-flask">{lvl ? null : <i>?</i>}</span>
+                  {lvl > 0 && <span className="sp-tile-lv">{lvl}</span>}
+                  {r.mix.length === 3 && <span className="sp-tile-three" />}
+                  {!lvl && hs > 0 && <span className="sp-tile-pips">{r.mix.map((_, k) => <i key={k} className={k < hs ? 'on' : ''} />)}</span>}
+                </button>
+              );
+            })}
+          </div>
+          <div className={`sp-card${selLvl ? '' : ' unknown'}`} style={{ '--c': selLvl ? sel.hex : '#2a2430' } as CSSProperties}>
+            {selLvl ? <>
+              <div className="sp-card-top"><b className="sp-card-name">{sel.name}</b><span className="sp-card-lv">lv {selLvl}</span></div>
+              <p className="sp-card-effect">{effectText(sel, selLvl)}</p>
+              <p className="sp-card-desc">“{sel.desc}”</p>
+              <div className="sp-card-mix">{sel.mix.map(id => <span key={id} className="sp-ing" style={{ '--c': ingredientHex(id) } as CSSProperties}><i />{ingredientName(id)}</span>)}</div>
+              <div className="sp-card-btns">
+                <button className="sp-btn" disabled={!!w || shown.includes(sel.id) || shown.length >= slots} onClick={() => add(sel.id)} title="Put this tincture in the spiral as an ingredient. It is not used up.">Into the spiral</button>
+                <button className="sp-btn brew" disabled={a.pigment < selCost} onClick={() => run(s => brew(s, sel.id))} title="Brew it again to raise its level">Brew <span className="sp-btn-cost">{fmt(selCost)}</span></button>
+              </div>
+            </> : <>
+              <div className="sp-card-top"><b className="sp-card-name">? ? ?</b><span className="sp-card-lv">{sel.mix.length === 3 ? 'three parts' : 'two parts'}</span></div>
+              <div className="sp-card-mix">{sel.mix.map((id, k) => k < selShown
+                ? <span key={k} className="sp-ing" style={{ '--c': ingredientHex(id) } as CSSProperties}><i />{ingredientName(id)}</span>
+                : <span key={k} className="sp-ing blank"><i />?</span>)}</div>
+              <p className="sp-card-desc">{hint?.id === sel.id ? 'The stains point here. Reading them shows another part.' : selShown ? 'Part of it shows through the stains.' : 'Not found yet. Wind colours together to find it.'}</p>
+            </>}
+          </div>
+        </section>
       </div>
-    </div>,
-    document.body,
+    </ChallengeRoom>
   );
 }

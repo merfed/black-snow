@@ -1,0 +1,193 @@
+/* ---------- The Barker Spiral (zone 5): palette and research, the spiral on its rosary, the grimoire ---------- */
+.challenge-room.sp-room { width: min(1400px, 97vw); }
+.sp-grid { display: grid; grid-template-columns: minmax(300px, 0.95fr) minmax(0, 1.2fr) minmax(320px, 0.95fr); gap: 22px; height: 100%; min-height: 0; }
+.sp-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; }
+.sp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 4px; border-bottom: 1px dashed color-mix(in srgb, var(--hue) 30%, transparent); }
+.sp-cap { font-family: 'MEK Mono', var(--font-ui); font-size: 13px; letter-spacing: 0.16em; color: var(--hue); white-space: nowrap; }
+.sp-head-note { font-family: var(--font-ui); font-size: 13px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-head-note.hot { color: #ece6d2; text-shadow: 0 0 8px var(--hue); }
+.sp-quiet { margin: 0; font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--hue); opacity: 0.8; text-align: center; }
+
+/* ---- the palette: sixteen wells in a steel tray, two to a row ---- */
+.sp-wells {
+  flex: 1; min-height: 0; max-height: 400px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(26px, 1fr); gap: 4px 6px; padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent);
+  box-shadow: inset 0 0 0 2px #08060a, inset 0 0 0 3px color-mix(in srgb, var(--hue) 22%, transparent);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 6%, transparent) 0 25%, transparent 0 50%) 0 0 / 4px 4px, #08060a;
+}
+.sp-room button.sp-well, .sp-well {
+  display: flex; align-items: center; gap: 9px; min-width: 0; height: auto; min-height: 26px; padding: 0 8px 0 6px; margin: 0;
+  border-radius: 0; border: 1px solid #241e28; background: #0e0b10; color: var(--text);
+  font-family: var(--font-ui); font-size: 13px; text-align: left; cursor: grab; box-shadow: none;
+}
+.sp-room button.sp-well:hover:not(:disabled) { color: #ece6d2; border-color: var(--c); background: color-mix(in srgb, var(--c) 10%, #0e0b10); }
+.sp-room button.sp-well.in { border-color: var(--c); box-shadow: inset 0 0 0 1px #08060a, inset 0 0 0 2px var(--c); }
+.sp-room button.sp-well:disabled { cursor: default; opacity: 0.75; }
+.sp-well-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* a little stoppered jar: a dithered body of its colour under a bone lid */
+.sp-jar {
+  position: relative; flex: none; width: 16px; height: 19px; margin-top: 3px;
+  border: 1px solid var(--c); background: repeating-conic-gradient(var(--c) 0 25%, color-mix(in srgb, var(--c) 45%, #08060a) 0 50%) 0 0 / 2px 2px;
+}
+.sp-jar::before { content: ''; position: absolute; left: 2px; right: 2px; top: -5px; height: 3px; background: #ece6d2; opacity: 0.8; }
+.sp-well.sealed { cursor: default; border-style: dashed; border-color: color-mix(in srgb, var(--hue) 22%, transparent); color: var(--dim); background: transparent; }
+.sp-well.sealed .sp-jar { border: 1px dashed color-mix(in srgb, var(--hue) 35%, transparent); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--hue) 14%, transparent) 0 1px, transparent 1px 4px); }
+.sp-well.sealed .sp-jar::before { background: color-mix(in srgb, var(--hue) 30%, transparent); }
+.sp-well.sealed .sp-well-name { font-family: 'MEK Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; }
+.sp-well.sealed.next { border-color: color-mix(in srgb, var(--hue) 55%, transparent); color: var(--hue); }
+
+/* ---- research: square pixel keys in a grid ---- */
+.sp-research { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.sp-room button.sp-res {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'name cost' 'note note'; gap: 1px 8px; align-items: baseline;
+  padding: 7px 10px; margin: 0; border-radius: 0; text-align: left; min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 12%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px, #08060a;
+  box-shadow: inset 0 0 0 2px #08060a, inset 0 0 0 3px color-mix(in srgb, var(--hue) 25%, transparent); color: var(--text);
+}
+.sp-room button.sp-res:hover:not(:disabled) {
+  border-color: var(--hue); color: #ece6d2;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 30%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px, #08060a;
+  box-shadow: inset 0 0 0 2px #08060a, inset 0 0 0 3px var(--hue);
+}
+.sp-room button.sp-res:disabled { opacity: 0.45; }
+.sp-res-name { grid-area: name; font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-res-note { grid-area: note; font-family: var(--font-ui); font-size: 13px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-res-cost { grid-area: cost; font-family: var(--font-ui); font-size: 13px; color: var(--hue); white-space: nowrap; }
+
+/* ---- the spiral on its rosary ---- */
+.sp-centre { align-items: stretch; }
+.sp-stage {
+  position: relative; align-self: center; width: clamp(220px, calc(100vh - 445px), 420px); max-width: 100%; aspect-ratio: 1; flex: none;
+  display: grid; place-items: center; outline: 2px dashed transparent; outline-offset: 2px;
+}
+.sp-stage.over { outline-color: var(--hue); }
+.sp-rosary { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.sp-ros-cord { fill: none; stroke: color-mix(in srgb, var(--hue) 35%, transparent); stroke-width: 1; stroke-dasharray: 2 2; }
+.sp-ros-track { fill: none; stroke: color-mix(in srgb, var(--hue) 20%, transparent); stroke-width: 2.5; stroke-dasharray: 1.5 1.5; }
+.sp-ros-arc { fill: none; stroke: var(--hue); stroke-width: 2.5; filter: drop-shadow(0 0 2px var(--hue)); }
+.sp-ros-tick { stroke: color-mix(in srgb, var(--hue) 45%, transparent); stroke-width: 1; }
+.sp-ros-beads { transform-origin: 100px 100px; }
+.sp-rosary.winding .sp-ros-beads { animation: sp-turn 14s linear infinite; }
+@keyframes sp-turn { to { transform: rotate(-360deg); } }
+.sp-bead circle { fill: #08060a; stroke: color-mix(in srgb, var(--hue) 30%, transparent); stroke-width: 1; stroke-dasharray: 1.5 1.5; }
+.sp-bead.have { cursor: pointer; }
+.sp-bead.have circle { fill: var(--c); stroke: #08060a; stroke-width: 1.5; stroke-dasharray: none; }
+.sp-bead.have:hover circle { stroke: #ece6d2; }
+.sp-bead.on circle { stroke: #ece6d2; stroke-width: 1.5; filter: drop-shadow(0 0 3px var(--c)); }
+.sp-room .sp-stage canvas.sp-canvas {
+  position: relative; width: 74%; height: auto; aspect-ratio: 1; border-radius: 50%; image-rendering: pixelated;
+  box-shadow: 0 0 0 3px #08060a, 0 0 0 4px color-mix(in srgb, var(--hue) 45%, transparent);
+}
+.sp-result {
+  position: absolute; left: 50%; bottom: 13%; transform: translateX(-50%); max-width: 88%; text-align: center;
+  display: grid; gap: 2px; padding: 7px 14px; background: #08060ae0; border: 3px double var(--hue); animation: result-in 0.4s steps(4);
+}
+.sp-result.mud { border-color: #5a4a3a; }
+.sp-result b { font-family: var(--font-display); font-size: 22px; font-weight: 400; color: #ece6d2; white-space: nowrap; }
+.sp-result span { font-family: var(--font-ui); font-size: 13px; color: var(--soft); }
+
+/* the slots as stoppered vials */
+.sp-slots { display: flex; justify-content: center; gap: 10px; }
+.sp-room button.sp-slot {
+  flex: 1 1 0; max-width: 170px; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 8px; margin: 0;
+  border-radius: 0; border: 1px dashed #3a3040; background: #0e0b10; color: var(--dim); font-family: var(--font-ui); font-size: 13px; box-shadow: none;
+}
+.sp-room button.sp-slot.full { border: 1px solid var(--c); color: var(--text); background: color-mix(in srgb, var(--c) 12%, #0e0b10); box-shadow: inset 0 0 0 1px #08060a, inset 0 0 0 2px color-mix(in srgb, var(--c) 40%, transparent); }
+.sp-room button.sp-slot:disabled { opacity: 1; cursor: default; }
+.sp-room button.sp-slot.full:hover:not(:disabled) { border-color: var(--accent); }
+.sp-slot-vial { flex: none; width: 10px; height: 22px; border: 1px solid color-mix(in srgb, var(--c) 80%, #3a3040); border-top: 3px solid #ece6d2; background: repeating-conic-gradient(var(--c) 0 25%, transparent 0 50%) 0 0 / 2px 2px; }
+.sp-slot:not(.full) .sp-slot-vial { border-top-color: #3a3040; border-style: dashed; }
+.sp-slot-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* the wind key and its bar */
+.sp-room button.sp-wind {
+  align-self: center; width: min(100%, 340px); display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 10px 16px; margin: 0;
+  border-radius: 0; border: 1px solid var(--accent); color: #ece6d2; font-family: 'MEK Mono', monospace; font-size: 15px; letter-spacing: 0.12em; text-transform: uppercase;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, transparent) 0 1px, transparent 1px 4px), #0e0608;
+  box-shadow: inset 0 0 0 2px #08060a, inset 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.sp-room button.sp-wind:hover:not(:disabled) { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--accent) 45%, transparent) 0 1px, transparent 1px 3px), #0e0608; box-shadow: inset 0 0 0 2px #08060a, inset 0 0 0 3px var(--accent), 0 0 12px color-mix(in srgb, var(--accent) 30%, transparent); }
+.sp-room button.sp-wind:disabled { opacity: 0.45; }
+.sp-wind-cost { font-family: var(--font-ui); font-size: 13px; letter-spacing: 0; text-transform: none; color: color-mix(in srgb, var(--accent) 70%, #ece6d2); }
+.sp-windbar { position: relative; align-self: center; width: min(100%, 340px); height: 42px; display: grid; place-items: center; border: 1px solid var(--hue); box-shadow: inset 0 0 0 2px #08060a, inset 0 0 0 3px color-mix(in srgb, var(--hue) 40%, transparent); background: #08060a; }
+.sp-windbar span { position: absolute; inset: 3px auto 3px 3px; max-width: calc(100% - 6px); background: repeating-conic-gradient(var(--hue) 0 25%, transparent 0 50%) 0 0 / 2px 2px; opacity: 0.6; }
+.sp-windbar b { position: relative; font-family: 'MEK Mono', monospace; font-weight: 400; font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: #ece6d2; text-shadow: 0 0 4px #08060a; }
+.sp-note { margin: 0; text-align: center; font-family: var(--font-ui); font-size: 14px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-note.on { color: var(--hue); }
+
+/* ---- the grimoire: twenty-five flasks on a shelf grid, and the picked one's card ---- */
+.sp-book {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent);
+  box-shadow: inset 0 0 0 2px #08060a, inset 0 0 0 3px color-mix(in srgb, var(--hue) 22%, transparent);
+  background: repeating-linear-gradient(0deg, transparent 0 calc(20% - 2px), color-mix(in srgb, var(--hue) 18%, transparent) calc(20% - 2px) 20%), #08060a;
+}
+.sp-room button.sp-tile {
+  position: relative; height: clamp(44px, calc(6.4vh), 58px); padding: 0; margin: 0; min-width: 0; border-radius: 0; display: grid; place-items: center;
+  border: 1px dashed color-mix(in srgb, var(--hue) 22%, transparent); background: transparent; box-shadow: none;
+}
+.sp-room button.sp-tile.known { border: 1px solid color-mix(in srgb, var(--c) 45%, #241e28); background: color-mix(in srgb, var(--c) 6%, #0e0b10); }
+.sp-room button.sp-tile.ready { border-color: var(--hue); }
+.sp-room button.sp-tile:hover { border-color: #ece6d2; background: color-mix(in srgb, var(--c) 12%, #0e0b10); }
+.sp-room button.sp-tile.sel { outline: 2px solid var(--accent); outline-offset: 1px; z-index: 1; }
+.sp-room button.sp-tile.in { box-shadow: inset 0 0 0 2px #ece6d2; }
+.sp-room button.sp-tile.stained { border-style: solid; border-color: color-mix(in srgb, var(--hue) 50%, transparent); }
+/* a round-bottomed flask: neck and dithered belly */
+.sp-flask {
+  position: relative; width: 24px; height: 24px; margin-top: 8px; border-radius: 50%; display: grid; place-items: center;
+  border: 1px solid var(--c); background: repeating-conic-gradient(var(--c) 0 25%, color-mix(in srgb, var(--c) 35%, #08060a) 0 50%) 0 0 / 2px 2px;
+}
+.sp-flask::before { content: ''; position: absolute; left: 50%; top: -9px; width: 8px; height: 9px; transform: translateX(-50%); border: 1px solid var(--c); border-bottom: 0; border-top: 2px solid #ece6d2; background: #08060a; }
+.sp-tile:not(.known) .sp-flask { border: 1px dashed color-mix(in srgb, var(--hue) 35%, transparent); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--hue) 10%, transparent) 0 1px, transparent 1px 4px); }
+.sp-tile:not(.known) .sp-flask::before { border: 1px dashed color-mix(in srgb, var(--hue) 35%, transparent); border-bottom: 0; }
+.sp-flask i { font-style: normal; font-family: 'MEK Mono', monospace; font-size: 12px; color: var(--dim); }
+.sp-tile.ready .sp-flask { box-shadow: 0 0 6px color-mix(in srgb, var(--c) 60%, transparent); }
+.sp-tile-lv { position: absolute; right: 3px; top: 1px; font-family: 'MEK Mono', monospace; font-size: 12px; color: #ece6d2; }
+.sp-tile-three { position: absolute; left: 3px; top: 4px; width: 7px; height: 7px; transform: rotate(45deg); border: 1px solid color-mix(in srgb, var(--hue) 70%, transparent); }
+.sp-tile-pips { position: absolute; left: 0; right: 0; bottom: 3px; display: flex; justify-content: center; gap: 2px; }
+.sp-tile-pips i { width: 5px; height: 3px; background: color-mix(in srgb, var(--hue) 25%, transparent); }
+.sp-tile-pips i.on { background: var(--hue); }
+
+.sp-card {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; overflow: hidden;
+  border: 3px double color-mix(in srgb, var(--c) 70%, var(--hue)); background: color-mix(in srgb, var(--c) 5%, #08060a);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+}
+.sp-card.unknown { border-color: color-mix(in srgb, var(--hue) 35%, transparent); }
+.sp-card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.sp-card-name { font-family: var(--font-display); font-weight: 400; font-size: 22px; line-height: 1.1; color: #ece6d2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-card-lv { font-family: 'MEK Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--hue); white-space: nowrap; }
+.sp-card-effect { margin: 0; font-family: var(--font-ui); font-size: 15px; color: var(--text); }
+.sp-card-desc { margin: 0; font-family: var(--font-ui); font-size: 13px; color: var(--soft); line-height: 1.35; }
+.sp-card-mix { display: flex; flex-wrap: wrap; gap: 5px; }
+.sp-ing { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 4px; font-family: var(--font-ui); font-size: 13px; color: var(--soft); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); }
+.sp-ing i { width: 9px; height: 9px; background: var(--c); }
+.sp-ing.blank { border-style: dashed; border-color: color-mix(in srgb, var(--hue) 30%, transparent); color: var(--dim); }
+.sp-ing.blank i { background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 40%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px; }
+.sp-card-btns { display: flex; gap: 8px; margin-top: auto; }
+.sp-room button.sp-btn {
+  flex: 1; display: flex; justify-content: center; align-items: baseline; gap: 8px; padding: 7px 10px; margin: 0; border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--hue) 60%, transparent);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 14%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px, #08060a;
+  box-shadow: inset 0 0 0 2px #08060a, inset 0 0 0 3px color-mix(in srgb, var(--hue) 25%, transparent);
+  color: var(--text); font-family: 'MEK Mono', monospace; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap;
+}
+.sp-room button.sp-btn:hover:not(:disabled) { border-color: var(--hue); color: #ece6d2; box-shadow: inset 0 0 0 2px #08060a, inset 0 0 0 3px var(--hue); background: repeating-conic-gradient(color-mix(in srgb, var(--hue) 32%, transparent) 0 25%, transparent 0 50%) 0 0 / 2px 2px, #08060a; }
+.sp-room button.sp-btn:disabled { opacity: 0.4; }
+.sp-btn-cost { font-family: var(--font-ui); font-size: 13px; letter-spacing: 0; text-transform: none; color: var(--hue); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-rosary.winding .sp-ros-beads { animation: none; }
+  .sp-result { animation: none; }
+}
+@media (max-height: 860px) {
+  .sp-grid { gap: 18px; }
+  .sp-col { gap: 8px; }
+  .sp-wells { padding: 6px; }
+  .sp-room button.sp-res { padding: 5px 9px; }
+}
+@media (max-width: 1100px) {
+  .sp-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .sp-centre { grid-column: 1 / -1; grid-row: 1; }
+}

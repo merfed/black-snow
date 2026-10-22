@@ -79,3 +79,6 @@
   .rs-stats { flex-wrap: wrap; row-gap: 8px; }
   .rs-buy-wrap { width: 100%; justify-items: stretch; }
 }
+/* the full-screen rooms sit centred: never wider than the backdrop leaves room for */
+.wiring-backdrop:has(> .challenge-room) { padding: 16px; }
+.challenge-room { max-width: 100%; }

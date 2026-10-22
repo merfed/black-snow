@@ -405,7 +405,7 @@ function OperatorRoom({ onClose }: { onClose: () => void }) {
         <section className="op-col" aria-label="Machine">
           <div className="op-head"><span className="op-cap">"THE MACHINE"</span><span className="op-head-note">gear {st.clock} · limit {st.stack}</span></div>
           <div className="op-machine">
-            <div className="op-punch op-inst" title={`Clock: beat ${beatRate(st).toFixed(2)}/s. The arc fills with lines run toward the next gear (the Faster clock below).`}>
+            <div className="op-punch op-inst" title={`Clock: beat ${beatRate(st).toFixed(2)}/s. The arc fills with lines run toward the next gear (Faster clock, in the bar at the foot of the room).`}>
               <ClockDial gear={st.clock} beat={beatRate(st)} running={st.running} learn={cn > 0 ? st.lines / cn : 1} />
               <span className="op-inst-cap">"CLOCK"</span>
               <span className="op-inst-line">next <b>{(beatRate(st) * 1.2).toFixed(2)}/s</b></span>

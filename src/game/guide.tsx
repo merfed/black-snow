@@ -497,6 +497,12 @@ const spiralSections: GuideSection[] = [
             <>If the mix is a recipe you have not found, you find it: a <B>tincture</B> at level 1. If you already know it, winding it again only shows it. Anything else is <B>mud</B>, and the spiral remembers the mix so you never pay for it twice by accident.</>,
           ]} />
           <P>Order never matters: the same ingredients in any order are the same mix.</P>
+          <P>
+            In the room, the palette of colours is on the left with research under it, the spiral in the middle and the grimoire on the
+            right. Click or drag a colour, a bead on the spiral's ring, or a found tincture into the spiral; click a slot to take it back
+            out. Pick a grimoire tile to read its card, brew it, or put it into the spiral. The bar at the foot of the room shows pigment,
+            colours, tinctures and wind time, and holds <B>Find a colour</B> (then <B>Read the stains</B> once every colour is found).
+          </P>
           <H>Tinctures</H>
           <F>a tincture multiplies its target by 1 + per × level</F>
           <P>
@@ -576,6 +582,14 @@ const exchangeSections: GuideSection[] = [
         <P>
           A logarithm, so every doubling of signal adds the same, and a board can never run away with the cascade. A signal of 100 at
           the Shallow Bore port is {x(WR.portMult(0, 100), 3)}; at a deep port, {x(WR.portMult(1, 100), 3)}.
+        </P>
+        <H>The room</H>
+        <P>
+          Tiers, the bus and the parts bin are on the left: pick a part, then drag it onto the board or paint it along a line; the
+          card under the bin shows the part in hand and its price. The board fills the middle (shift-drag or right-drag to pan, scroll to
+          zoom, <B>Fit</B> brings it all back into view). On the right, a meter for every port shows the signal reaching it, and a dial
+          counts toward the next tier or the bus. The bar at the foot of the room shows cycles, ports lit, the best port and parts laid,
+          and holds <B>Upgrade all</B>.
         </P>
         <H>Laying, replacing, pulling</H>
         <UL items={[
@@ -682,12 +696,12 @@ const surveySections: GuideSection[] = [
         <>
           <P>
             The bore pulls up one core every {SV.CORE_EVERY / 60} minutes of the Survey's clock (faster with the ash seam and the whole old
-            road) and racks it. The rack holds {SV.RACK_BASE}, plus {SV.RACK_STEP} for each widening and one per black peat seam level; cores
-            stop coming while it is full. It starts with one core waiting.
+            road) and racks it. The rack holds {SV.RACK_BASE}, plus {SV.RACK_STEP} for each widening and one per black peat seam level, never
+            more than {SV.RACK_MAX}; cores stop coming while it is full. It starts with one core waiting.
           </P>
           <P>
-            Open a core to read it. A core is {SV.KINDS_PER * SV.RUN} bands: {SV.KINDS_PER} strata, {SV.RUN} bands of each, shuffled so no
-            run of {SV.RUN} is made yet. Swap any band with the one below it (two identical bands cannot swap). When {SV.RUN} of a kind
+            Take a core onto the bench to read it. A core is {SV.KINDS_PER * SV.RUN} bands: {SV.KINDS_PER} strata, {SV.RUN} bands of each, shuffled so no
+            run of {SV.RUN} is made yet. Pick a band, then the one above or below it, to swap them (two identical bands cannot swap). When {SV.RUN} of a kind
             line up, that run is read and drops out, and anything that closes up behind it can read too. A core with nothing left
             is finished and counts as read.
           </P>
@@ -765,7 +779,7 @@ const surveySections: GuideSection[] = [
             'The drifts wander the field on slow looping paths; each loop takes somewhere between about four and sixteen hours.',
             'The paths are fixed by your save, so the same moment always looks the same.',
           ]} />
-          <P>Buy a head and set it on an empty tile. Moving a head is free and instant, so follow the drifts. Two heads cannot share a tile.</P>
+          <P>Buy a head from the bar at the foot of the room, then pick an empty tile for it. To move one, pick the head, then an empty tile: it is free and instant, so follow the drifts. Two heads cannot share a tile.</P>
           <F>head price = slow income × 60 s × 1.6 ^ heads, up to the sixth; then × 3 for each head past six; less {pct(SV.FINDS.find(f => f.id === 'road')!.per)} per old road line</F>
           <P>The milestone asks for six heads; past those, each one costs three times the last.</P>
           <Now>
@@ -788,7 +802,7 @@ const undertowSections: GuideSection[] = [
       return (
         <>
           {chIntro('undertow', s)}
-          <P>Four parts: the tray (objects rising up the pipe), the figure (someone far down the pipe), leaks, and the bore gauge.</P>
+          <P>Four parts: the tray (objects rising up the pipe), the figure (someone far down the pipe), leaks, and the bore gauge. The bar at the foot of the room shows the tray, kept, approaches, leaks and the Conduit bonus, and holds the next level of the cheapest bin.</P>
           <H>What it pays</H>
           <F>raw = gauge × kept × sets × patches{u.approaches >= 9 ? ' × 1.5' : ''}</F>
           <F>Conduits × taper(raw) × (1 − 0.05 × open leaks), never below x1</F>
@@ -821,7 +835,7 @@ const undertowSections: GuideSection[] = [
         <>
           <P>
             Something rises up the pipe every {hours(UT.deliveryTime(s))} into a tray that holds {UT.trayCap(s)} ({UT.TRAY}, and 4 more
-            after the first approach). Sort each into a bin:
+            after the first approach). Pick one in the tray (the newest is picked already) and sort it into a bin:
           </P>
           <UL items={[
             <><B>Keep</B>: it counts toward the kept bonus, and toward its set.</>,
@@ -838,7 +852,7 @@ const undertowSections: GuideSection[] = [
           <F>price = max(1e30, slow income × 300 s × 3 ^ level) ash</F>
           <SlowIncome />
           <UL items={[
-            'Level 1 teaches the bin to sort by itself: give an object kind a rule and it goes straight into that bin as it arrives (and the sort button clears the tray by rule).',
+            'Level 1 teaches the bin to sort by itself: pick an object kind in the tray or the sets, choose a bin under Sorts itself into, and it goes straight there as it arrives (and Sort by the rules clears the tray by rule).',
             'Every level of Keep adds 25% to the kept bonus; every level of Burn and Send down adds 50% to embers and luck.',
           ]} />
           <Now>
@@ -886,7 +900,7 @@ const undertowSections: GuideSection[] = [
           <H>Leaks</H>
           <P>
             The pipe is drawn as {UT.PIPE_CELLS} cells. Leaks hiss somewhere along it; you cannot see them, only hear them. The hiss at
-            a cell is loudest on the leak and fades over about seven cells either side. Click the exact cell to patch it.
+            a cell is loudest on the leak and fades over about seven cells either side. Tap a cell to listen there; tap the exact cell to patch it.
           </P>
           <UL items={[
             `Two leaks are open when the Undertow opens. A new one opens every ${hours(UT.LEAK_PERIOD * (u.approaches >= 5 ? 2 : 1))}, never more than ${UT.LEAK_CAP} at once.`,
@@ -929,6 +943,7 @@ const archiveSections: GuideSection[] = [
             share while the slot is freed for something new. The plate also glitches, leaving wrong frames for an album, and the
             signatures drift a little each station day.
           </P>
+          <P>The bar at the foot of the room shows the shelf, blank reels, frames, sets and channels, and holds More shelf.</P>
           <H>What it pays</H>
           <UL items={[
             `Each modulator target: x(its tapes) × ${AR.CHANNEL_MULT} if its channel has been found.`,
@@ -948,23 +963,23 @@ const archiveSections: GuideSection[] = [
       return (
         <>
           <P>
-            A modulator slot matching at least {pct(AR.RECORD_MIN)} can be recorded, if there is a blank reel and room on the shelf.
+            A modulator slot matching at least {pct(AR.RECORD_MIN)} can be recorded with its REC key on the deck, if there is a blank reel and room on the shelf.
             The tape keeps the target and the match quality; a match of {pct(AR.GOLD_AT)} or better is a <B>gold</B> tape and weighs
             x{AR.GOLD_MULT}. Recording lets go of the slot's target and spins its dials back to rest, so the same lock has to be
-            found again. Erasing a tape is free.
+            found again. Pick a tape on the shelf to read its label; erasing it is free.
           </P>
           <H>Blank reels</H>
           <P>
             Every recording uses a blank reel. You start with {AR.BLANK_START}; another comes every {hours(AR.BLANK_EVERY)}, and no
-            more than {AR.BLANK_CAP} wait at once. The record button says what is missing when it cannot record.
+            more than {AR.BLANK_CAP} wait at once. A REC key that cannot record says what is missing.
           </P>
           <F>tape weight = quality⁴ (× {AR.GOLD_MULT} for gold)</F>
           <F>target bonus = 1 + share × max × modulator strength × Σ (weight of k-th best tape ÷ k){a.freshLeft > 0 ? ` × ${AR.FRESH_MULT} (fresh)` : ''}</F>
           <P>The best tape of a target pays in full, the second half, the third a third, and so on.</P>
           <F>share = 0.35 × √(1 + 0.5 × tape stock)</F>
           <T head={['Buy', 'price', 'does']} rows={[
-            ['Shelf space', `max(1e15, slow income × 300 s × 2.2 ^ spaces); now ${AR.shelfFull(s) ? 'full' : fmt(AR.shelfCost(s))}`, `one more tape (starts at ${AR.SHELF_BASE}, at most ${AR.SHELF_MAX})`],
-            ['Tape stock', `max(1e15, slow income × 600 s × 1.8 ^ stock); now ${fmt(AR.stockCost(s))}`, 'raises the share every tape keeps paying'],
+            ['More shelf (in the bar)', `max(1e15, slow income × 300 s × 2.2 ^ spaces); now ${AR.shelfFull(s) ? 'full' : fmt(AR.shelfCost(s))}`, `one more tape (starts at ${AR.SHELF_BASE}, at most ${AR.SHELF_MAX})`],
+            ['Better stock (under the shelf)', `max(1e15, slow income × 600 s × 1.8 ^ stock); now ${fmt(AR.stockCost(s))}`, 'raises the share every tape keeps paying'],
           ]} />
           <SlowIncome />
           <Now>
@@ -989,13 +1004,13 @@ const archiveSections: GuideSection[] = [
           </P>
           <H>Fresh locks</H>
           <P>
-            Set a live slot exactly onto today's drifted signature and the shelf runs fresh: every tape pays x{AR.FRESH_MULT} for
+            Set a live slot exactly onto today's drifted signature (the deck shows how close each slot sits today) and the shelf runs fresh: every tape pays x{AR.FRESH_MULT} for
             {' '}{hours(AR.FRESH_TIME)}. This can happen once per station day.
           </P>
           <H>Channels</H>
           <P>
             Each target has a hidden channel. It is found the first time you record a gold tape of it, or a live slot locks it exactly.
-            A found channel multiplies that target x{AR.CHANNEL_MULT} for good.
+            A found channel multiplies that target x{AR.CHANNEL_MULT} for good, and lights its key on the set.
           </P>
           <Now>
             Station day {AR.stationDay(s)}, next drift in {fmtTime(AR.dayLeft(s))}. {a.freshLeft > 0 ? `Fresh for ${fmtTime(a.freshLeft)}.` : 'Not fresh.'}
@@ -1033,6 +1048,7 @@ const stairSections: GuideSection[] = [
         <>
           {chIntro('stair', s)}
           <P>A bucket draws water by depth, someone walks the stair down the well wall, the well grants wishes, and the water shows the station in another timeline.</P>
+          <P>The bar at the foot of the room shows warm water, rope, the landing, wishes and the Rampant Wells bonus, and holds Lengthen rope.</P>
           <H>The tide</H>
           <P>
             The water rises and falls on a {hours(ST.TIDE)} tide, starting high; low tide comes {hours(ST.TIDE / 2)} in. Everything drawn
@@ -1071,7 +1087,7 @@ const stairSections: GuideSection[] = [
             the bucket goes is paced by time spent in the well. The first metre needs no water.
           </P>
           <F>ash = max(1e9, passive ash / s × 60 × 1.04 ^ metres) · warm water = round(1.6 × metres^1.6)</F>
-          <P>Turning the winch by hand draws three seconds' worth at once, as often as you like.</P>
+          <P><B>Haul</B>, beside the tide gauge, turns the winch by hand: three seconds' worth at once, as often as you like.</P>
           <F>water bonus = (1 + 0.1 × tap(hymnals)) × (1 + 0.6 × ln(1 + water wishes ÷ 5))</F>
           <P>Water wishes feed the bucket only by a logarithm, so water buying wishes buying water settles instead of running away.</P>
           <Now>
@@ -1089,16 +1105,16 @@ const stairSections: GuideSection[] = [
       return (
         <>
           <P>
-            Once there is a metre of rope, someone can be sent down the stair. They walk on their own, one landing at a time; each
+            Once there is a metre of rope, press Send someone down on the stair's card. They walk on their own, one landing at a time; each
             landing holds a small room and a thing. Up to {ST.QUEUE_MAX} rooms wait for your answer; with {ST.QUEUE_MAX} waiting the walker stops.
           </P>
           <F>seconds to the next landing = 150 × (1 + landing / 5)^1.5 ÷ (1 + 0.1 × tap(walked on))</F>
           <T head={['Walk to landing', '1', '5', '10', '12', '20']} rows={[['at normal pace', ...[0, 4, 9, 11, 19].map(n => hours(ST.landingTime(n)))]]} />
-          <P>Each room asks for one answer. A room reached at low tide counts double, whatever you answer.</P>
+          <P>The card shows the room at the front of the queue and asks for one answer. A room reached at low tide counts double, whatever you answer.</P>
           <UL items={[
             <><B>Take</B> the thing: one of its perk (below).</>,
             <><B>Leave it</B> and walk on: the walker gets 10% quicker per tap.</>,
-            <><B>Light a candle</B>, paying warm water (round(4 × (1 + landing / 4)^1.6)): you take the thing twice over in the light, and comfort grows with the candles lit.</>,
+            <><B>Candle</B>: light one for warm water (round(4 × (1 + landing / 4)^1.6)) and take the thing twice over in the light; comfort grows with the candles lit.</>,
           ]} />
           <T head={['Thing', 'perk at one']} rows={(Object.keys(ST.ITEMS) as ST.Item[]).map(k => [ST.ITEMS[k].name, ST.ITEMS[k].text(1)])}
             note="Wet keys and jars of teeth pay by the square root of how many you hold; the rest by tap(). What each landing holds is fixed by its number, so it is the same however you got there." />
@@ -1119,7 +1135,7 @@ const stairSections: GuideSection[] = [
           <T head={['Drop', 'cost', 'points']} rows={[
             ['Ash', `max(1e9, passive ash / s × 300); now ${fmt(ST.ashDropCost(s))}`, String(ST.DROP_PTS)],
             ['Embers', `${ST.EMBER_DROP} embers`, String(ST.DROP_PTS)],
-            ['Water', 'all you hold of one kind', 'per unit, by kind (see the bucket)'],
+            ['Water', 'tap a vial: all you hold of that kind', 'per unit, by kind (see the bucket)'],
           ]} note="Points are multiplied by the weight of warm coins: 1 + 0.08 × tap(coins)." />
           <F>ash and embers: wish n (counting from 0) needs 10 × (n + 1) points · water: round(60 × (n + 1)^1.5)</F>
           <P>
@@ -1190,6 +1206,7 @@ const sealSections: GuideSection[] = [
         <>
           {chIntro('seal', s)}
           <P>A safe dial on the hatch, opened tier by tier with void ash; wax seals drawn for every tier opened; a three-chamber airlock that makes void ash and rime; and a frost garden on the walls.</P>
+          <P>The dial sits on the panel; the room below it holds the seals, the airlock and the walls. The bar at the foot of the room shows void ash, rime, frost, the tier and its bonuses, and holds Prime a pump.</P>
           <H>What it pays</H>
           <T head={['Target', 'formula', 'now']} rows={[
             ['All ash', `(1 + 0.5 × tiers^0.85) × ninth-digit seals`, x(SE.seal.mult(s, 'ash'), 3)],
@@ -1215,7 +1232,7 @@ const sealSections: GuideSection[] = [
           </P>
           <UL items={[
             'Find each number by feel: the meter twitches harder the nearer the dial is to it, and not at all beyond its reach. On the number itself it kicks.',
-            'Turn the dial, then press Let it rest. It catches if it rests exactly on the number, turned the right way: the first number turning right (↻), the second left (↺), and so on, alternating.',
+            'Turn the dial (drag it, or use the ↺ ↻ buttons or arrow keys), then press Let it rest. It catches if it rests exactly on the number, turned the right way: the first number turning right (↻), the second left (↺), and so on, alternating.',
             'A number is never within 3 marks of the one before it.',
           ]} />
           <F>twitch = 0.8 × (1 − distance ÷ reach)² + 0.2 on the number · reach = 5 + 8 × (1 − 0.8 ^ stethoscope) + 0.2 × stethoscope</F>
@@ -1225,10 +1242,10 @@ const sealSections: GuideSection[] = [
             reading the meter is nearly free and guessing every mark is slow. The stethoscope softens it.
           </P>
           <F>a miss = max(1, round(3% × this tier's void ash × 0.85 ^ stethoscope))</F>
-          <P>The stethoscope costs void ash: round(60 × 2.5 ^ level). Now reach is {n2(SE.earReach(s))} marks; next level {SE.earCost(c)} void ash.</P>
+          <P>The stethoscope, bought in the room under the airlock, costs void ash: round(60 × 2.5 ^ level). Now reach is {n2(SE.earReach(s))} marks; next level {SE.earCost(c)} void ash.</P>
           <H>A patient hand</H>
           <P>
-            Bought with void ash (round(300 × 3 ^ level)), a hand on the wheel finds the next number by itself, slowly: one every
+            Bought with void ash in the room, beside the stethoscope (round(300 × 3 ^ level)), a hand on the wheel finds the next number by itself, slowly: one every
             {' '}{hours(SE.handTime(1))} at level 1, half again as fast each level after. It never turns the wheel for you, and it
             rests once the combination is whole.
           </P>
@@ -1254,14 +1271,14 @@ const sealSections: GuideSection[] = [
       const targets = Array.from(new Set(c.seals.map(x2 => SE.sealTarget(SE.digitOf(x2.bits)))));
       return (
         <>
-          <P>Every tier opened owes a seal. Draw it on a {SE.SEAL_N} × {SE.SEAL_N} grid and press it.</P>
+          <P>Every tier opened owes a seal. Light pixels on the {SE.SEAL_N} × {SE.SEAL_N} grid in the room, then Press the seal; the readout beside it shows the digit, what it would give, and which symmetries hold.</P>
           <UL items={[
             <><B>Digit</B>: the number of lit pixels reduced to one digit, 1 to 9 (10 lit is a 1, 18 lit a 9). Digit d strengthens zone d; digit 9, the Plex's number, reaches all ash instead and is 1.6 times as strong.</>,
             <><B>Symmetry</B>: for each of {SE.SYMS.map(y => y.name.toLowerCase()).join(', ')}, the share of lit pixels whose image is lit too. Their average is the seal's score.</>,
           ]} />
           <F>seal power = (0.2 + 0.8 × score²) × (1.6 for digit 9)</F>
           <F>a target's bonus = 1 + {n2(SE.powerMult('zone0', 1) - 1)} × (summed power of its seals)^0.8 ({n2(SE.powerMult('ash', 1) - 1)} for all ash)</F>
-          <P>A fifth-digit seal also speeds the airlock. A pressed seal can be melted and pressed again with a new design for {SE.REPRESS_COST} rime.</P>
+          <P>A fifth-digit seal also speeds the airlock. Pressed seals sit on the tray, sixteen to a page. Pick one to put it back on the press, redraw it, and Melt and re-press for {SE.REPRESS_COST} rime.</P>
           <Now>
             {SE.sealsPending(s)} seal{SE.sealsPending(s) === 1 ? '' : 's'} owed. {targets.map(t => `${t === 'ash' ? 'all ash' : zoneName(Number(t.slice(4)))} ${x(SE.sealMult(c, t), 3)}`).join(' · ') || 'No seals yet.'}
           </Now>
@@ -1275,11 +1292,11 @@ const sealSections: GuideSection[] = [
       const c = s.challenges.seal;
       return (
         <>
-          <P>Three chambers cycle by themselves. Choose what they work on:</P>
+          <P>Three chambers cycle by themselves. Pick what they work on with the buttons under the valve:</P>
           <T head={['Stance', 'void ash / s', 'frost taken / s']} rows={SE.STANCES.map(t => [t.name, t.id === 'frost' ? '0' : t.id === 'ash' ? '0.5 × speed' : '0.25 × speed', t.id === 'ash' ? '0' : t.id === 'frost' ? '1 × speed' : '0.5 × speed'])}
             note={`Frost taken comes out as rime, ${SE.RIME_PER_FROST} per frost. Frost comes from the garden.`} />
           <F>speed = (1 + 0.35 × pumps) × fifth-digit seals</F>
-          <P>Pumps cost rime: round(30 × 2 ^ pumps).</P>
+          <P>Prime a pump, in the bar, costs rime: round(30 × 2 ^ pumps).</P>
           <Now>Stance {c.stance}. Speed {n2(SE.airlockSpeed(c))}: {n2(SE.voidRate(c))} void ash / s, {n2(SE.frostIntake(c))} frost / s. Next pump {SE.pumpCost(c)} rime.</Now>
         </>
       );
@@ -1299,7 +1316,7 @@ const sealSections: GuideSection[] = [
           <P>Harvest once at least {SE.HARVEST_MIN} crystals have grown: they become frost, plus rime worth 0.1 × symmetry per crystal.</P>
           <T head={['Upgrade (rime)', 'price', 'does']} rows={[
             ['Another seed', `round(40 × 2.2 ^ n); now ${SE.seedUpCost(c)}`, 'one more seed to plant'],
-            ['Colder', `round(50 × 2.4 ^ n); now ${SE.coldCost(c)}`, 'generations come 30% sooner per level'],
+            ['Let the cold in', `round(50 × 2.4 ^ n); now ${SE.coldCost(c)}`, 'a generation every 30 s ÷ (1 + 0.3 × levels)'],
           ]} />
           <Now>Lit {SE.gardenLit(c.garden)}, symmetry {pct(SE.gardenSymmetry(c.garden))}, {n2(SE.crystalRate(c))} crystals / s. Waiting {n2(c.crystals)}. Harvests {c.harvests}.</Now>
         </>
@@ -1323,12 +1340,12 @@ const ringSections: GuideSection[] = [
           {chIntro('ring', s)}
           <P>
             The spiral grows rings, each set + or −. Read from the inside, they spell a code. Set them to a <B>Barker code</B> and the
-            spiral runs cleaner.
+            spiral runs cleaner. Click a ring on the spiral, or its key in the room's code row, to flip it; − and + set the span.
           </P>
           <H>Rings</H>
           <P>
             {RG.BASE_RINGS} to start, one more for every {RG.FREE_PER} Barker Spirals bought after the Ring opened (at most 4 this way),
-            and more bought with pigment, up to {RG.MAX_RINGS}. The span is how many rings, from the inside, are read.
+            and more bought with pigment (Wind another ring, on the panel), up to {RG.MAX_RINGS}. The span is how many rings, from the inside, are read.
           </P>
           <F>a ring = round(max(4000, raw pigment / s × 750) × 2 ^ rings bought)</F>
           <P>Prices here follow your pigment rate. <i>Raw</i> pigment is what the spiral makes without the Ring's own share, so the prices never chase the Ring's payout.</P>
@@ -1362,11 +1379,11 @@ const ringSections: GuideSection[] = [
         <>
           <P>Deep winds shed silt. Each time the silt reaches the next drop's size, a <B>catalyst</B> falls: a rare colour that is never used up.</P>
           <F>silt / s = 0.0003 × √(1 + tincture levels brewed) × (1 + 0.25 × reading power) · drop n needs 5 + 3 × n silt</F>
-          <P>Pouring pigment into the deep wind adds 1 silt at once, for round(max(2000, raw pigment / s × 240) × 1.2 ^ pours) pigment. The first eight drops are all different; after that they fall where they fall.</P>
-          <P>A catalyst sits in a socket. It multiplies its target, more strongly the more tincture is already aimed there. The first one found goes straight into the empty socket.</P>
+          <P>Pour pigment, the main buy in the bar at the foot of the room (which also shows pigment, the code, its pay, catalysts and the next drop), adds 1 silt to the deep wind at once, for round(max(2000, raw pigment / s × 240) × 1.2 ^ pours) pigment. The first eight drops are all different; after that they fall where they fall.</P>
+          <P>Pick a catalyst on the shelf to see it on the bench; Socket puts it in a socket and Lift takes it out. It multiplies its target, more strongly the more tincture is already aimed there. The first one found goes straight into the empty socket.</P>
           <F>catalyst = 1 + strength × (1 + 0.2 × ln(tinctures on that target)) · strength = base × (1 + refines)^0.6</F>
           <T head={['Catalyst', 'target', 'base', 'held']} rows={RG.CATALYSTS.map((c, k) => [c.name, c.target, String(c.base), r.cats[k] ? String(r.cats[k]) : '—'])} />
-          <P>Refining melts one spare copy into the catalyst, with pigment: round(max(20000, raw pigment / s × 600) × 2.2 ^ refines).</P>
+          <P>Refine, on the bench, melts one spare copy into the catalyst, with pigment: round(max(20000, raw pigment / s × 600) × 2.2 ^ refines).</P>
           <Now>Silt {n2(r.dust)}/{RG.dropCost(r.found)}, +{n2(RG.dustRate(s) * 3600)} an hour. Drops {r.found}, kinds {RG.kindsFound(s)}. Pour {fmt(RG.pourCost(s))} pigment.</Now>
         </>
       );
@@ -1377,8 +1394,8 @@ const ringSections: GuideSection[] = [
     body: s => (
       <>
         <P>
-          After {RG.SOCK2_FOUND} drops, a second socket can be opened for max({fmt(RG.SOCK2_COST)}, raw pigment / s × 1800) pigment.
-          Two catalysts then work at once; moving one into the other socket moves it, never copies it.
+          After {RG.SOCK2_FOUND} drops, the sealed second socket can be opened (its Open button) for max({fmt(RG.SOCK2_COST)}, raw pigment / s × 1800) pigment.
+          Two catalysts then work at once; the bench offers Socket 1 and Socket 2, and putting one into the other socket moves it, never copies it.
         </P>
         <Now>{s.challenges.ring.sock2 ? 'Open.' : `Not opened yet: ${fmt(RG.sock2Cost(s))} pigment.`}</Now>
       </>
@@ -1414,6 +1431,7 @@ const operatorSections: GuideSection[] = [
             A tiny assembly language punched onto cards. The reader runs the cards a line per beat, burning the Compiler's cycles, and
             does the station's chores for you. Three cards come already punched: WATCHMAN, DIGGER and SPIRAL.
           </P>
+          <P>The bar at the foot of the room shows lines run, the beat, cycles and the burn, the pay and the stack, and holds Faster clock.</P>
           <H>What it pays</H>
           <F>base = 1 + 0.5 × log10(1 + lines run ÷ 200) · depth = 1 + 0.3 × √stack depth · signal = 1 + 0.2 × bank signal</F>
           <T head={['Target', 'formula', 'now']} rows={[
@@ -1435,8 +1453,9 @@ const operatorSections: GuideSection[] = [
       return (
         <>
           <P>
-            A card holds up to {OP.MAX_LINES} lines; the cabinet holds up to {OP.MAX_CARDS} cards. Punching a new card costs
-            round(200 × 2 ^ (cards − 3)) cycles. The reader has slots, one card in each, all running side by side.
+            A card holds up to {OP.MAX_LINES} lines; the cabinet holds up to {OP.MAX_CARDS} cards, a drawer at a time. Punching a blank card
+            costs round(200 × 2 ^ (cards − 3)) cycles. Pick a card in the cabinet to edit its lines in the middle. The reader has slots,
+            one card in each (chosen from the slot's menu), all running side by side.
           </P>
           <F>reader slots = min({OP.MAX_SLOTS}, 2 + floor(√(max(0, Compilers bought − 10) ÷ 6)))</F>
           <T head={['Line', 'does']} rows={OP.OPS.map(k => [k, OP_TEXT[k]])} />
@@ -1454,7 +1473,7 @@ const operatorSections: GuideSection[] = [
           <P>If the cycles run short, the whole reader runs proportionally slower.</P>
           <H>The clock</H>
           <P>
-            Beats / s = 1.2 ^ clock. A faster clock costs round(300 × 2.4 ^ clock) cycles, and waits on the machine's own work: the
+            Beats / s = 1.2 ^ clock. Faster clock, in the bar, costs round(300 × 2.4 ^ clock) cycles, and waits on the machine's own work: the
             reader must have run {fmt(OP.CLOCK_LINES)} × 2 ^ clock lines first, so a hoard of cycles cannot skip ahead.
           </P>
           <Now>
@@ -1474,16 +1493,16 @@ const operatorSections: GuideSection[] = [
         <>
           <H>The stack</H>
           <P>CALL nests one card inside another. A card's depth is how deep its CALLs go, up to the stack limit; a card that calls itself goes all the way down. Deeper cards pay more (by a square root) and burn more.</P>
-          <P>Raising the stack limit costs round(500 × 4 ^ (limit − 1)) cycles and as many parts as the current limit.</P>
+          <P>Deeper stack, under the clock, raises the limit for round(500 × 4 ^ (limit − 1)) cycles and as many parts as the current limit.</P>
           <H>Memory banks</H>
-          <P>A bank reads another system into a signal from 0 to 1. Banks add to the signal pay and can be tested with BANKn. A new bank costs round(400 × 3 ^ (banks − 1)) cycles and as many parts as banks you have, up to {OP.MAX_BANKS}.</P>
+          <P>A bank reads another system into a signal from 0 to 1. Banks add to the signal pay and can be tested with BANKn. Wire a bank costs round(400 × 3 ^ (banks − 1)) cycles and as many parts as banks you have, up to {OP.MAX_BANKS}; each bank's menu picks what it reads.</P>
           <T head={['Source', 'reads']} rows={[
             ['Siren', '1 while it sounds'], ['Resonance', 'the resonance bar, 0 to 1'], ['Warm flake', '1 while one is up'],
             ['Comfort', 'comfort ÷ (comfort + 150)'], ['Pigment', 'p ÷ (p + 4), p = log10(1 + pigment)'],
             ['Cycles', 'p ÷ (p + 4), p = log10(1 + cycles)'], ['Zone N bought', 'bought ÷ (bought + 40)'],
           ]} />
           <H>Moths</H>
-          <P>Moths nest in idle lines (WAIT and NOP) on loaded cards, about one per idle line every {OP.MOTH_RATE ** -1 / 60} minutes, never more than {OP.MOTH_CAP}. Each eats {pct(OP.MOTH_TAX)} more burn. Swat one and it leaves a part; the stack and the banks need parts.</P>
+          <P>Moths nest in idle lines (WAIT and NOP) on loaded cards, about one per idle line every {OP.MOTH_RATE ** -1 / 60} minutes, never more than {OP.MOTH_CAP}. Each eats {pct(OP.MOTH_TAX)} more burn. Click one off the card and it leaves a part; the stack and the banks need parts.</P>
           <Now>Stack limit {o.stack} (next {fmt(sc.cycles)} cycles + {sc.parts} parts). Banks {o.banks.length} (next {fmt(bc.cycles)} + {bc.parts} parts). Parts {o.parts}. Moths {o.moths.length}, swatted {o.swatted}.</Now>
         </>
       );
@@ -1502,6 +1521,7 @@ const scriptoriumSections: GuideSection[] = [
         <>
           {chIntro('scriptorium', s)}
           <P>The walls of the gallery talk in the voices of the people who dug them, written in a script that is different in every save. Transcribe it, collect the voices and seat them as foremen, hush the murmur to bank silence, and answer what the walls ask.</P>
+          <P>The bar at the foot of the room shows glyphs, loudness, silence, foremen and the ash bonus, and holds Hush.</P>
           <H>What it pays</H>
           <T head={['Target', 'formula', 'now']} rows={[
             ['All ash', `(1 + 0.5 × ln(1 + glyphs ÷ 6)) × (1 + √(loudness ÷ ${SC.LOUD_CAP})) × (1 + ${SC.GREEDY_K} × √greedy)`, x(SC.scriptorium.mult(s, 'ash'), 3)],
@@ -1529,13 +1549,13 @@ const scriptoriumSections: GuideSection[] = [
             with 3 heard.
           </P>
           <UL items={[
-            'Write a letter under any glyph you have heard. Each letter can sit under one glyph only; writing it elsewhere moves it.',
+            'Pick a glyph you have heard, on the tablet or in the key, then a letter (or type it); clear or Backspace takes it off. Each letter can sit under one glyph only; writing it elsewhere moves it.',
             'When every glyph of a heard word is right, the word resolves and its glyphs are confirmed, locked in for good.',
-            `A sentence is solved when all its words are heard and confirmed. All ${SC.PER_STRATUM} solved, and the hand changes: a new key, new glyph shapes, 3 words heard.`,
+            `Each sentence has its own tab above the tablet. A sentence is solved when all its words are heard and confirmed. All ${SC.PER_STRATUM} solved, and the hand changes: a new key, new glyph shapes, 3 words heard.`,
           ]} />
           <H>Hints</H>
           <P>
-            A hint comes every {SC.HINT_SECS / 60} minutes (sooner with the same speed-ups). Spending one makes the walls say the most
+            A hint comes every {SC.HINT_SECS / 60} minutes (sooner with the same speed-ups). Ask the walls spends one and makes them say the most
             common unconfirmed glyph heard so far. You can bank {SC.HINT_CAP}. Past the bank hints still come, {SC.SPILL_SLOW} times
             slower, and each one writes itself in: idle help, not a solver.
           </P>
@@ -1554,7 +1574,7 @@ const scriptoriumSections: GuideSection[] = [
           <P>
             The murmur grows louder by itself toward its cap ({SC.LOUD_CAP}, +25% per Widen the gallery), closing 63% of the gap every
             {' '}{SC.LOUD_TAU / 60} minutes. Loudness multiplies all ash by 1 + √(loudness ÷ {SC.LOUD_CAP}), so widening the gallery tapers.
-            {' '}<B>Hush</B> turns all the loudness into silence and starts it again from nothing: the choice is between ash now and silence to spend.
+            {' '}<B>Hush</B>, the bar's buy, turns all the loudness into silence and starts it again from nothing: the choice is between ash now and silence to spend.
           </P>
           <P>Wax in the horn gathers silence by itself while it is loud: 0.0001 silence a second per level per point of loudness.</P>
           <T head={['Upgrade', 'does', 'price (silence)']} rows={SC.UPGRADES.map(u => [u.name, u.desc, `${u.base} × ${u.growth} ^ level; now ${SC.upCost(s, u.id)}`])} />
@@ -1570,12 +1590,12 @@ const scriptoriumSections: GuideSection[] = [
       return (
         <>
           <H>Voices</H>
-          <P>A voice is heard about every {SC.VOICE_SECS / 60} minutes (same speed-ups), while there is room: {SC.ROSTER_BASE} chairs, one more per Another chair. Each has a zone it knows best and a quality: 0.8 to 1.2, times 1 + 0.1 × ln(1 + voices heard before it).</P>
-          <P>Seat a voice as foreman of any zone:</P>
+          <P>A voice is heard about every {SC.VOICE_SECS / 60} minutes (same speed-ups), while there is room on the roster: {SC.ROSTER_BASE} places, one more per Another chair. Each has a zone it knows best and a quality: 0.8 to 1.2, times 1 + 0.1 × ln(1 + voices heard before it).</P>
+          <P>Touch a voice, then one of the nine zone chairs (or a chair, then a voice), to seat it as that zone's foreman; ★ marks the zone it knew, and Empty clears a chair:</P>
           <F>that zone × (1 + 0.04 × quality × (2 in its own zone) × strength) · strength = (1 + 0.15 × √Lamp oil) × (1 + 0.1 × ∛tally)</F>
-          <P>Retire a voice into silence (25 × quality) or onto the tally, which strengthens every foreman for good.</P>
+          <P>A picked voice can also be retired: Quiet turns it into silence (25 × quality), Tally puts it on the tally, which strengthens every foreman for good.</P>
           <H>The confessional</H>
-          <P>A question comes every {SC.QUESTION_SECS / 60} minutes, up to {SC.QUEUE_CAP} waiting. Each answer leans you one point toward patient, greedy or curious.</P>
+          <P>A question comes every {SC.QUESTION_SECS / 60} minutes, up to {SC.QUEUE_CAP} waiting. The oldest waits under the confessional; each answer leans you one point toward patient, greedy or curious.</P>
           <T head={['Trait', 'strengthens']} rows={SC.TRAITS.map(t => [t, SC.TRAIT_TEXT[t]])} />
           <Now>Voices {c.voices.length}/{SC.rosterCap(s)}, tally {c.tally}, foreman strength {n2(SC.foremanStrength(s))}. Profile: patient {c.prof.patient}, greedy {c.prof.greedy}, curious {c.prof.curious}.</Now>
         </>
@@ -1595,6 +1615,7 @@ const syzygySections: GuideSection[] = [
         <>
           {chIntro('syzygy', s)}
           <P>The Numogram drawn as ten nodes. Nodes 1 to 8 are the other eight challenges, node 9 is this one, node 0 is the gate. Below it the iron dreams: a pilgrim walks a map that reshapes every night. A black sun eclipses the plate on a long cycle.</P>
+          <P>The bar at the foot of the room shows dreams, live currents and free wires, the ash pay, the black sun and the gate, and holds A lantern.</P>
           <H>What it pays</H>
           <T head={['Target', 'formula', 'now']} rows={[
             ['All ash', `1 + ${n2(SY.ashPay(1) - 1)} × (Σ wired edge weights)^0.7`, x(SY.syzygy.mult(s, 'ash'), 3)],
@@ -1619,12 +1640,12 @@ const syzygySections: GuideSection[] = [
             'Node 9: this challenge’s own progress, rooms walked ÷ 10 + pages × 3 + finds.',
             `Node 0: dark until the gate opens${z.gateOpen ? '; now log2(1 + 30 + pages × 3)' : ''}.`,
           ]} />
-          <P>Touch two nodes to lay a wire along the edge between them; touch them again to take it back. A wire pulls by the weaker of its two ends; a second wire on the same edge braids it.</P>
+          <P>Touch a node, then a ringed one, to lay a wire along the edge between them; touch the pair again to take it back. A wire pulls by the weaker of its two ends. The board under the plate lists every edge by kind: its + lays another wire there, braiding it, and its − takes one back.</P>
           <P>Nodes 7 and 1 are joined twice: by a Surge current and by the Gt-28 gate. Touching them lays the wire on the current; touching them again moves it onto the gate; a third touch takes it back.</P>
           <F>edge weight = weaker node × √wires on it × kind weight</F>
           <T head={['Edge', 'kind', 'nodes', 'weight now']} rows={SY.EDGES.map(e => [e.name, e.kind, `${e.a} – ${e.b}`, n2(SY.edgeWeight(z, e))])}
             note="Kind weights: syzygy 1.25, current 1, gate 0.85." />
-          <P>You start with two wires, the second for nothing. Each one more costs dreams: 120 for the first, then x2.4 each. Cutting a wire is free, so rerouting costs nothing.</P>
+          <P>You start with two wires, the second for nothing. Each one more (A wire, beside the plate) costs dreams: 120 for the first, then x2.4 each. Cutting a wire is free, so rerouting costs nothing.</P>
           <Now>Wires {SY.wiresLaid(z)}/{SY.wiresTotal(z)} laid. Live currents {SY.liveCurrents(z)}. Next wire {SY.wireCost(z)} dreams. Dreams held {fmt(z.dreams)}.</Now>
         </>
       );
@@ -1646,7 +1667,7 @@ const syzygySections: GuideSection[] = [
           ]} note="Every map has one page room." />
           <P>Once every room is known the pilgrim wanders, bringing back 6.4 dreams for each room's length walked.</P>
           <F>dreams × (1 + 0.2 × √finds) × (2 in totality)</F>
-          <P>Lanterns cost ash, priced in seconds of income on a power curve, so the tenth is hours of income, not days:</P>
+          <P>Lanterns, the bar's buy, cost ash, priced in seconds of income on a power curve, so the tenth is hours of income, not days:</P>
           <F>lantern = max(1e9, passive ash / s × 120 × (1 + lanterns)^1.8)</F>
           <Now>Night {z.night + 1}: {Math.min(SY.ROOMS, Math.floor(z.explored))}/{SY.ROOMS} rooms. Rooms ever {z.rooms}, finds {z.finds}, dreams ever {fmt(z.dreamsEver)}. Next lantern {fmt(SY.lanternCost(s))} ash ({hours(SY.lanternSecs(z.lanterns))} of income).</Now>
         </>
@@ -1661,6 +1682,7 @@ const syzygySections: GuideSection[] = [
         <>
           <P>A long dark ({hours(SY.DARK)} at first), then totality ({hours(SY.TOTALITY)} at first). The first totality came an hour after the Syzygy opened.</P>
           <F>totality: every zone × (1.2 + 0.04 × √(shades + lenses)), and dreams × 2</F>
+          <P>A shade and a lens are bought beside the sun's dial.</P>
           <T head={['Buy', 'price', 'does']} rows={[
             ['Shade', `round(300 × 1.9 ^ shades) dreams; now ${SY.shadeCost(z)}`, 'totality lasts 30% longer per shade'],
             ['Lens', `max(1e10, passive ash / s × 600 × (1 + lenses)^1.6); now ${fmt(SY.lensCost(s))}`, 'the dark between is shorter: ÷ (1 + 0.2 × lenses)'],
@@ -1677,7 +1699,7 @@ const syzygySections: GuideSection[] = [
       const ch = SY.chapters(z);
       return (
         <>
-          <P>Every page room writes a page, at most one a night. Every {SY.PAGES_PER_CHAPTER} pages close a chapter, and a closed chapter gives a perk for good.</P>
+          <P>Every page room writes a page, at most one a night. Every {SY.PAGES_PER_CHAPTER} pages close a chapter, and a closed chapter gives a perk for good. The log shows a pip per page under each chapter; ‹ and › turn back through the pages.</P>
           {ch > 0 && <OL items={SY.CHAPTERS.slice(0, ch).map(c => <><B>{c.title}</B>: {c.perk}</>)} />}
           {ch < SY.CHAPTERS.length ? <P>A chapter's gift is only written when its last page is.</P> : <P>Past the sixth, every chapter adds 10% to dreams.</P>}
           <Now>Pages {z.pages}, chapters {ch}.</Now>
@@ -1693,7 +1715,7 @@ const syzygySections: GuideSection[] = [
       const cost = SY.gateCost(s);
       return (
         <>
-          <P>Node 0 is the gate. To open it:</P>
+          <P>Node 0 is the gate. Its arch shows a sigil per offering and a lamp per live current. To open it (Open the gate, under the arch):</P>
           <UL items={[
             `every other challenge has reached its milestone and stands at level ${SY.GATE_LEVEL} or more,`,
             `at least ${SY.GATE_CURRENTS} edges carry a live current,`,
